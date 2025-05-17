@@ -5,48 +5,53 @@ const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
 // const morgan = require("morgan"); // Uncomment if morgan is installed
 
+// Load environment variables
 dotenv.config();
+
 const app = express();
 
-// Middleware
+// CORS Middleware
 app.use(
   cors({
     origin: [process.env.FRONTEND_URL, "https://your-app.netlify.app"],
     credentials: true,
   })
 );
+
+// Basic Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public")); // Serve static files
-// app.use(morgan("combined")); // Uncomment for request logging
+app.use(express.static("public")); // Serve static files from /public
+// app.use(morgan("combined")); // Enable if you want request logging
 
-// Rate Limiting for sensitive routes
+// Rate Limiting Middleware (optional, useful for auth/payment routes)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100, // Limit each IP to 100 requests per window
 });
 app.use("/api/v1/auth", limiter);
 app.use("/api/v1/payments", limiter);
 
-// Routes
+// Routes - ✅ Make sure each of these exports a router correctly
 app.use("/api/v1/auth", require("./routes/auth"));
 app.use("/api/v1/users", require("./routes/users"));
 app.use("/api/v1/courses", require("./routes/courses"));
-app.use("/api/v1/payments", require("./routes/payments"));
+app.use("/api/v1/payments", require("./routes/payments")); // 🔁 This one likely caused your deployment error
 app.use("/api/v1/email", require("./routes/email"));
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/progress", require("./routes/progress"));
 
-// Error Handling
+// Error Handler Middleware (should be at the end)
 app.use(require("./middleware/errorHandler"));
 
-// Health Check
+// Health Check Endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK" });
 });
 
 // Start Server
 const PORT = process.env.PORT || 5000;
+
 sequelize
   .authenticate()
   .then(() => {
