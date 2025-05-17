@@ -375,7 +375,10 @@
 
 
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const express = require("express");
+const router = express.Router();
+const Stripe = require("stripe"); // ✅ This is required
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // ✅ Correct usage
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 router.post(
