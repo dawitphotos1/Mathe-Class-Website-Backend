@@ -65,7 +65,6 @@
 //     process.exit(1);
 //   });
 
-
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
@@ -82,20 +81,20 @@ app.use(
     origin: [
       process.env.FRONTEND_URL,
       "https://math-class-platform.netlify.app",
-    ], // Allow both local and production frontend URLs
-    credentials: true, // Allow cookies (sessions, JWT, etc.)
+    ],
+    credentials: true,
   })
 );
 
 // Basic Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public")); // Serve static files from /public
+app.use(express.static("public")); // Serve static files
 
 // Rate Limiting Middleware (optional, useful for auth/payment routes)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
+  windowMs: 15 * 60 * 1000,
+  max: 100,
 });
 app.use("/api/v1/auth", limiter);
 app.use("/api/v1/payments", limiter);
@@ -109,26 +108,32 @@ app.use("/api/v1/email", require("./routes/email"));
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/progress", require("./routes/progress"));
 
-// Error Handler Middleware (should be at the end)
+// Error Handler Middleware
 app.use(require("./middleware/errorHandler"));
 
-// Health Check Endpoint
+// Health Check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK" });
 });
 
-// Start Server
+// Start Server and Sync DB
 const PORT = process.env.PORT || 5000;
 
 sequelize
   .authenticate()
   .then(() => {
     console.log("✅ Database connected");
+
+    // Auto-sync models with database (dev-only, use migrations for production)
+    return sequelize.sync({ alter: true });
+  })
+  .then(() => {
+    console.log("✅ All models synchronized with database.");
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`✅ Server running on port ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error("❌ Database connection failed:", err);
+    console.error("❌ Failed to start server:", err);
     process.exit(1);
   });
