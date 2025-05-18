@@ -89,6 +89,7 @@ module.exports = (sequelize) => {
       name: {
         type: DataTypes.STRING,
         allowNull: false,
+        defaultValue: "Unknown", // Temporary fix for syncing
       },
       email: {
         type: DataTypes.STRING,
