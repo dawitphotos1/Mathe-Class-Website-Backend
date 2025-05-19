@@ -135,7 +135,7 @@ const PORT = process.env.PORT || 5000;
     console.log("✅ PostgreSQL connection established");
 
     // Sync database schema with existing tables
-    await sequelize.sync({ alter: true }); // Updates tables to match models without dropping
+    // await sequelize.sync({ alter: true }); // Updates tables to match models without dropping
     console.log("✅ Database synced");
 
     app.listen(PORT, "0.0.0.0", () => {
