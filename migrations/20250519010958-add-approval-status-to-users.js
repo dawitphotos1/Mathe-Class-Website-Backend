@@ -2,26 +2,31 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    // Create the enum type
+    // Use raw SQL for complete control
     await queryInterface.sequelize.query(`
-      CREATE TYPE "public"."enum_Users_approvalStatus" AS ENUM('pending', 'approved', 'rejected');
+      DO $$
+      BEGIN
+        -- Only create type if it doesn't exist
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_Users_approvalStatus') THEN
+          CREATE TYPE "enum_Users_approvalStatus" AS ENUM('pending', 'approved', 'rejected');
+        END IF;
+        
+        -- Only add column if it doesn't exist
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'Users' AND column_name = 'approvalStatus'
+        ) THEN
+          ALTER TABLE "Users" ADD COLUMN "approvalStatus" "enum_Users_approvalStatus" 
+          DEFAULT 'approved' NOT NULL;
+        END IF;
+      END $$;
     `);
-
-    // Add the approvalStatus column to the Users table
-    await queryInterface.addColumn("Users", "approvalStatus", {
-      type: Sequelize.ENUM("pending", "approved", "rejected"),
-      defaultValue: "approved",
-      allowNull: false,
-    });
   },
 
-  down: async (queryInterface, Sequelize) => {
-    // Drop the column first (as we cannot drop an enum type that is in use)
-    await queryInterface.removeColumn("Users", "approvalStatus");
-
-    // Drop the enum type
+  down: async (queryInterface) => {
     await queryInterface.sequelize.query(`
-      DROP TYPE IF EXISTS "public"."enum_Users_approvalStatus";
+      ALTER TABLE "Users" DROP COLUMN IF EXISTS "approvalStatus";
+      DROP TYPE IF EXISTS "enum_Users_approvalStatus";
     `);
   },
 };
