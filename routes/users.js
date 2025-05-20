@@ -95,21 +95,33 @@ function isAdminOrTeacher(req, res, next) {
 }
 
 // ✅ GET /api/v1/users/me
-router.get("/me", authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id, {
-      attributes: [
-        "id",
-        "name",
-        "email",
-        "role",
-        "subject",
-        "approvalStatus",
-        "createdAt",
-        "lastLogin",
-      ],
-    });
+// router.get("/me", authMiddleware, async (req, res) => {
+//   try {
+//     const user = await User.findByPk(req.user.id, {
+//       attributes: [
+//         "id",
+//         "name",
+//         "email",
+//         "role",
+//         "subject",
+//         "approvalStatus",
+//         "createdAt",
+//         "lastLogin",
+//       ],
+//     });
 
+router.get("/me", authMiddleware, async (req, res) => {
+  const user = await User.findByPk(req.user.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  res.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    approvalStatus: user.approvalStatus,
+  });
+});
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
