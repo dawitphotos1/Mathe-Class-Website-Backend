@@ -77,15 +77,22 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 // ✅ Create Stripe checkout session
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
-  const { courseId, courseTitle, coursePrice } = req.body;
+  try {
+    const { courseId, courseTitle, coursePrice } = req.body;
+    const user = req.user;
 
-  console.log("🔥 Received Stripe payment:", { courseId, courseTitle, coursePrice });
+    console.log("🔥 Received Stripe payment request:", {
+      courseId,
+      courseTitle,
+      coursePrice,
+      userEmail: user?.email,
+    });
 
-  if (!courseId || !courseTitle || !coursePrice) {
-    return res.status(400).json({ error: "Missing required course details" });
-  }
+    if (!courseId || !courseTitle || !coursePrice) {
+      return res.status(400).json({ error: "Missing required course details" });
+    }
 
-    // Save user-course entry with unapproved access (can be later updated by webhook)
+    // Save user-course entry with unapproved access (can be updated later via webhook)
     await UserCourseAccess.findOrCreate({
       where: {
         userId: user.id,
@@ -106,7 +113,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
             product_data: {
               name: courseTitle,
             },
-            unit_amount: coursePrice * 100, // Stripe expects cents
+            unit_amount: parseInt(coursePrice * 100), // Stripe expects amount in cents
           },
           quantity: 1,
         },
@@ -114,7 +121,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       mode: "payment",
       success_url: `${process.env.FRONTEND_URL}/payment-success?courseId=${courseId}`,
       cancel_url: `${process.env.FRONTEND_URL}/courses`,
-      customer_email: user.email, // ✅ ensures email is passed to metadata
+      customer_email: user.email,
       metadata: {
         userEmail: user.email,
         courseId: courseId.toString(),
@@ -122,6 +129,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     });
 
     return res.status(200).json({ url: session.url });
+
   } catch (err) {
     console.error("❌ Stripe checkout session error:", err);
     return res.status(500).json({ error: "Failed to create checkout session" });
@@ -136,7 +144,7 @@ router.post(
     try {
       const sig = req.headers["stripe-signature"];
       if (!sig) {
-        console.error("Missing Stripe signature header");
+        console.error("⚠️ Missing Stripe signature header");
         return res.status(400).send("Missing Stripe signature");
       }
 
@@ -180,4 +188,3 @@ router.post(
 );
 
 module.exports = router;
-
