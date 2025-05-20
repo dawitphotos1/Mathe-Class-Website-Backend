@@ -109,7 +109,6 @@ function isAdminOrTeacher(req, res, next) {
 //         "lastLogin",
 //       ],
 //     });
-
 router.get("/me", authMiddleware, async (req, res) => {
   const user = await User.findByPk(req.user.id);
   if (!user) return res.status(404).json({ error: "User not found" });
@@ -121,7 +120,6 @@ router.get("/me", authMiddleware, async (req, res) => {
     role: user.role,
     approvalStatus: user.approvalStatus,
   });
-});
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
