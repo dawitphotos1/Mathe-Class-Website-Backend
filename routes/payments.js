@@ -65,11 +65,10 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
 const Stripe = require("stripe");
-const { User, UserCourseAccess } = require("../models");
+const { User, Course, UserCourseAccess } = require("../models");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -78,33 +77,31 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 // ✅ Create Stripe checkout session
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
   try {
-    const { courseId, courseTitle, coursePrice } = req.body;
+    const { courseId } = req.body;
     const user = req.user;
 
-    console.log("🔥 Stripe payment request received:", {
-      courseId,
-      courseTitle,
-      coursePrice,
-      user,
-    });
-
-
-    if (!courseId || !courseTitle || !coursePrice) {
-      return res.status(400).json({ error: "Missing required course details" });
+    if (!courseId || !user?.email) {
+      return res
+        .status(400)
+        .json({ error: "Missing required course ID or user info" });
     }
 
-    // Save user-course entry with unapproved access (can be updated later via webhook)
+    // 🔍 Load course from DB
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // 💾 Store unapproved access
     await UserCourseAccess.findOrCreate({
-      where: {
-        userId: user.id,
-        courseId,
-      },
+      where: { userId: user.id, courseId },
       defaults: {
         approved: false,
         accessGrantedAt: new Date(),
       },
     });
 
+    // 🧾 Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -112,9 +109,9 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
           price_data: {
             currency: "usd",
             product_data: {
-              name: courseTitle,
+              name: course.title,
             },
-            unit_amount: parseInt(coursePrice * 100), // Stripe expects amount in cents
+            unit_amount: parseInt(course.price * 100), // Convert to cents
           },
           quantity: 1,
         },
@@ -129,11 +126,10 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       },
     });
 
-    return res.status(200).json({ url: session.url });
-
+    res.status(200).json({ url: session.url });
   } catch (err) {
     console.error("❌ Stripe checkout session error:", err);
-    return res.status(500).json({ error: "Failed to create checkout session" });
+    res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
 
@@ -159,7 +155,7 @@ router.post(
         const session = event.data.object;
         const { courseId, userEmail } = session.metadata || {};
 
-        if (courseId && courseId !== "registration_fee" && userEmail) {
+        if (courseId && userEmail) {
           const user = await User.findOne({ where: { email: userEmail } });
           if (user) {
             await UserCourseAccess.update(
@@ -174,8 +170,6 @@ router.post(
             console.log(
               `✅ Enrollment approved: ${userEmail} → Course ${courseId}`
             );
-          } else {
-            console.warn(`⚠️ Webhook: No user found for email ${userEmail}`);
           }
         }
       }
