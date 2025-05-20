@@ -81,12 +81,13 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     const { courseId, courseTitle, coursePrice } = req.body;
     const user = req.user;
 
-    console.log("🔥 Received Stripe payment request:", {
+    console.log("🔥 Stripe payment request received:", {
       courseId,
       courseTitle,
       coursePrice,
-      userEmail: user?.email,
+      user,
     });
+
 
     if (!courseId || !courseTitle || !coursePrice) {
       return res.status(400).json({ error: "Missing required course details" });
