@@ -77,13 +77,13 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 // ✅ Create Stripe checkout session
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
-  try {
-    const { courseId, courseTitle, coursePrice } = req.body;
-    const user = req.user;
+  const { courseId, courseTitle, coursePrice } = req.body;
 
-    if (!courseId || !courseTitle || !coursePrice) {
-      return res.status(400).json({ error: "Missing required course details" });
-    }
+  console.log("🔥 Received Stripe payment:", { courseId, courseTitle, coursePrice });
+
+  if (!courseId || !courseTitle || !coursePrice) {
+    return res.status(400).json({ error: "Missing required course details" });
+  }
 
     // Save user-course entry with unapproved access (can be later updated by webhook)
     await UserCourseAccess.findOrCreate({
