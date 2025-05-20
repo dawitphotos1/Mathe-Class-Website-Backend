@@ -14,14 +14,34 @@ const app = express();
 const isProduction = process.env.NODE_ENV === "production";
 
 // CORS Middleware
+// app.use(
+//   cors({
+//     origin: isProduction
+//       ? [process.env.FRONTEND_URL, "https://math-class-platform.netlify.app"]
+//       : true, // Allow all origins in development
+//     credentials: true,
+//   })
+// );
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "https://math-class-platform.netlify.app",
+  "http://localhost:3000",
+];
+
 app.use(
   cors({
-    origin: isProduction
-      ? [process.env.FRONTEND_URL, "https://math-class-platform.netlify.app"]
-      : true, // Allow all origins in development
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
+
 
 // Basic Middleware
 app.use(express.json());
