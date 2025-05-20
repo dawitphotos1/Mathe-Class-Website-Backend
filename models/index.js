@@ -20,7 +20,11 @@ Course.belongsToMany(User, {
   otherKey: "userId",
 });
 
+UserCourseAccess.belongsTo(User, { foreignKey: "userId", as: "user" });
+UserCourseAccess.belongsTo(Course, { foreignKey: "courseId", as: "course" });
+
 Lesson.belongsTo(Course, { foreignKey: "courseId" });
 Lesson.belongsTo(User, { foreignKey: "userId" });
+
 
 module.exports = { sequelize, User, Lesson, Course, UserCourseAccess };

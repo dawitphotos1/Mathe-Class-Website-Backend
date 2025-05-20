@@ -77,19 +77,37 @@
 
 
 
+
 const express = require("express");
 const router = express.Router();
-
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { User } = require("../models"); // Adjust path if needed
-const authMiddleware = require("../middleware/authMiddleware"); // ✅ Import middleware
+const { User } = require("../models");
+const authMiddleware = require("../middleware/authMiddleware");
+const sendEmail = require("../utils/sendEmail");
 
-// ✅ GET /api/v1/users/me - Return the current authenticated user's profile
+// ✅ Middleware: only admin/teacher
+function isAdminOrTeacher(req, res, next) {
+  if (req.user && ["admin", "teacher"].includes(req.user.role)) {
+    return next();
+  }
+  return res.status(403).json({ error: "Forbidden" });
+}
+
+// ✅ GET /api/v1/users/me
 router.get("/me", authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ["id", "name", "email", "role", "subject", "approvalStatus"],
+      attributes: [
+        "id",
+        "name",
+        "email",
+        "role",
+        "subject",
+        "approvalStatus",
+        "createdAt",
+        "lastLogin",
+      ],
     });
 
     if (!user) {
@@ -102,6 +120,77 @@ router.get("/me", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// ✅ GET /api/v1/users/pending
+router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
+  try {
+    const pendingUsers = await User.findAll({
+      where: { approvalStatus: "pending" },
+      attributes: ["id", "name", "email", "role", "subject", "createdAt"],
+    });
+
+    res.json(pendingUsers);
+  } catch (err) {
+    console.error("Error fetching pending users:", err);
+    res.status(500).json({ error: "Failed to fetch pending users" });
+  }
+});
+
+// ✅ POST /api/v1/users/approve/:id
+router.post(
+  "/approve/:id",
+  authMiddleware,
+  isAdminOrTeacher,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      user.approvalStatus = "approved";
+      await user.save();
+
+      // ✅ Send approval email
+      await sendEmail(
+        user.email,
+        "Your MathClass account has been approved ✅",
+        `<p>Hello ${user.name},</p><p>Your account has been approved. You may now <a href="${process.env.FRONTEND_URL}/login">log in</a>.</p>`
+      );
+
+      res.json({ message: "User approved successfully" });
+    } catch (err) {
+      console.error("Error approving user:", err);
+      res.status(500).json({ error: "Failed to approve user" });
+    }
+  }
+);
+
+// ✅ POST /api/v1/users/reject/:id
+router.post(
+  "/reject/:id",
+  authMiddleware,
+  isAdminOrTeacher,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      user.approvalStatus = "rejected";
+      await user.save();
+
+      // ✅ Send rejection email
+      await sendEmail(
+        user.email,
+        "Your MathClass account was rejected ❌",
+        `<p>Hello ${user.name},</p><p>Unfortunately, your account has been rejected. If you believe this is a mistake, please contact support.</p>`
+      );
+
+      res.json({ message: "User rejected successfully" });
+    } catch (err) {
+      console.error("Error rejecting user:", err);
+      res.status(500).json({ error: "Failed to reject user" });
+    }
+  }
+);
 
 // ✅ POST /api/v1/users/login
 router.post("/login", async (req, res) => {
@@ -128,13 +217,14 @@ router.post("/login", async (req, res) => {
     }
 
     if (user.approvalStatus === "pending") {
-      console.log("User pending approval:", user.email, user.approvalStatus);
+      console.log("User pending approval:", user.email);
       return res
         .status(403)
         .json({ error: "Your account is pending approval" });
     }
+
     if (user.approvalStatus === "rejected") {
-      console.log("User rejected:", user.email, user.approvalStatus);
+      console.log("User rejected:", user.email);
       return res.status(403).json({ error: "Your account has been rejected" });
     }
 
@@ -143,6 +233,10 @@ router.post("/login", async (req, res) => {
         .status(500)
         .json({ error: "Server error: missing JWT secret" });
     }
+
+    // ✅ Update last login timestamp
+    user.lastLogin = new Date();
+    await user.save();
 
     const token = jwt.sign(
       { id: user.id, role: user.role },
@@ -160,6 +254,8 @@ router.post("/login", async (req, res) => {
         role: user.role,
         subject: user.subject,
         approvalStatus: user.approvalStatus,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin,
       },
     });
   } catch (err) {
@@ -168,5 +264,18 @@ router.post("/login", async (req, res) => {
   }
 });
 
-module.exports = router;
+// ✅ DELETE /api/v1/users/:id
+router.delete("/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
+    await user.destroy();
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting user:", err);
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+module.exports = router;
