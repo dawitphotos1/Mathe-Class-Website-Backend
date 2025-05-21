@@ -3,11 +3,11 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    const tableInfo = await queryInterface.describeTable("Lessons");
+    const tableInfo = await queryInterface.describeTable("lessons");
 
     // Add isUnitHeader only if it doesn't exist
     if (!tableInfo.isUnitHeader) {
-      await queryInterface.addColumn("Lessons", "isUnitHeader", {
+      await queryInterface.addColumn("lessons", "isUnitHeader", {
         type: Sequelize.BOOLEAN,
         defaultValue: false,
       });
@@ -15,11 +15,11 @@ module.exports = {
 
     // Add unitId only if it doesn't exist
     if (!tableInfo.unitId) {
-      await queryInterface.addColumn("Lessons", "unitId", {
+      await queryInterface.addColumn("lessons", "unitId", {
         type: Sequelize.INTEGER,
         allowNull: true,
         references: {
-          model: "Lessons",
+          model: "lessons",
           key: "id",
         },
       });
@@ -27,7 +27,7 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeColumn("Lessons", "isUnitHeader");
-    await queryInterface.removeColumn("Lessons", "unitId");
+    await queryInterface.removeColumn("lessons", "isUnitHeader");
+    await queryInterface.removeColumn("lessons", "unitId");
   },
 };

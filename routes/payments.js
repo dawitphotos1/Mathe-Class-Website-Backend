@@ -125,7 +125,7 @@ const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const authMiddleware = require("../middleware/authMiddleware");
 const { Course, UserCourseAccess } = require("../models");
-const { sendEmail } = require("../utils/sendEmail");
+const sendEmail  = require("../utils/sendEmail");
 
 // Verify dependencies
 console.log("Payments Route - authMiddleware:", typeof authMiddleware);
