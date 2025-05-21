@@ -118,12 +118,20 @@
 
 // module.exports = router;
 
+
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const { authMiddleware } = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authMiddleware"); // Fixed: Removed destructuring
 const { Course, UserCourseAccess } = require("../models");
 const { sendEmail } = require("../utils/sendEmail");
+
+// Verify dependencies
+console.log("Payments Route - authMiddleware:", typeof authMiddleware);
+console.log("Payments Route - stripe:", typeof stripe);
+console.log("Payments Route - Course:", typeof Course);
+console.log("Payments Route - UserCourseAccess:", typeof UserCourseAccess);
+console.log("Payments Route - sendEmail:", typeof sendEmail);
 
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
   try {
