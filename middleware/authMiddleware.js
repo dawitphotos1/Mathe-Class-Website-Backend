@@ -21,10 +21,10 @@
 
 // module.exports = authMiddleware;
 
-
 const jwt = require("jsonwebtoken");
+const { User } = require("../models");
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
   console.log(
     "Auth Middleware - Token:",
@@ -38,13 +38,23 @@ const authMiddleware = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("Auth Middleware - Decoded User:", decoded);
-    req.user = decoded;
-    if (!decoded.email) {
-      console.warn("Auth Middleware - No email in token");
+    const user = await User.findByPk(decoded.userId); // Use userId to match login payload
+    if (!user) {
+      console.warn("Auth Middleware - User not found for ID:", decoded.userId);
+      return res
+        .status(401)
+        .json({ success: false, error: "Unauthorized: Invalid token" });
     }
+    if (!user.email) {
+      console.warn("Auth Middleware - No email for user ID:", decoded.userId);
+      return res
+        .status(401)
+        .json({ success: false, error: "Unauthorized: User email missing" });
+    }
+    req.user = user;
     next();
   } catch (err) {
-    console.error("Token verification failed:", err.message);
+    console.error("Auth Middleware - Token verification failed:", err.message);
     res
       .status(401)
       .json({ success: false, error: "Unauthorized: Invalid token" });

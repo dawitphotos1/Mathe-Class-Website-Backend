@@ -1,148 +1,236 @@
 
+// const express = require("express");
+// const bcrypt = require("bcryptjs");
+// const jwt = require("jsonwebtoken");
+// const { User } = require("../models");
+
+// const router = express.Router();
+
+// // ✅ Register a new user
+// router.post("/register", async (req, res) => {
+//   try {
+//     let { name, email, password, role, subject } = req.body;
+
+//     if (!name || !email || !password || !role) {
+//       return res
+//         .status(400)
+//         .json({ success: false, error: "All fields are required" });
+//     }
+
+//     email = email.toLowerCase().trim();
+
+//     const existingUser = await User.findOne({ where: { email } });
+//     if (existingUser) {
+//       return res
+//         .status(409)
+//         .json({ success: false, error: "Email already in use" });
+//     }
+
+//     // Default subject to null if role is admin
+//     if (role === "admin") {
+//       subject = null;
+//     }
+
+//     // Create user (approvalStatus: 'pending' is explicitly set)
+//     const newUser = await User.create({
+//       name,
+//       email,
+//       password, // bcrypt handled by model hook
+//       role,
+//       subject,
+//       approvalStatus: "pending", // ✅ required so it appears in admin dashboard
+//     });
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "User registered successfully. Awaiting approval.",
+//       user: {
+//         id: newUser.id,
+//         name: newUser.name,
+//         email: newUser.email,
+//         role: newUser.role,
+//         subject: newUser.subject,
+//         approvalStatus: newUser.approvalStatus,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Registration error:", err);
+//     return res.status(500).json({
+//       success: false,
+//       error: "Registration failed",
+//       details: err.message,
+//     });
+//   }
+// });
+
+// // ✅ Login user
+// router.post("/login", async (req, res) => {
+//   try {
+//     let { email, password } = req.body;
+
+//     if (!email || !password) {
+//       return res
+//         .status(400)
+//         .json({ success: false, error: "Email and password are required" });
+//     }
+
+//     email = email.toLowerCase().trim();
+
+//     const user = await User.findOne({ where: { email } });
+
+//     if (!user) {
+//       return res.status(401).json({
+//         success: false,
+//         error: "Invalid email or password. Please try again",
+//       });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) {
+//       return res.status(401).json({
+//         success: false,
+//         error: "Invalid email or password. Please try again",
+//       });
+//     }
+
+//     if (user.approvalStatus === "pending") {
+//       return res.status(403).json({
+//         success: false,
+//         error: "Your account is awaiting approval",
+//       });
+//     }
+
+//     if (user.approvalStatus === "rejected") {
+//       return res.status(403).json({
+//         success: false,
+//         error: "Your account has been rejected",
+//       });
+//     }
+
+//     // ✅ Track last login
+//     await user.update({ lastLogin: new Date() });
+
+//     const token = jwt.sign(
+//       {
+//         userId: user.id,
+//         role: user.role,
+//         name: user.name,
+//         email: user.email, // ✅ add this
+//       },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "7d" }
+//     );
+
+//     return res.json({
+//       success: true,
+//       message: "Login successful",
+//       token,
+//       user: {
+//         id: user.id,
+//         name: user.name,
+//         email: user.email,
+//         role: user.role,
+//         subject: user.subject,
+//         approvalStatus: user.approvalStatus,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Login error:", err);
+//     return res.status(500).json({
+//       success: false,
+//       error: "Login failed",
+//       details: err.message,
+//     });
+//   }
+// });
+
+// module.exports = router;
+
+
 const express = require("express");
+const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
-const router = express.Router();
-
-// ✅ Register a new user
-router.post("/register", async (req, res) => {
-  try {
-    let { name, email, password, role, subject } = req.body;
-
-    if (!name || !email || !password || !role) {
-      return res
-        .status(400)
-        .json({ success: false, error: "All fields are required" });
-    }
-
-    email = email.toLowerCase().trim();
-
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res
-        .status(409)
-        .json({ success: false, error: "Email already in use" });
-    }
-
-    // Default subject to null if role is admin
-    if (role === "admin") {
-      subject = null;
-    }
-
-    // Create user (approvalStatus: 'pending' is explicitly set)
-    const newUser = await User.create({
-      name,
-      email,
-      password, // bcrypt handled by model hook
-      role,
-      subject,
-      approvalStatus: "pending", // ✅ required so it appears in admin dashboard
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "User registered successfully. Awaiting approval.",
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        subject: newUser.subject,
-        approvalStatus: newUser.approvalStatus,
-      },
-    });
-  } catch (err) {
-    console.error("Registration error:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Registration failed",
-      details: err.message,
-    });
-  }
-});
-
-// ✅ Login user
 router.post("/login", async (req, res) => {
   try {
-    let { email, password } = req.body;
-
+    const { email, password } = req.body;
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
-    email = email.toLowerCase().trim();
-
-    const user = await User.findOne({ where: { email } });
-
+    const user = await User.findOne({ where: { email: email.toLowerCase() } });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid email or password. Please try again",
-      });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid email or password. Please try again",
-      });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    if (user.approvalStatus === "pending") {
-      return res.status(403).json({
-        success: false,
-        error: "Your account is awaiting approval",
-      });
+    if (user.approvalStatus !== "approved") {
+      return res.status(403).json({ error: "Account not approved" });
     }
 
-    if (user.approvalStatus === "rejected") {
-      return res.status(403).json({
-        success: false,
-        error: "Your account has been rejected",
-      });
-    }
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    };
+    console.log("Login - JWT Payload:", payload);
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
-    // ✅ Track last login
-    await user.update({ lastLogin: new Date() });
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        role: user.role,
-        name: user.name,
-        email: user.email, // ✅ add this
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.json({
-      success: true,
-      message: "Login successful",
+    res.json({
       token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-        subject: user.subject,
-        approvalStatus: user.approvalStatus,
       },
     });
   } catch (err) {
     console.error("Login error:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Login failed",
-      details: err.message,
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email, password, role, subject } = req.body;
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const existingUser = await User.findOne({
+      where: { email: email.toLowerCase() },
     });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role,
+      subject: role === "teacher" ? subject : null,
+      approvalStatus: role === "student" ? "pending" : "approved",
+    });
+
+    res
+      .status(201)
+      .json({ message: "User registered successfully", userId: user.id });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 module.exports = router;
-
