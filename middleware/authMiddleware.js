@@ -38,7 +38,18 @@ const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("Auth Middleware - Decoded User:", decoded);
-    const user = await User.findByPk(decoded.userId); // Use userId to match login payload
+    let user;
+    try {
+      user = await User.findByPk(decoded.userId);
+    } catch (dbError) {
+      console.error("Auth Middleware - Database error:", dbError.message);
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error: "Database error: Unable to fetch user",
+        });
+    }
     if (!user) {
       console.warn("Auth Middleware - User not found for ID:", decoded.userId);
       return res
