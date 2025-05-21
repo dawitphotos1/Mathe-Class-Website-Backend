@@ -119,10 +119,11 @@
 // module.exports = router;
 
 
+
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const authMiddleware = require("../middleware/authMiddleware"); // Fixed: Removed destructuring
+const authMiddleware = require("../middleware/authMiddleware");
 const { Course, UserCourseAccess } = require("../models");
 const { sendEmail } = require("../utils/sendEmail");
 
@@ -149,6 +150,11 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     if (!course) {
       return res.status(404).json({ error: "Course not found" });
     }
+    console.log("Checkout - Course:", course.toJSON());
+
+    if (!course.price || isNaN(course.price) || course.price <= 0) {
+      return res.status(400).json({ error: "Invalid course price" });
+    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -159,7 +165,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
             product_data: {
               name: course.title,
             },
-            unit_amount: course.price * 100,
+            unit_amount: Math.round(course.price * 100), // Ensure integer
           },
           quantity: 1,
         },
@@ -168,15 +174,18 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
       customer_email: user.email,
-      metadata: {
-        courseId: courseId.toString(),
-        userId: user.userId.toString(),
-      },
+      metadata: { courseId: courseId.toString(), userId: user.id.toString() },
     });
 
     res.json({ url: session.url });
   } catch (err) {
-    console.error("❌ Stripe checkout session error:", err);
+    console.error("❌ Stripe checkout session error:", err.message, err.stack);
+    if (err.type === "StripeInvalidRequestError") {
+      return res.status(400).json({ error: `Stripe error: ${err.message}` });
+    }
+    if (err.type === "StripeAuthenticationError") {
+      return res.status(500).json({ error: "Stripe authentication failed" });
+    }
     res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
@@ -201,7 +210,7 @@ router.get("/session-status", authMiddleware, async (req, res) => {
     }
     res.json({ status: session.payment_status });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Session status error:", err);
     res.status(500).json({ error: "Failed to retrieve session status" });
   }
 });
