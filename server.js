@@ -119,6 +119,9 @@ app.use(
   })
 );
 
+// Trust the first proxy (needed for Render.com and some other cloud hosts)
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
