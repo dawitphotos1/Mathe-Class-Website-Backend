@@ -96,16 +96,13 @@
 
 // module.exports = router;
 
-
 const express = require("express");
 const router = express.Router();
 const Stripe = require("stripe");
 const authMiddleware = require("../middleware/authMiddleware");
 
-// Initialize Stripe
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// POST /api/v1/payments/create-checkout-session
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
   try {
     const { courseId, courseName, coursePrice } = req.body;
@@ -116,7 +113,6 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       userId: req.user.id,
     });
 
-    // Validate input
     if (
       !courseId ||
       !courseName ||
@@ -130,7 +126,6 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
         .json({ error: "Valid course ID, name, and price are required" });
     }
 
-    // Validate environment variables
     if (!process.env.STRIPE_SECRET_KEY || !process.env.FRONTEND_URL) {
       console.log("Missing environment variables");
       return res.status(500).json({ error: "Server configuration error" });
@@ -146,7 +141,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
               name: courseName,
               description: `Enrollment for course ID: ${courseId}`,
             },
-            unit_amount: Math.round(coursePrice * 100), // Dollars to cents
+            unit_amount: Math.round(coursePrice * 100),
           },
           quantity: 1,
         },
