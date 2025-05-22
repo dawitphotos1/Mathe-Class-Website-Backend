@@ -1,3 +1,212 @@
+// const express = require("express");
+// const router = express.Router();
+// const bcrypt = require("bcrypt");
+// const jwt = require("jsonwebtoken");
+// const { User } = require("../models");
+// const authMiddleware = require("../middleware/authMiddleware");
+// const sendEmail = require("../utils/sendEmail");
+
+// // ✅ Middleware: only admin/teacher
+// function isAdminOrTeacher(req, res, next) {
+//   if (req.user && ["admin", "teacher"].includes(req.user.role)) {
+//     return next();
+//   }
+//   return res.status(403).json({ error: "Forbidden" });
+// }
+
+// // ✅ GET /api/v1/users/me
+// router.get("/me", authMiddleware, async (req, res) => {
+//   try {
+//     const user = await User.findByPk(req.user.id, {
+//       attributes: [
+//         "id",
+//         "name",
+//         "email",
+//         "role",
+//         "subject",
+//         "approvalStatus",
+//         "createdAt",
+//         "lastLogin",
+//       ],
+//     });
+
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     res.json(user);
+//   } catch (err) {
+//     console.error("Failed to fetch user profile:", err);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
+
+// // ✅ GET /api/v1/users/pending
+// router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
+//   try {
+//     const pendingUsers = await User.findAll({
+//       where: { approvalStatus: "pending" },
+//       attributes: ["id", "name", "email", "role", "subject", "createdAt"],
+//     });
+
+//     res.json(pendingUsers);
+//   } catch (err) {
+//     console.error("Error fetching pending users:", err);
+//     res.status(500).json({ error: "Failed to fetch pending users" });
+//   }
+// });
+
+// // ✅ POST /api/v1/users/approve/:id
+// router.post(
+//   "/approve/:id",
+//   authMiddleware,
+//   isAdminOrTeacher,
+//   async (req, res) => {
+//     try {
+//       const user = await User.findByPk(req.params.id);
+//       if (!user) return res.status(404).json({ error: "User not found" });
+
+//       user.approvalStatus = "approved";
+//       await user.save();
+
+//       // ✅ Send approval email
+//       await sendEmail(
+//         user.email,
+//         "Your MathClass account has been approved ✅",
+//         `<p>Hello ${user.name},</p><p>Your account has been approved. You may now <a href="${process.env.FRONTEND_URL}/login">log in</a>.</p>`
+//       );
+
+//       res.json({ message: "User approved successfully" });
+//     } catch (err) {
+//       console.error("Error approving user:", err);
+//       res.status(500).json({ error: "Failed to approve user" });
+//     }
+//   }
+// );
+
+// // ✅ POST /api/v1/users/reject/:id
+// router.post(
+//   "/reject/:id",
+//   authMiddleware,
+//   isAdminOrTeacher,
+//   async (req, res) => {
+//     try {
+//       const user = await User.findByPk(req.params.id);
+//       if (!user) return res.status(404).json({ error: "User not found" });
+
+//       user.approvalStatus = "rejected";
+//       await user.save();
+
+//       // ✅ Send rejection email
+//       await sendEmail(
+//         user.email,
+//         "Your MathClass account was rejected ❌",
+//         `<p>Hello ${user.name},</p><p>Unfortunately, your account has been rejected. If you believe this is a mistake, please contact support.</p>`
+//       );
+
+//       res.json({ message: "User rejected successfully" });
+//     } catch (err) {
+//       console.error("Error rejecting user:", err);
+//       res.status(500).json({ error: "Failed to reject user" });
+//     }
+//   }
+// );
+
+// // ✅ POST /api/v1/users/login
+// router.post("/login", async (req, res) => {
+//   try {
+//     let { email, password } = req.body;
+//     if (!email || !password) {
+//       return res.status(400).json({ error: "Email and password are required" });
+//     }
+
+//     email = email.toLowerCase().trim();
+//     console.log("Login attempt for email:", email);
+
+//     const user = await User.findOne({ where: { email } });
+//     if (!user) {
+//       console.log("Login failed: No user found for email:", email);
+//       return res.status(401).json({ error: "No user found with this email" });
+//     }
+
+//     console.log("User found:", user.email, "Comparing passwords...");
+//     const isPasswordValid = await bcrypt.compare(password, user.password);
+//     if (!isPasswordValid) {
+//       console.log("Login failed: Incorrect password for user:", user.email);
+//       return res.status(401).json({ error: "Incorrect password" });
+//     }
+
+//     if (user.approvalStatus === "pending") {
+//       console.log("User pending approval:", user.email);
+//       return res
+//         .status(403)
+//         .json({ error: "Your account is pending approval" });
+//     }
+
+//     if (user.approvalStatus === "rejected") {
+//       console.log("User rejected:", user.email);
+//       return res.status(403).json({ error: "Your account has been rejected" });
+//     }
+
+//     if (!process.env.JWT_SECRET) {
+//       return res
+//         .status(500)
+//         .json({ error: "Server error: missing JWT secret" });
+//     }
+
+//     // ✅ Update last login timestamp
+//     user.lastLogin = new Date();
+//     await user.save();
+
+//     const token = jwt.sign(
+//       {
+//         id: user.id,
+//         role: user.role,
+//         email: user.email, // ✅ add this
+//       },
+//       process.env.JWT_SECRET,
+//       { expiresIn: process.env.JWT_EXPIRATION_TIME || "1h" }
+//     );
+    
+
+//     console.log("Login successful for user ID:", user.id);
+//     res.json({
+//       token,
+//       user: {
+//         id: user.id,
+//         name: user.name,
+//         email: user.email,
+//         role: user.role,
+//         subject: user.subject,
+//         approvalStatus: user.approvalStatus,
+//         createdAt: user.createdAt,
+//         lastLogin: user.lastLogin,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Login error:", err);
+//     res.status(500).json({ error: "Failed to log in", details: err.message });
+//   }
+// });
+
+// // ✅ DELETE /api/v1/users/:id
+// router.delete("/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
+//   try {
+//     const user = await User.findByPk(req.params.id);
+//     if (!user) return res.status(404).json({ error: "User not found" });
+
+//     await user.destroy();
+//     res.json({ message: "User deleted successfully" });
+//   } catch (err) {
+//     console.error("Error deleting user:", err);
+//     res.status(500).json({ error: "Failed to delete user" });
+//   }
+// });
+
+// module.exports = router;
+
+
+
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt");
@@ -6,7 +215,7 @@ const { User } = require("../models");
 const authMiddleware = require("../middleware/authMiddleware");
 const sendEmail = require("../utils/sendEmail");
 
-// ✅ Middleware: only admin/teacher
+// Middleware: only admin/teacher
 function isAdminOrTeacher(req, res, next) {
   if (req.user && ["admin", "teacher"].includes(req.user.role)) {
     return next();
@@ -14,9 +223,10 @@ function isAdminOrTeacher(req, res, next) {
   return res.status(403).json({ error: "Forbidden" });
 }
 
-// ✅ GET /api/v1/users/me
+// GET /api/v1/users/me
 router.get("/me", authMiddleware, async (req, res) => {
   try {
+    console.log("Users/me: Fetching user with id:", req.user.id);
     const user = await User.findByPk(req.user.id, {
       attributes: [
         "id",
@@ -31,17 +241,25 @@ router.get("/me", authMiddleware, async (req, res) => {
     });
 
     if (!user) {
+      console.log("Users/me: User not found for id:", req.user.id);
       return res.status(404).json({ error: "User not found" });
     }
-
+    console.log("Users/me: User found:", {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
     res.json(user);
   } catch (err) {
-    console.error("Failed to fetch user profile:", err);
+    console.error("Users/me: Failed to fetch user profile:", {
+      message: err.message,
+      id: req.user.id,
+    });
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// ✅ GET /api/v1/users/pending
+// GET /api/v1/users/pending
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const pendingUsers = await User.findAll({
@@ -56,7 +274,7 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ POST /api/v1/users/approve/:id
+// POST /api/v1/users/approve/:id
 router.post(
   "/approve/:id",
   authMiddleware,
@@ -69,7 +287,7 @@ router.post(
       user.approvalStatus = "approved";
       await user.save();
 
-      // ✅ Send approval email
+      // Send approval email
       await sendEmail(
         user.email,
         "Your MathClass account has been approved ✅",
@@ -84,7 +302,7 @@ router.post(
   }
 );
 
-// ✅ POST /api/v1/users/reject/:id
+// POST /api/v1/users/reject/:id
 router.post(
   "/reject/:id",
   authMiddleware,
@@ -97,7 +315,7 @@ router.post(
       user.approvalStatus = "rejected";
       await user.save();
 
-      // ✅ Send rejection email
+      // Send rejection email
       await sendEmail(
         user.email,
         "Your MathClass account was rejected ❌",
@@ -112,7 +330,7 @@ router.post(
   }
 );
 
-// ✅ POST /api/v1/users/login
+// POST /api/v1/users/login
 router.post("/login", async (req, res) => {
   try {
     let { email, password } = req.body;
@@ -129,7 +347,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "No user found with this email" });
     }
 
-    console.log("User found:", user.email, "Comparing passwords...");
+    console.log("UserÑ found:", user.email, "Comparing passwords...");
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       console.log("Login failed: Incorrect password for user:", user.email);
@@ -154,7 +372,7 @@ router.post("/login", async (req, res) => {
         .json({ error: "Server error: missing JWT secret" });
     }
 
-    // ✅ Update last login timestamp
+    // Update last login timestamp
     user.lastLogin = new Date();
     await user.save();
 
@@ -162,12 +380,11 @@ router.post("/login", async (req, res) => {
       {
         id: user.id,
         role: user.role,
-        email: user.email, // ✅ add this
+        email: user.email,
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRATION_TIME || "1h" }
     );
-    
 
     console.log("Login successful for user ID:", user.id);
     res.json({
@@ -189,7 +406,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ✅ DELETE /api/v1/users/:id
+// DELETE /api/v1/users/:id
 router.delete("/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
@@ -204,4 +421,3 @@ router.delete("/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
 });
 
 module.exports = router;
-

@@ -1,16 +1,88 @@
 
-const { DataTypes } = require("sequelize");
-const bcrypt = require("bcryptjs");
+// const { DataTypes } = require("sequelize");
+// const bcrypt = require("bcryptjs");
 
-module.exports = (sequelize) => {
+// module.exports = (sequelize) => {
+//   const User = sequelize.define(
+//     "User",
+//     {
+//       id: {
+//         allowNull: false,
+//         autoIncrement: true,
+//         primaryKey: true,
+//         type: DataTypes.INTEGER,
+//       },
+//       name: {
+//         type: DataTypes.STRING,
+//         allowNull: false,
+//         defaultValue: "Unknown",
+//       },
+//       email: {
+//         type: DataTypes.STRING,
+//         allowNull: false,
+//         unique: true,
+//         validate: {
+//           isEmail: true,
+//         },
+//       },
+//       password: {
+//         type: DataTypes.STRING,
+//         allowNull: false,
+//       },
+//       role: {
+//         type: DataTypes.ENUM("student", "teacher", "admin"),
+//         allowNull: false,
+//         defaultValue: "student",
+//       },
+//       subject: {
+//         type: DataTypes.STRING,
+//         allowNull: true,
+//       },
+//       approvalStatus: {
+//         type: DataTypes.ENUM("pending", "approved", "rejected"),
+//         allowNull: false,
+//         defaultValue: "pending", // ✅ make all new users default to pending
+//       },
+//       lastLogin: {
+//         type: DataTypes.DATE,
+//         allowNull: true,
+//       },
+//     },
+//     {
+//       tableName: "Users",
+//       timestamps: true,
+//       hooks: {
+//         beforeCreate: async (user) => {
+//           if (user.password) {
+//             const salt = await bcrypt.genSalt(10);
+//             user.password = await bcrypt.hash(user.password, salt);
+//           }
+//         },
+//         beforeUpdate: async (user) => {
+//           if (user.changed("password")) {
+//             const salt = await bcrypt.genSalt(10);
+//             user.password = await bcrypt.hash(user.password, salt);
+//           }
+//         },
+//       },
+//     }
+//   );
+
+//   return User;
+// };
+
+
+
+"use strict";
+module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define(
     "User",
     {
       id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
         type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+        allowNull: false,
       },
       name: {
         type: DataTypes.STRING,
@@ -21,9 +93,6 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
-        validate: {
-          isEmail: true,
-        },
       },
       password: {
         type: DataTypes.STRING,
@@ -41,7 +110,7 @@ module.exports = (sequelize) => {
       approvalStatus: {
         type: DataTypes.ENUM("pending", "approved", "rejected"),
         allowNull: false,
-        defaultValue: "pending", // ✅ make all new users default to pending
+        defaultValue: "approved",
       },
       lastLogin: {
         type: DataTypes.DATE,
@@ -51,22 +120,7 @@ module.exports = (sequelize) => {
     {
       tableName: "Users",
       timestamps: true,
-      hooks: {
-        beforeCreate: async (user) => {
-          if (user.password) {
-            const salt = await bcrypt.genSalt(10);
-            user.password = await bcrypt.hash(user.password, salt);
-          }
-        },
-        beforeUpdate: async (user) => {
-          if (user.changed("password")) {
-            const salt = await bcrypt.genSalt(10);
-            user.password = await bcrypt.hash(user.password, salt);
-          }
-        },
-      },
     }
   );
-
   return User;
 };
