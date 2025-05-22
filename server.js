@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
+const paymentRoutes = require("./routes/payments");
 
 dotenv.config();
 
@@ -42,7 +43,7 @@ const limiter = rateLimit({
 });
 app.use("/api/v1/auth", limiter);
 app.use("/api/v1/payments", limiter);
-
+app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/auth", require("./routes/auth"));
 app.use("/api/v1/users", require("./routes/users"));
 app.use("/api/v1/courses", require("./routes/courses"));

@@ -1,38 +1,139 @@
 
+// const express = require("express");
+// const router = express.Router();
+// const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+// const authMiddleware = require("../middleware/authMiddleware");
+// const { Course, UserCourseAccess } = require("../models");
+// const sendEmail  = require("../utils/sendEmail");
+
+// // Verify dependencies
+// console.log("Payments Route - authMiddleware:", typeof authMiddleware);
+// console.log("Payments Route - stripe:", typeof stripe);
+// console.log("Payments Route - Course:", typeof Course);
+// console.log("Payments Route - UserCourseAccess:", typeof UserCourseAccess);
+// console.log("Payments Route - sendEmail:", typeof sendEmail);
+
+// router.post("/create-checkout-session", authMiddleware, async (req, res) => {
+//   try {
+//     const { courseId } = req.body;
+//     const user = req.user;
+//     console.log("Checkout Request - Body:", req.body);
+//     console.log("Checkout Request - User:", user);
+//     if (!courseId || !user?.email) {
+//       return res
+//         .status(400)
+//         .json({ error: "Missing required course ID or user info" });
+//     }
+
+//     const course = await Course.findByPk(courseId);
+//     if (!course) {
+//       return res.status(404).json({ error: "Course not found" });
+//     }
+//     console.log("Checkout - Course:", course.toJSON());
+
+//     if (!course.price || isNaN(course.price) || course.price <= 0) {
+//       return res.status(400).json({ error: "Invalid course price" });
+//     }
+
+//     const session = await stripe.checkout.sessions.create({
+//       payment_method_types: ["card"],
+//       line_items: [
+//         {
+//           price_data: {
+//             currency: "usd",
+//             product_data: {
+//               name: course.title,
+//             },
+//             unit_amount: Math.round(course.price * 100), // Ensure integer
+//           },
+//           quantity: 1,
+//         },
+//       ],
+//       mode: "payment",
+//       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+//       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+//       customer_email: user.email,
+//       metadata: { courseId: courseId.toString(), userId: user.id.toString() },
+//     });
+
+//     res.json({ url: session.url });
+//   } catch (err) {
+//     console.error("❌ Stripe checkout session error:", err.message, err.stack);
+//     if (err.type === "StripeInvalidRequestError") {
+//       return res.status(400).json({ error: `Stripe error: ${err.message}` });
+//     }
+//     if (err.type === "StripeAuthenticationError") {
+//       return res.status(500).json({ error: "Stripe authentication failed" });
+//     }
+//     res.status(500).json({ error: "Failed to create checkout session" });
+//   }
+// });
+
+// router.get("/session-status", authMiddleware, async (req, res) => {
+//   const sessionId = req.query.session_id;
+//   try {
+//     const session = await stripe.checkout.sessions.retrieve(sessionId);
+//     if (session.payment_status === "paid") {
+//       const { courseId, userId } = session.metadata;
+//       await UserCourseAccess.create({
+//         userId,
+//         courseId,
+//         approved: true,
+//       });
+//       const course = await Course.findByPk(courseId);
+//       await sendEmail({
+//         to: session.customer_email,
+//         subject: "Course Enrollment Confirmation",
+//         html: `<p>Thank you for enrolling in ${course.title}!</p>`,
+//       });
+//     }
+//     res.json({ status: session.payment_status });
+//   } catch (err) {
+//     console.error("❌ Session status error:", err);
+//     res.status(500).json({ error: "Failed to retrieve session status" });
+//   }
+// });
+
+// module.exports = router;
+
+
 const express = require("express");
 const router = express.Router();
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const Stripe = require("stripe");
 const authMiddleware = require("../middleware/authMiddleware");
-const { Course, UserCourseAccess } = require("../models");
-const sendEmail  = require("../utils/sendEmail");
 
-// Verify dependencies
-console.log("Payments Route - authMiddleware:", typeof authMiddleware);
-console.log("Payments Route - stripe:", typeof stripe);
-console.log("Payments Route - Course:", typeof Course);
-console.log("Payments Route - UserCourseAccess:", typeof UserCourseAccess);
-console.log("Payments Route - sendEmail:", typeof sendEmail);
+// Initialize Stripe
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
+// POST /api/v1/payments/create-checkout-session
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
   try {
-    const { courseId } = req.body;
-    const user = req.user;
-    console.log("Checkout Request - Body:", req.body);
-    console.log("Checkout Request - User:", user);
-    if (!courseId || !user?.email) {
+    const { courseId, courseName, coursePrice } = req.body;
+    console.log("Create checkout session request:", {
+      courseId,
+      courseName,
+      coursePrice,
+      userId: req.user.id,
+    });
+
+    // Validate input
+    if (
+      !courseId ||
+      !courseName ||
+      !coursePrice ||
+      isNaN(coursePrice) ||
+      coursePrice <= 0
+    ) {
+      console.log("Invalid or missing fields");
       return res
         .status(400)
-        .json({ error: "Missing required course ID or user info" });
+        .json({ error: "Valid course ID, name, and price are required" });
     }
 
-    const course = await Course.findByPk(courseId);
-    if (!course) {
-      return res.status(404).json({ error: "Course not found" });
-    }
-    console.log("Checkout - Course:", course.toJSON());
-
-    if (!course.price || isNaN(course.price) || course.price <= 0) {
-      return res.status(400).json({ error: "Invalid course price" });
+    // Validate environment variables
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.FRONTEND_URL) {
+      console.log("Missing environment variables");
+      return res.status(500).json({ error: "Server configuration error" });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -42,55 +143,35 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
           price_data: {
             currency: "usd",
             product_data: {
-              name: course.title,
+              name: courseName,
+              description: `Enrollment for course ID: ${courseId}`,
             },
-            unit_amount: Math.round(course.price * 100), // Ensure integer
+            unit_amount: Math.round(coursePrice * 100), // Dollars to cents
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
-      customer_email: user.email,
-      metadata: { courseId: courseId.toString(), userId: user.id.toString() },
+      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/courses`,
+      metadata: {
+        userId: req.user.id.toString(),
+        courseId: courseId.toString(),
+      },
     });
 
-    res.json({ url: session.url });
+    console.log("Checkout session created:", { sessionId: session.id });
+    res.json({ sessionId: session.id });
   } catch (err) {
-    console.error("❌ Stripe checkout session error:", err.message, err.stack);
-    if (err.type === "StripeInvalidRequestError") {
-      return res.status(400).json({ error: `Stripe error: ${err.message}` });
-    }
-    if (err.type === "StripeAuthenticationError") {
-      return res.status(500).json({ error: "Stripe authentication failed" });
-    }
-    res.status(500).json({ error: "Failed to create checkout session" });
-  }
-});
-
-router.get("/session-status", authMiddleware, async (req, res) => {
-  const sessionId = req.query.session_id;
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status === "paid") {
-      const { courseId, userId } = session.metadata;
-      await UserCourseAccess.create({
-        userId,
-        courseId,
-        approved: true,
-      });
-      const course = await Course.findByPk(courseId);
-      await sendEmail({
-        to: session.customer_email,
-        subject: "Course Enrollment Confirmation",
-        html: `<p>Thank you for enrolling in ${course.title}!</p>`,
-      });
-    }
-    res.json({ status: session.payment_status });
-  } catch (err) {
-    console.error("❌ Session status error:", err);
-    res.status(500).json({ error: "Failed to retrieve session status" });
+    console.error("Failed to create checkout session:", {
+      message: err.message,
+      type: err.type,
+      code: err.code,
+      raw: err.raw,
+    });
+    res
+      .status(500)
+      .json({ error: `Failed to create checkout session: ${err.message}` });
   }
 });
 
