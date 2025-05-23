@@ -1,3 +1,5 @@
+
+
 // File: Backend/migrations/20231010120000-add-unit-structure.js
 "use strict";
 
@@ -27,7 +29,16 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeColumn("lessons", "isUnitHeader");
-    await queryInterface.removeColumn("lessons", "unitId");
+    const table = await queryInterface.describeTable("lessons");
+
+    // Remove isUnitHeader if it exists
+    if (table.isUnitHeader) {
+      await queryInterface.removeColumn("lessons", "isUnitHeader");
+    }
+
+    // Remove unitId if it exists
+    if (table.unitId) {
+      await queryInterface.removeColumn("lessons", "unitId");
+    }
   },
 };

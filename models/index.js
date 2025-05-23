@@ -1,29 +1,26 @@
 
-const { Sequelize, DataTypes } = require("sequelize");
+const { Sequelize } = require("sequelize");
 const sequelize = require("../config/db");
 
-const User = require("./User")(sequelize, DataTypes);
-const Lesson = require("./Lesson")(sequelize, DataTypes);
-const Course = require("./Course")(sequelize, DataTypes);
-const UserCourseAccess = require("./UserCourseAccess")(sequelize, DataTypes);
+const initUser = require("./User");
+const initLesson = require("./Lesson");
+const initCourse = require("./Course");
+const initUserCourseAccess = require("./UserCourseAccess");
 
-// Associations
-User.belongsToMany(Course, {
-  through: UserCourseAccess,
-  foreignKey: "userId",
-  otherKey: "courseId",
-});
+const models = {};
 
-Course.belongsToMany(User, {
-  through: UserCourseAccess,
-  foreignKey: "courseId",
-  otherKey: "userId",
-});
+models.Sequelize = Sequelize;
+models.sequelize = sequelize;
 
-UserCourseAccess.belongsTo(User, { foreignKey: "userId", as: "user" });
-UserCourseAccess.belongsTo(Course, { foreignKey: "courseId", as: "course" });
+models.User = initUser(sequelize);
+models.Lesson = initLesson(sequelize);
+models.Course = initCourse(sequelize);
+models.UserCourseAccess = initUserCourseAccess(sequelize);
 
-Lesson.belongsTo(Course, { foreignKey: "courseId" });
-Lesson.belongsTo(User, { foreignKey: "userId" });
+// Setup associations
+models.User.associate(models);
+models.Lesson.associate(models);
+models.UserCourseAccess.associate(models);
+models.Course.associate(models);
 
-module.exports = { sequelize, User, Lesson, Course, UserCourseAccess };
+module.exports = models;

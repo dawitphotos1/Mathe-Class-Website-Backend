@@ -1,9 +1,21 @@
 
-const { DataTypes } = require("sequelize");
+const { Model, DataTypes } = require("sequelize");
 
-module.exports = (sequelize) => {
-  const UserCourseAccess = sequelize.define(
-    "UserCourseAccess",
+class UserCourseAccess extends Model {
+  static associate(models) {
+    UserCourseAccess.belongsTo(models.User, {
+      foreignKey: "userId",
+      as: "user",
+    });
+    UserCourseAccess.belongsTo(models.Course, {
+      foreignKey: "courseId",
+      as: "course",
+    });
+  }
+}
+
+const initUserCourseAccess = (sequelize) => {
+  UserCourseAccess.init(
     {
       userId: {
         type: DataTypes.INTEGER,
@@ -27,9 +39,13 @@ module.exports = (sequelize) => {
       },
     },
     {
+      sequelize,
+      modelName: "UserCourseAccess",
       tableName: "UserCourseAccess",
       timestamps: false,
     }
   );
   return UserCourseAccess;
 };
+
+module.exports = initUserCourseAccess;
