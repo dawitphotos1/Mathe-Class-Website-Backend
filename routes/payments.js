@@ -115,7 +115,6 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     }
 
     if (!process.env.STRIPE_SECRET_KEY || !process.env.FRONTEND_URL) {
-      console.log("Missing environment variables");
       return res.status(500).json({ error: "Server configuration error" });
     }
 
@@ -146,14 +145,12 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     console.log("✅ Checkout session created:", { sessionId: session.id });
     res.json({ sessionId: session.id });
   } catch (err) {
-    console.error("❌ Failed to create checkout session:", {
+    console.error("❌ Stripe session error:", {
       message: err.message,
       type: err.type,
       code: err.code,
     });
-    res
-      .status(500)
-      .json({ error: `Failed to create checkout session: ${err.message}` });
+    res.status(500).json({ error: `Checkout failed: ${err.message}` });
   }
 });
 
