@@ -1,7 +1,48 @@
-"use strict";
+// "use strict";
+
+// module.exports = {
+//   async up(queryInterface, Sequelize) {
+//     await queryInterface.createTable("lessons", {
+//       id: {
+//         allowNull: false,
+//         autoIncrement: true,
+//         primaryKey: true,
+//         type: Sequelize.INTEGER,
+//       },
+//       title: {
+//         type: Sequelize.STRING,
+//         allowNull: false,
+//       },
+//       content: {
+//         type: Sequelize.TEXT,
+//         allowNull: true,
+//       },
+//       courseId: {
+//         type: Sequelize.INTEGER,
+//         allowNull: false,
+//         references: { model: "Courses", key: "id" },
+//         onDelete: "CASCADE",
+//       },
+//       createdAt: {
+//         allowNull: false,
+//         type: Sequelize.DATE,
+//       },
+//       updatedAt: {
+//         allowNull: false,
+//         type: Sequelize.DATE,
+//       },
+//     });
+//   },
+
+//   async down(queryInterface, Sequelize) {
+//     await queryInterface.dropTable("lessons");
+//   },
+// };
+
+
 
 module.exports = {
-  async up(queryInterface, Sequelize) {
+  up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable("lessons", {
       id: {
         allowNull: false,
@@ -9,32 +50,47 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
+      courseId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: { model: "courses", key: "id" },
+      },
       title: {
         type: Sequelize.STRING,
         allowNull: false,
       },
-      content: {
-        type: Sequelize.TEXT,
-        allowNull: true,
-      },
-      courseId: {
+      orderIndex: {
         type: Sequelize.INTEGER,
         allowNull: false,
-        references: { model: "Courses", key: "id" },
-        onDelete: "CASCADE",
+      },
+      isUnitHeader: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false,
+      },
+      unitId: {
+        type: Sequelize.INTEGER,
+      },
+      contentType: {
+        type: Sequelize.STRING,
+      },
+      contentUrl: {
+        type: Sequelize.STRING,
+      },
+      isPreview: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false,
       },
       createdAt: {
-        allowNull: false,
         type: Sequelize.DATE,
+        allowNull: false,
       },
       updatedAt: {
-        allowNull: false,
         type: Sequelize.DATE,
+        allowNull: false,
       },
     });
   },
-
-  async down(queryInterface, Sequelize) {
+  down: async (queryInterface) => {
     await queryInterface.dropTable("lessons");
   },
 };
