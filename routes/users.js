@@ -215,7 +215,6 @@
 // module.exports = router;
 
 
-
 // Mathe-Class-Website-Backend/routes/users.js
 const express = require("express");
 const router = express.Router();
@@ -225,17 +224,28 @@ const { User } = require("../models");
 const authMiddleware = require("../middleware/authMiddleware");
 const sendEmail = require("../utils/sendEmail");
 
+// Validate JWT_SECRET
+if (!process.env.JWT_SECRET) {
+  console.error("FATAL: JWT_SECRET is not set in environment variables");
+  process.exit(1);
+}
+
 // Middleware: only admin/teacher
 function isAdminOrTeacher(req, res, next) {
   if (req.user && ["admin", "teacher"].includes(req.user.role)) {
     return next();
   }
-  return res.status(403).json({ error: "Forbidden" });
+  return res.status(403).json({ success: false, error: "Forbidden" });
 }
 
 // GET /api/v1/users/me
 router.get("/me", authMiddleware, async (req, res) => {
   try {
+    if (!req.user?.id) {
+      console.error("Users/me: No user ID in request, invalid token");
+      return res.status(401).json({ success: false, error: "Invalid token" });
+    }
+
     console.log("Users/me: Fetching user with id:", req.user.id);
     const user = await User.findByPk(req.user.id, {
       attributes: [
@@ -254,6 +264,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       console.log("Users/me: User not found for id:", req.user.id);
       return res.status(404).json({ success: false, error: "User not found" });
     }
+
     console.log("Users/me: User found:", {
       id: user.id,
       email: user.email,
@@ -264,7 +275,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     console.error("Users/me: Failed to fetch user profile:", {
       message: err.message,
       stack: err.stack,
-      id: req.user.id,
+      id: req.user?.id,
     });
     res.status(500).json({
       success: false,
@@ -294,76 +305,62 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
 });
 
 // POST /api/v1/users/approve/:id
-router.post(
-  "/approve/:id",
-  authMiddleware,
-  isAdminOrTeacher,
-  async (req, res) => {
-    try {
-      const user = await User.findByPk(req.params.id);
-      if (!user) {
-        return res
-          .status(404)
-          .json({ success: false, error: "User not found" });
-      }
-
-      user.approvalStatus = "approved";
-      await user.save();
-
-      // Send approval email
-      await sendEmail(
-        user.email,
-        "Your MathClass account has been approved ✅",
-        `<p>Hello ${user.name},</p><p>Your account has been approved. You may now <a href="${process.env.FRONTEND_URL}/login">log in</a>.</p>`
-      );
-
-      res.json({ success: true, message: "User approved successfully" });
-    } catch (err) {
-      console.error("Error approving user:", err);
-      res.status(500).json({
-        success: false,
-        error: "Failed to approve user",
-        details: err.message,
-      });
+router.post("/approve/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
     }
+
+    user.approvalStatus = "approved";
+    await user.save();
+
+    // Send approval email
+    await sendEmail(
+      user.email,
+      "Your MathClass account has been approved ✅",
+      `<p>Hello ${user.name},</p><p>Your account has been approved. You may now <a href="${process.env.FRONTEND_URL}/login">log in</a>.</p>`
+    );
+
+    res.json({ success: true, message: "User approved successfully" });
+  } catch (err) {
+    console.error("Error approving user:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to approve user",
+      details: err.message,
+    });
   }
-);
+});
 
 // POST /api/v1/users/reject/:id
-router.post(
-  "/reject/:id",
-  authMiddleware,
-  isAdminOrTeacher,
-  async (req, res) => {
-    try {
-      const user = await User.findByPk(req.params.id);
-      if (!user) {
-        return res
-          .status(404)
-          .json({ success: false, error: "User not found" });
-      }
-
-      user.approvalStatus = "rejected";
-      await user.save();
-
-      // Send rejection email
-      await sendEmail(
-        user.email,
-        "Your MathClass account was rejected ❌",
-        `<p>Hello ${user.name},</p><p>Unfortunately, your account has been rejected. If you believe this is a mistake, please contact support.</p>`
-      );
-
-      res.json({ success: true, message: "User rejected successfully" });
-    } catch (err) {
-      console.error("Error rejecting user:", err);
-      res.status(500).json({
-        success: false,
-        error: "Failed to reject user",
-        details: err.message,
-      });
+router.post("/reject/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
     }
+
+    user.approvalStatus = "rejected";
+    await user.save();
+
+    // Send rejection email
+    await sendEmail(
+      user.email,
+      "Your MathClass account was rejected ❌",
+      `<p>Hello ${user.name},</p><p>Unfortunately, your account has been rejected. If you believe this is a mistake, please contact support.</p>`
+    );
+
+    res.json({ success: true, message: "User rejected successfully" });
+  } catch (err) {
+    console.error("Error rejecting user:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to reject user",
+      details: err.message,
+    });
   }
-);
+});
 
 // POST /api/v1/users/login
 router.post("/login", async (req, res) => {
@@ -410,13 +407,6 @@ router.post("/login", async (req, res) => {
         .json({ success: false, error: "Your account has been rejected" });
     }
 
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({
-        success: false,
-        error: "Server error: missing JWT secret",
-      });
-    }
-
     // Update last login timestamp
     user.lastLogin = new Date();
     await user.save();
@@ -447,7 +437,10 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Login error:", {
+      message: err.message,
+      stack: err.stack,
+    });
     res.status(500).json({
       success: false,
       error: "Failed to log in",
@@ -461,9 +454,7 @@ router.delete("/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, error: "User not found" });
+      return res.status(404).json({ success: false, error: "User not found" });
     }
 
     await user.destroy();
