@@ -1,4 +1,3 @@
-
 // const express = require("express");
 // const router = express.Router();
 // const Stripe = require("stripe");
@@ -9,28 +8,33 @@
 // router.post("/create-checkout-session", authMiddleware, async (req, res) => {
 //   try {
 //     const { courseId, courseName, coursePrice } = req.body;
-//     console.log("Create checkout session request:", {
+//     const parsedPrice = parseFloat(coursePrice);
+
+//     console.log("🔁 Received at checkout session:", {
 //       courseId,
 //       courseName,
 //       coursePrice,
-//       userId: req.user.id,
+//       userId: req.user?.id,
 //     });
 
 //     if (
 //       !courseId ||
-//       !courseName ||
-//       !coursePrice ||
-//       isNaN(coursePrice) ||
-//       coursePrice <= 0
+//       typeof courseName !== "string" ||
+//       !courseName.trim() ||
+//       isNaN(parsedPrice) ||
+//       parsedPrice <= 0
 //     ) {
-//       console.log("Invalid or missing fields");
+//       console.log("❌ Invalid data received:", {
+//         courseId,
+//         courseName,
+//         coursePrice,
+//       });
 //       return res
 //         .status(400)
 //         .json({ error: "Valid course ID, name, and price are required" });
 //     }
 
 //     if (!process.env.STRIPE_SECRET_KEY || !process.env.FRONTEND_URL) {
-//       console.log("Missing environment variables");
 //       return res.status(500).json({ error: "Server configuration error" });
 //     }
 
@@ -44,7 +48,7 @@
 //               name: courseName,
 //               description: `Enrollment for course ID: ${courseId}`,
 //             },
-//             unit_amount: Math.round(coursePrice * 100),
+//             unit_amount: Math.round(parsedPrice * 100),
 //           },
 //           quantity: 1,
 //         },
@@ -58,18 +62,15 @@
 //       },
 //     });
 
-//     console.log("Checkout session created:", { sessionId: session.id });
+//     console.log("✅ Checkout session created:", { sessionId: session.id });
 //     res.json({ sessionId: session.id });
 //   } catch (err) {
-//     console.error("Failed to create checkout session:", {
+//     console.error("❌ Stripe session error:", {
 //       message: err.message,
 //       type: err.type,
 //       code: err.code,
-//       raw: err.raw,
 //     });
-//     res
-//       .status(500)
-//       .json({ error: `Failed to create checkout session: ${err.message}` });
+//     res.status(500).json({ error: `Checkout failed: ${err.message}` });
 //   }
 // });
 
@@ -82,6 +83,7 @@ const express = require("express");
 const router = express.Router();
 const Stripe = require("stripe");
 const authMiddleware = require("../middleware/authMiddleware");
+const { Course } = require("../models");
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -94,13 +96,14 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       courseId,
       courseName,
       coursePrice,
+      parsedPrice,
       userId: req.user?.id,
     });
 
+    // Validate inputs
     if (
       !courseId ||
-      typeof courseName !== "string" ||
-      !courseName.trim() ||
+      !courseName?.trim() ||
       isNaN(parsedPrice) ||
       parsedPrice <= 0
     ) {
@@ -114,7 +117,27 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
         .json({ error: "Valid course ID, name, and price are required" });
     }
 
+    // Verify course exists
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      console.log(`❌ Course not found for ID: ${courseId}`);
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Validate course details
+    if (
+      course.title !== courseName ||
+      parseFloat(course.price) !== parsedPrice
+    ) {
+      console.log("❌ Course details mismatch:", {
+        provided: { courseName, coursePrice: parsedPrice },
+        expected: { title: course.title, price: parseFloat(course.price) },
+      });
+      return res.status(400).json({ error: "Course details do not match" });
+    }
+
     if (!process.env.STRIPE_SECRET_KEY || !process.env.FRONTEND_URL) {
+      console.error("❌ Missing environment variables");
       return res.status(500).json({ error: "Server configuration error" });
     }
 
@@ -145,12 +168,11 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     console.log("✅ Checkout session created:", { sessionId: session.id });
     res.json({ sessionId: session.id });
   } catch (err) {
-    console.error("❌ Stripe session error:", {
+    console.error("❌ Error creating checkout session:", {
       message: err.message,
-      type: err.type,
-      code: err.code,
+      stack: err.stack,
     });
-    res.status(500).json({ error: `Checkout failed: ${err.message}` });
+    res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
 
