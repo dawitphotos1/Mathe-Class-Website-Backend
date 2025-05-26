@@ -1,6 +1,6 @@
 
 // const express = require("express");
-// const { Course, Lessons, Teachers } = require("../models");
+// const { Course, Teacher } = require("../models");
 // const router = express.Router();
 
 // router.get("/", async (req, res) => {
@@ -16,7 +16,7 @@
 //       price: Number(course.price),
 //     }));
 
-//     console.log("Fetched courses:", formattedCourses); // Debug
+//     console.log("Fetched courses:", formattedCourses);
 //     res.json({ success: true, courses: formattedCourses });
 //   } catch (err) {
 //     console.error("Error fetching courses:", err);
@@ -34,31 +34,16 @@
 //     const course = await Course.findByPk(courseId, {
 //       include: [
 //         {
-//           model: Lessons,
-//           as: "lessons",
-//           attributes: [
-//             "id",
-//             "title",
-//             "orderIndex",
-//             "isUnitHeader",
-//             "unitId",
-//             "contentType",
-//             "contentUrl",
-//             "isPreview",
-//           ],
-//           order: [["orderIndex", "ASC"]],
-//         },
-//         {
-//           model: Teachers,
+//           model: Teacher,
 //           as: "teacher",
 //           attributes: ["id", "name", "email"],
-//           required: false, // Allow course even if teacher is missing
+//           required: false,
 //         },
 //       ],
 //     });
 
 //     if (!course) {
-//       console.log(`Course not found for ID: ${courseId}`); // Debug
+//       console.log(`Course not found for ID: ${courseId}`);
 //       return res.status(404).json({
 //         success: false,
 //         error: "Course not found",
@@ -66,17 +51,17 @@
 //     }
 
 //     const courseData = course.toJSON();
-//     courseData.unitCount = courseData.lessons.filter(
-//       (l) => l.isUnitHeader
-//     ).length;
-//     courseData.lessonCount = courseData.lessons.length - courseData.unitCount;
+//     // Placeholder for lessons
+//     courseData.lessons = [];
+//     courseData.unitCount = 0;
+//     courseData.lessonCount = 0;
 
 //     if (!courseData.teacher) {
-//       console.warn(`Teacher not found for course ID: ${courseId}`); // Debug
+//       console.warn(`Teacher not found for course ID: ${courseId}`);
 //       courseData.teacher = { id: null, name: "Unknown", email: null };
 //     }
 
-//     console.log("Fetched course:", courseData); // Debug
+//     console.log("Fetched course:", courseData);
 //     res.json({ success: true, ...courseData });
 //   } catch (err) {
 //     console.error("Error fetching course:", err);
@@ -92,14 +77,13 @@
 
 
 
-
 const express = require("express");
-const { Course, Teacher } = require("../models");
+const models = require("../models");
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const courses = await Course.findAll({
+    const courses = await models.Course.findAll({
       attributes: ["id", "title", "description", "price"],
     });
 
@@ -110,10 +94,9 @@ router.get("/", async (req, res) => {
       price: Number(course.price),
     }));
 
-    console.log("Fetched courses:", formattedCourses);
     res.json({ success: true, courses: formattedCourses });
   } catch (err) {
-    console.error("Error fetching courses:", err);
+    console.error("❌ Error fetching courses:", err.message);
     res.status(500).json({
       success: false,
       error: "Failed to fetch courses",
@@ -125,19 +108,19 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const courseId = req.params.id;
-    const course = await Course.findByPk(courseId, {
+
+    // ✅ Use direct model reference + correct alias
+    const course = await models.Course.findByPk(courseId, {
       include: [
         {
-          model: Teacher,
-          as: "teacher",
+          model: models.sequelize.models.User, // ✅ direct from sequelize
+          as: "teacher", // ✅ must match .associate alias
           attributes: ["id", "name", "email"],
-          required: false,
         },
       ],
     });
 
     if (!course) {
-      console.log(`Course not found for ID: ${courseId}`);
       return res.status(404).json({
         success: false,
         error: "Course not found",
@@ -145,20 +128,18 @@ router.get("/:id", async (req, res) => {
     }
 
     const courseData = course.toJSON();
-    // Placeholder for lessons
     courseData.lessons = [];
     courseData.unitCount = 0;
     courseData.lessonCount = 0;
 
     if (!courseData.teacher) {
-      console.warn(`Teacher not found for course ID: ${courseId}`);
       courseData.teacher = { id: null, name: "Unknown", email: null };
     }
 
-    console.log("Fetched course:", courseData);
     res.json({ success: true, ...courseData });
   } catch (err) {
-    console.error("Error fetching course:", err);
+    console.error("❌ Error fetching course:", err.message);
+    console.error("❌ Stack trace:", err.stack);
     res.status(500).json({
       success: false,
       error: "Failed to fetch course",
