@@ -77,13 +77,14 @@
 
 
 
+// Mathe-Class-Website-Backend/routes/courses.js
 const express = require("express");
-const models = require("../models");
+const { Course, User } = require("../models"); // Changed Teacher to User
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const courses = await models.Course.findAll({
+    const courses = await Course.findAll({
       attributes: ["id", "title", "description", "price"],
     });
 
@@ -94,9 +95,10 @@ router.get("/", async (req, res) => {
       price: Number(course.price),
     }));
 
+    console.log("Fetched courses:", formattedCourses);
     res.json({ success: true, courses: formattedCourses });
   } catch (err) {
-    console.error("❌ Error fetching courses:", err.message);
+    console.error("Error fetching courses:", err);
     res.status(500).json({
       success: false,
       error: "Failed to fetch courses",
@@ -108,19 +110,28 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const courseId = req.params.id;
+    // Validate courseId is numeric
+    if (isNaN(courseId)) {
+      console.log(`Invalid course ID: ${courseId}`);
+      return res.status(400).json({
+        success: false,
+        error: "Invalid course ID",
+      });
+    }
 
-    // ✅ Use direct model reference + correct alias
-    const course = await models.Course.findByPk(courseId, {
+    const course = await Course.findByPk(courseId, {
       include: [
         {
-          model: models.sequelize.models.User, // ✅ direct from sequelize
-          as: "teacher", // ✅ must match .associate alias
+          model: User, // Changed from Teacher to User
+          as: "teacher",
           attributes: ["id", "name", "email"],
+          required: false,
         },
       ],
     });
 
     if (!course) {
+      console.log(`Course not found for ID: ${courseId}`);
       return res.status(404).json({
         success: false,
         error: "Course not found",
@@ -128,18 +139,23 @@ router.get("/:id", async (req, res) => {
     }
 
     const courseData = course.toJSON();
-    courseData.lessons = [];
+    courseData.lessons = []; // Placeholder
     courseData.unitCount = 0;
     courseData.lessonCount = 0;
 
     if (!courseData.teacher) {
+      console.warn(`Teacher not found for course ID: ${courseId}`);
       courseData.teacher = { id: null, name: "Unknown", email: null };
     }
 
+    console.log("Fetched course:", courseData);
     res.json({ success: true, ...courseData });
   } catch (err) {
-    console.error("❌ Error fetching course:", err.message);
-    console.error("❌ Stack trace:", err.stack);
+    console.error("Error fetching course:", {
+      message: err.message,
+      stack: err.stack,
+      courseId: req.params.id,
+    });
     res.status(500).json({
       success: false,
       error: "Failed to fetch course",
