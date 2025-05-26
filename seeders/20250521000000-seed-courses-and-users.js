@@ -1,5 +1,3 @@
-
-
 module.exports = {
   up: async (queryInterface) => {
     // Clear existing courses to avoid conflicts

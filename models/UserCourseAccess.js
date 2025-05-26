@@ -1,4 +1,3 @@
-
 const { Model, DataTypes } = require("sequelize");
 
 class UserCourseAccess extends Model {
