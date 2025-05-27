@@ -126,7 +126,7 @@ function isAdminOrTeacher(req, res, next) {
 
 // GET pending enrollments
 router.get(
-  "/admin/enrollments/pending",
+  "/enrollments/pending",
   authMiddleware,
   isAdminOrTeacher,
   async (req, res) => {
@@ -149,7 +149,7 @@ router.get(
 
 // GET approved enrollments
 router.get(
-  "/admin/enrollments/approved",
+  "/enrollments/approved",
   authMiddleware,
   isAdminOrTeacher,
   async (req, res) => {
