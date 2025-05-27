@@ -65,6 +65,36 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
+// GET /api/v1/users/approved
+router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
+  try {
+    const approvedUsers = await User.findAll({
+      where: { approvalStatus: "approved", role: "student" },
+      attributes: ["id", "name", "email", "subject", "createdAt"],
+    });
+    res.json(approvedUsers);
+  } catch (err) {
+    console.error("Error fetching approved users:", err);
+    res.status(500).json({ error: "Failed to fetch approved users" });
+  }
+});
+
+// GET /api/v1/users/rejected
+router.get("/rejected", authMiddleware, isAdminOrTeacher, async (req, res) => {
+  try {
+    const rejectedUsers = await User.findAll({
+      where: { approvalStatus: "rejected", role: "student" },
+      attributes: ["id", "name", "email", "subject", "createdAt"],
+    });
+    res.json(rejectedUsers);
+  } catch (err) {
+    console.error("Error fetching rejected users:", err);
+    res.status(500).json({ error: "Failed to fetch rejected users" });
+  }
+});
+
+
+
 // POST /api/v1/users/approve/:id
 router.post(
   "/approve/:id",

@@ -13,6 +13,8 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
 ];
+const stripeWebhook = require("./routes/stripeWebhook");
+app.use("/api/v1/stripe", stripeWebhook); // Mount at /api/v1/stripe/webhook
 
 app.use(
   cors({
