@@ -82,6 +82,8 @@
 
 
 
+
+// ✅ server.js
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
@@ -113,17 +115,17 @@ app.use(
   })
 );
 
-// ✅ Stripe webhook (MUST go before express.json())
+// ✅ Stripe webhook must be before express.json()
 const stripeWebhook = require("./routes/stripeWebhook");
 app.use("/api/v1/stripe", stripeWebhook);
 
-// ✅ Middlewares
+// ✅ Middleware
 app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// ✅ Rate limiting
+// ✅ Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -137,7 +139,7 @@ app.use("/api/v1/users", require("./routes/users"));
 app.use("/api/v1/courses", require("./routes/courses"));
 app.use("/api/v1/payments", require("./routes/payments"));
 app.use("/api/v1/email", require("./routes/email"));
-app.use("/api/v1/enrollments", require("./routes/enrollments")); // ✅ Updated path
+app.use("/api/v1/enrollments", require("./routes/enrollments"));
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/progress", require("./routes/progress"));
 
@@ -149,7 +151,7 @@ app.get("/health", (req, res) => {
 // ✅ Error handler
 app.use(require("./middleware/errorHandler"));
 
-// ✅ Start server
+// ✅ Server Start
 const PORT = process.env.PORT || 5000;
 (async () => {
   try {
@@ -165,4 +167,3 @@ const PORT = process.env.PORT || 5000;
     process.exit(1);
   }
 })();
-
