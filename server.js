@@ -16,6 +16,9 @@ const allowedOrigins = [
 const stripeWebhook = require("./routes/stripeWebhook");
 app.use("/api/v1/stripe", stripeWebhook); // Mount at /api/v1/stripe/webhook
 
+const enrollmentRoutes = require("./routes/enrollments");
+app.use("/api/v1", enrollmentRoutes);
+
 app.use(
   cors({
     origin: function (origin, callback) {
