@@ -9,10 +9,12 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
   try {
     const { courseId, courseName, coursePrice } = req.body;
+    const parsedCourseId = parseInt(courseId, 10);
     const parsedPrice = parseFloat(coursePrice);
 
-    console.log("🔁 Received at checkout session:", {
+    console.log("Create checkout session:", {
       courseId,
+      parsedCourseId,
       courseName,
       coursePrice,
       parsedPrice,
@@ -21,13 +23,15 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
 
     // Validate inputs
     if (
-      !courseId ||
+      !parsedCourseId ||
+      isNaN(parsedCourseId) ||
       !courseName?.trim() ||
       isNaN(parsedPrice) ||
       parsedPrice <= 0
     ) {
-      console.log("❌ Invalid data received:", {
+      console.log("Invalid data received:", {
         courseId,
+        parsedCourseId,
         courseName,
         coursePrice,
       });
@@ -37,10 +41,12 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     }
 
     // Verify course exists
-    const course = await Course.findByPk(courseId);
+    const course = await Course.findByPk(parsedCourseId);
     if (!course) {
-      console.log(`❌ Course not found for ID: ${courseId}`);
-      return res.status(404).json({ error: "Course not found" });
+      console.log(`Course not found for ID: ${parsedCourseId}`);
+      return res
+        .status(404)
+        .json({ error: `Course not found for ID ${parsedCourseId}` });
     }
 
     // Validate course details
@@ -48,7 +54,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       course.title !== courseName ||
       parseFloat(course.price) !== parsedPrice
     ) {
-      console.log("❌ Course details mismatch:", {
+      console.log("Course details mismatch:", {
         provided: { courseName, coursePrice: parsedPrice },
         expected: { title: course.title, price: parseFloat(course.price) },
       });
@@ -56,7 +62,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     }
 
     if (!process.env.STRIPE_SECRET_KEY || !process.env.FRONTEND_URL) {
-      console.error("❌ Missing environment variables");
+      console.error("Missing environment variables");
       return res.status(500).json({ error: "Server configuration error" });
     }
 
@@ -68,7 +74,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
             currency: "usd",
             product_data: {
               name: courseName,
-              description: `Enrollment for course ID: ${courseId}`,
+              description: `Enrollment for course ID: ${parsedCourseId}`,
             },
             unit_amount: Math.round(parsedPrice * 100),
           },
@@ -80,14 +86,17 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       cancel_url: `${process.env.FRONTEND_URL}/courses`,
       metadata: {
         userId: req.user.id.toString(),
-        courseId: courseId.toString(),
+        courseId: parsedCourseId.toString(),
       },
     });
 
-    console.log("✅ Checkout session created:", { sessionId: session.id });
+    console.log("Checkout session created:", {
+      sessionId: session.id,
+      metadata: session.metadata,
+    });
     res.json({ sessionId: session.id });
   } catch (err) {
-    console.error("❌ Error creating checkout session:", {
+    console.error("Error creating checkout session:", {
       message: err.message,
       stack: err.stack,
     });
