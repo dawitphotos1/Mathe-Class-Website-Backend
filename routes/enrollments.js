@@ -137,7 +137,8 @@ const path = require("path");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
-const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected);
+const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
+
 
 // Middleware: Only allow admins and teachers
 function isAdminOrTeacher(req, res, next) {
