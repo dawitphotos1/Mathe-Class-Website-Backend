@@ -47,7 +47,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       },
     });
 
-    res.json({ url: session.url });
+    res.json({ sessionId: session.id });
   } catch (error) {
     console.error("❌ Error creating checkout session:", error);
     res.status(500).json({ error: "Failed to create checkout session" });
