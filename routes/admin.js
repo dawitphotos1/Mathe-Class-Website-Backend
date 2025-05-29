@@ -1,6 +1,6 @@
 
 const express = require("express");
-const router = express.Router();
+const router = express.Router(); // ✅ This was missing
 const authMiddleware = require("../middleware/authMiddleware");
 
 // Middleware to restrict to admin
@@ -11,10 +11,10 @@ function isAdmin(req, res, next) {
   return res.status(403).json({ error: "Forbidden" });
 }
 
-// Placeholder for admin-specific routes (e.g., user management)
-// Add routes as needed
+// Example admin-only route
 router.get("/health", authMiddleware, isAdmin, (req, res) => {
   res.json({ status: "Admin API is healthy" });
 });
 
 module.exports = router;
+
