@@ -1,3 +1,5 @@
+
+// models/index.js
 const { Sequelize } = require("sequelize");
 const sequelize = require("../config/db");
 
@@ -8,18 +10,21 @@ const initUserCourseAccess = require("./UserCourseAccess");
 
 const models = {};
 
+// Sequelize setup
 models.Sequelize = Sequelize;
 models.sequelize = sequelize;
 
+// Initialize models
 models.User = initUser(sequelize);
 models.Lesson = initLesson(sequelize);
 models.Course = initCourse(sequelize);
 models.UserCourseAccess = initUserCourseAccess(sequelize);
 
-// Setup associations
-models.User.associate(models);
-models.Lesson.associate(models);
-models.UserCourseAccess.associate(models);
-models.Course.associate(models);
+// 🔐 Setup associations (after models are initialized)
+if (models.User.associate) models.User.associate(models);
+if (models.Lesson.associate) models.Lesson.associate(models);
+if (models.Course.associate) models.Course.associate(models);
+if (models.UserCourseAccess.associate) models.UserCourseAccess.associate(models);
 
 module.exports = models;
+

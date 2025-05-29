@@ -1,4 +1,5 @@
 
+
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -11,8 +12,6 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
 
-
-// Middleware: Only allow admins and teachers
 function isAdminOrTeacher(req, res, next) {
   if (req.user && ["admin", "teacher"].includes(req.user.role)) {
     return next();
@@ -20,7 +19,7 @@ function isAdminOrTeacher(req, res, next) {
   return res.status(403).json({ error: "Forbidden" });
 }
 
-// GET /api/v1/enrollments/pending
+// GET pending enrollments
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const pending = await UserCourseAccess.findAll({
@@ -38,7 +37,7 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// GET /api/v1/enrollments/approved
+// GET approved enrollments
 router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const approved = await UserCourseAccess.findAll({
@@ -56,9 +55,10 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// POST /api/v1/enrollments/approve
+// POST approve enrollment
 router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
+
   try {
     const access = await UserCourseAccess.findOne({
       where: { userId, courseId },
@@ -72,13 +72,23 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
       return res.status(404).json({ error: "Enrollment not found" });
     }
 
+    if (!access.user || !access.course) {
+      console.error("Missing user or course info in enrollment:", access);
+      return res.status(500).json({ error: "Incomplete enrollment data" });
+    }
+
     access.approved = true;
     await access.save();
 
-    const logMsg = `[APPROVED] ${new Date().toISOString()} - ${access.user.email} for "${access.course.title}"\n`;
+    const logMsg = `[APPROVED] ${new Date().toISOString()} - ${
+      access.user.email
+    } for "${access.course.title}"\n`;
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
 
-    const { subject, html } = courseEnrollmentApproved(access.user, access.course);
+    const { subject, html } = courseEnrollmentApproved(
+      access.user,
+      access.course
+    );
     await sendEmail(access.user.email, subject, html);
 
     res.json({ message: "Enrollment approved and email sent" });
@@ -88,7 +98,7 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// POST /api/v1/enrollments/reject
+// POST reject enrollment
 router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
   try {
@@ -104,13 +114,18 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
       return res.status(404).json({ error: "Enrollment not found" });
     }
 
-    await access.destroy();
-
-    const logMsg = `[REJECTED] ${new Date().toISOString()} - ${access.user.email} from "${access.course.title}"\n`;
+    const logMsg = `[REJECTED] ${new Date().toISOString()} - ${
+      access.user?.email || "unknown"
+    } from "${access.course?.title || "unknown"}"\n`;
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
 
-    const { subject, html } = courseEnrollmentRejected(access.user, access.course);
+    const { subject, html } = courseEnrollmentRejected(
+      access.user,
+      access.course
+    );
     await sendEmail(access.user.email, subject, html);
+
+    await access.destroy();
 
     res.json({ message: "Enrollment rejected and email sent" });
   } catch (err) {
@@ -119,13 +134,12 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// POST /api/v1/enrollments/confirm
+// POST confirm enrollment (Stripe)
 router.post("/confirm", authMiddleware, async (req, res) => {
   try {
     const { session_id } = req.body;
-    const userId = req.user.id; // From JWT token
+    const userId = req.user.id;
 
-    // Verify Stripe session
     const session = await stripe.checkout.sessions.retrieve(session_id);
     if (session.payment_status !== "paid") {
       return res.status(400).json({ error: "Payment not completed" });
@@ -133,7 +147,6 @@ router.post("/confirm", authMiddleware, async (req, res) => {
 
     const { courseId } = session.metadata;
 
-    // Find or create enrollment
     let enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId },
       include: [
@@ -143,13 +156,13 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     });
 
     if (!enrollment) {
-      // Create enrollment if it doesn't exist
       enrollment = await UserCourseAccess.create({
         userId,
         courseId,
-        approved: false, // Pending teacher/admin approval
+        approved: false,
         accessGrantedAt: new Date(),
       });
+
       enrollment = await UserCourseAccess.findOne({
         where: { userId, courseId },
         include: [
@@ -159,17 +172,21 @@ router.post("/confirm", authMiddleware, async (req, res) => {
       });
     }
 
-    // Log the enrollment attempt
-    const logMsg = `[PENDING] ${new Date().toISOString()} - ${enrollment.user.email} for "${enrollment.course.title}"\n`;
+    const logMsg = `[PENDING] ${new Date().toISOString()} - ${
+      enrollment.user.email
+    } for "${enrollment.course.title}"\n`;
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
 
-    // Send confirmation email (pending approval)
-    const { subject, html } = courseEnrollmentApproved(enrollment.user, enrollment.course);
+    const { subject, html } = courseEnrollmentApproved(
+      enrollment.user,
+      enrollment.course
+    );
     await sendEmail(enrollment.user.email, subject, html);
 
     res.json({
       success: true,
-      message: "Enrollment confirmation received. Pending teacher/admin approval.",
+      message:
+        "Enrollment confirmation received. Pending teacher/admin approval.",
     });
   } catch (error) {
     console.error("❌ Error confirming enrollment:", error);
@@ -178,3 +195,4 @@ router.post("/confirm", authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+
