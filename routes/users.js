@@ -244,20 +244,49 @@ router.delete("/:id", authMiddleware, isAdminOrTeacher, async (req, res) => {
 });
 
 // POST /api/v1/users/confirm-enrollment
+
+// POST /api/v1/users/confirm-enrollment
 router.post("/confirm-enrollment", authMiddleware, async (req, res) => {
   try {
     const { session_id } = req.body;
-    console.log("Confirm enrollment request:", {
-      session_id,
-      userId: req.user.id,
-      headers: req.headers,
-      auth: req.user,
-    });
+
+    console.log("🧪 Received session_id:", session_id);
+    console.log("🧪 Authenticated user ID:", req.user?.id);
 
     if (!session_id) {
-      console.log("Missing session_id in request body");
+      console.log("❌ No session_id in request body.");
       return res.status(400).json({ error: "Session ID is required" });
     }
+
+    let session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(session_id);
+      console.log("✅ Stripe session:", {
+        id: session.id,
+        payment_status: session.payment_status,
+        metadata: session.metadata,
+      });
+    } catch (err) {
+      console.log("❌ Stripe error:", err.message);
+      return res.status(400).json({ error: "Invalid session ID" });
+    }
+
+    if (session.payment_status !== "paid") {
+      console.log("❌ Session not paid:", session.payment_status);
+      return res.status(400).json({ error: "Payment not completed" });
+    }
+
+    const courseId = parseInt(session.metadata?.courseId, 10);
+    if (!courseId || isNaN(courseId)) {
+      console.log(
+        "❌ Missing or invalid courseId in metadata:",
+        session.metadata
+      );
+      return res
+        .status(400)
+        .json({ error: "Course ID not found in session metadata" });
+    }
+    // Continue as before...
 
     // Verify Stripe session
     let session;
