@@ -1,3 +1,5 @@
+
+// 📁 routes/payments.js
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
@@ -9,13 +11,15 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
     const { courseId, courseName, coursePrice } = req.body;
     const userId = req.user.id;
 
-    // Verify course exists
+    if (!courseId || !courseName || !coursePrice) {
+      return res.status(400).json({ error: "Missing course data" });
+    }
+
     const course = await Course.findByPk(courseId);
     if (!course) {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    // Create pending enrollment
     await UserCourseAccess.create({
       userId,
       courseId,
@@ -23,17 +27,14 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       accessGrantedAt: new Date(),
     });
 
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
         {
           price_data: {
             currency: "usd",
-            product_data: {
-              name: courseName,
-            },
-            unit_amount: Math.round(coursePrice * 100), // Convert to cents
+            product_data: { name: courseName },
+            unit_amount: Math.round(coursePrice * 100),
           },
           quantity: 1,
         },
@@ -49,7 +50,7 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
 
     res.json({ sessionId: session.id });
   } catch (error) {
-    console.error("❌ Error creating checkout session:", error);
+    console.error("❌ Stripe session error:", error);
     res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
