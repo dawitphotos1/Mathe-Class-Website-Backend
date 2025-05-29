@@ -5,6 +5,22 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
 
+// ++++++++++++++++++++++++++++++++++
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED REJECTION:", err.message);
+  process.exit(1);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err.message);
+  process.exit(1);
+});
+// +++++++++++++++++++++++++++++++++++++
+
+
+
+
+
 dotenv.config();
 const app = express();
 
