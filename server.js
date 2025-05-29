@@ -60,6 +60,7 @@ app.use("/api/v1/enrollments", require("./routes/enrollments"));
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/progress", require("./routes/progress"));
 
+
 // Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });

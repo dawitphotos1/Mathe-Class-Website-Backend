@@ -1,34 +1,35 @@
+
 const express = require("express");
 const router = express.Router();
-const { UserCourseAccess, Lesson } = require("../models");
+const { UserCourseAccess } = require("../models");
 const authMiddleware = require("../middleware/authMiddleware");
 
+// GET /api/v1/progress
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Fetch enrolled courses for this user (no broken include!)
     const enrollments = await UserCourseAccess.findAll({
       where: { userId },
-      include: [
-        {
-          model: Lesson,
-          as: "Lessons",
-          attributes: ["id", "title", "courseId"],
-        },
-      ],
     });
 
     let completedLessons = 0;
     let totalLessons = 0;
     let currentCourse = null;
 
+    // NOTE: Replace this logic with actual lesson tracking when ready
     for (const enrollment of enrollments) {
-      const courseLessons = enrollment.Lessons || [];
+      const courseId = enrollment.courseId;
+
+      // Placeholder: simulate total and completed lessons
+      const courseLessons = []; // You can later fetch lessons using Course.findAll({ where: { courseId } })
+
       totalLessons += courseLessons.length;
-      completedLessons += courseLessons.length; // Placeholder: assumes all lessons are completed
+      completedLessons += courseLessons.length;
 
       if (!currentCourse && courseLessons.length > 0) {
-        currentCourse = enrollment.courseId;
+        currentCourse = courseId;
       }
     }
 
@@ -48,3 +49,4 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+
