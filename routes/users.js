@@ -260,16 +260,20 @@ router.post("/confirm-enrollment", authMiddleware, async (req, res) => {
 
     let session;
     try {
-      session = await stripe.checkout.sessions.retrieve(session_id);
+      const session = await stripe.checkout.sessions.retrieve(session_id);
       console.log("✅ Stripe session:", {
         id: session.id,
         payment_status: session.payment_status,
         metadata: session.metadata,
       });
+
+      const courseId = parseInt(session.metadata?.courseId, 10);
+      // ...rest of your logic
     } catch (err) {
-      console.log("❌ Stripe error:", err.message);
+      console.log("❌ Stripe session retrieval failed:", err.message);
       return res.status(400).json({ error: "Invalid session ID" });
     }
+    
 
     if (session.payment_status !== "paid") {
       console.log("❌ Session not paid:", session.payment_status);
