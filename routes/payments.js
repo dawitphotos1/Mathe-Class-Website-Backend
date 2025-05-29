@@ -1,17 +1,76 @@
-// 📁 routes/payments.js
+// // 📁 routes/payments.js
+// const express = require("express");
+// const router = express.Router();
+// const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+// const { UserCourseAccess, Course } = require("../models");
+// const authMiddleware = require("../middleware/authMiddleware");
+
+// router.post("/create-checkout-session", authMiddleware, async (req, res) => {
+//   try {
+//     const { courseId, courseName, coursePrice } = req.body;
+//     const userId = req.user.id;
+
+//     if (!courseId || !courseName || !coursePrice) {
+//       return res.status(400).json({ error: "Missing course data" });
+//     }
+
+//     const course = await Course.findByPk(courseId);
+//     if (!course) {
+//       return res.status(404).json({ error: "Course not found" });
+//     }
+
+//     await UserCourseAccess.create({
+//       userId,
+//       courseId,
+//       approved: false,
+//       accessGrantedAt: new Date(),
+//     });
+
+//     const session = await stripe.checkout.sessions.create({
+//       payment_method_types: ["card"],
+//       line_items: [
+//         {
+//           price_data: {
+//             currency: "usd",
+//             product_data: { name: courseName },
+//             unit_amount: Math.round(coursePrice * 100),
+//           },
+//           quantity: 1,
+//         },
+//       ],
+//       mode: "payment",
+//       success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+//       cancel_url: `${process.env.FRONTEND_URL}/payment-cancel`,
+//       metadata: {
+//         userId: String(userId),
+//         courseId: String(courseId),
+//       },
+//     });
+
+//     res.json({ sessionId: session.id });
+//   } catch (error) {
+//     console.error("❌ Stripe session error:", error);
+//     res.status(500).json({ error: "Failed to create checkout session" });
+//   }
+// });
+
+// module.exports = router;
+
+
+// Mathe-Class-Website-Backend/routes/payments.js
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const { UserCourseAccess, Course } = require("../models");
+const { Course, UserCourseAccess } = require("../models");
 const authMiddleware = require("../middleware/authMiddleware");
 
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
   try {
-    const { courseId, courseName, coursePrice } = req.body;
-    const userId = req.user.id;
+    const { courseId } = req.body;
+    const user = req.user;
 
-    if (!courseId || !courseName || !coursePrice) {
-      return res.status(400).json({ error: "Missing course data" });
+    if (!courseId) {
+      return res.status(400).json({ error: "Course ID is required" });
     }
 
     const course = await Course.findByPk(courseId);
@@ -19,12 +78,16 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    await UserCourseAccess.create({
-      userId,
-      courseId,
-      approved: false,
-      accessGrantedAt: new Date(),
+    const existingAccess = await UserCourseAccess.findOne({
+      where: { userId: user.id, courseId },
     });
+    if (existingAccess) {
+      return res.status(400).json({ error: "Already enrolled in this course" });
+    }
+
+    if (!course.price || course.price <= 0) {
+      return res.status(400).json({ error: "Invalid course price" });
+    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -32,8 +95,11 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
         {
           price_data: {
             currency: "usd",
-            product_data: { name: courseName },
-            unit_amount: Math.round(coursePrice * 100),
+            product_data: {
+              name: course.title,
+              description: course.description || "Learn mathematics with expert guidance",
+            },
+            unit_amount: Math.round(course.price * 100),
           },
           quantity: 1,
         },
@@ -41,17 +107,44 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       mode: "payment",
       success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment-cancel`,
-      metadata: {
-        userId: String(userId),
-        courseId: String(courseId),
-      },
+      metadata: { userId: String(user.id), courseId: String(course.id) },
     });
 
     res.json({ sessionId: session.id });
-  } catch (error) {
-    console.error("❌ Stripe session error:", error);
-    res.status(500).json({ error: "Failed to create checkout session" });
+  } catch (err) {
+    console.error("Error creating checkout session:", {
+      message: err.message,
+      stack: err.stack,
+      type: err.type,
+      code: err.code,
+    });
+    res.status(500).json({ error: `Failed to create checkout session: ${err.message}` });
   }
+});
+
+router.get("/success", async (req, res) => {
+  const { session_id } = req.query;
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    const { userId, courseId } = session.metadata;
+
+    await UserCourseAccess.create({
+      userId,
+      courseId,
+      accessGrantedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    res.redirect(`${process.env.FRONTEND_URL}/payment-success`);
+  } catch (err) {
+    console.error("Error processing payment success:", err);
+    res.redirect(`${process.env.FRONTEND_URL}/payment-cancel`);
+  }
+});
+
+router.get("/cancel", (req, res) => {
+  res.redirect(`${process.env.FRONTEND_URL}/payment-cancel`);
 });
 
 module.exports = router;
