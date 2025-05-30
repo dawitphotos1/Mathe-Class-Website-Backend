@@ -1,5 +1,3 @@
-
-// Mathe-Class-Website-Backend/routes/payments.js
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
@@ -39,7 +37,8 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
             currency: "usd",
             product_data: {
               name: course.title,
-              description: course.description || "Learn mathematics with expert guidance",
+              description:
+                course.description || "Learn mathematics with expert guidance",
             },
             unit_amount: Math.round(course.price * 100),
           },
@@ -49,7 +48,10 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       mode: "payment",
       success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment-cancel`,
-      metadata: { userId: String(user.id), courseId: String(course.id) },
+      metadata: {
+        userId: String(user.id),
+        courseId: String(course.id),
+      },
     });
 
     res.json({ sessionId: session.id });
@@ -60,30 +62,14 @@ router.post("/create-checkout-session", authMiddleware, async (req, res) => {
       type: err.type,
       code: err.code,
     });
-    res.status(500).json({ error: `Failed to create checkout session: ${err.message}` });
+    res
+      .status(500)
+      .json({ error: `Failed to create checkout session: ${err.message}` });
   }
 });
 
-router.get("/success", async (req, res) => {
-  const { session_id } = req.query;
-  try {
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-    const { userId, courseId } = session.metadata;
-
-    await UserCourseAccess.create({
-      userId,
-      courseId,
-      accessGrantedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    res.redirect(`${process.env.FRONTEND_URL}/payment-success`);
-  } catch (err) {
-    console.error("Error processing payment success:", err);
-    res.redirect(`${process.env.FRONTEND_URL}/payment-cancel`);
-  }
-});
+// ❌ DELETE THIS — not needed anymore
+// router.get("/success", async (req, res) => { ... });
 
 router.get("/cancel", (req, res) => {
   res.redirect(`${process.env.FRONTEND_URL}/payment-cancel`);
