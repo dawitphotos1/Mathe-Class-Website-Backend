@@ -1,5 +1,3 @@
-
-// 📁 server.js (Backend)
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
@@ -19,11 +17,6 @@ process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err.message);
   process.exit(1);
 });
-if (process.env.NODE_ENV !== "production") {
-  const emailPreview = require("./routes/emailPreview");
-  app.use("/dev", emailPreview);
-}
-
 
 // ✅ Setup CORS (important: before routes)
 const allowedOrigins = [
@@ -45,29 +38,33 @@ app.use(
   })
 );
 
-
-
 // ✅ Stripe webhook BEFORE body parsing
 app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
 
-// ✅ Trust proxy for secure cookies and headers (important on Render)
+// ✅ Trust proxy (important on Render or Netlify functions)
 app.set("trust proxy", 1);
 
 // ✅ Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Serve static assets from /public
+// ✅ Serve static assets
 app.use(express.static("public"));
 
 // ✅ Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
 });
 app.use("/api/v1/", limiter);
 
-// ✅ Routes
+// ✅ Development-only preview email route
+if (process.env.NODE_ENV !== "production") {
+  const emailPreview = require("./routes/emailPreview");
+  app.use("/dev", emailPreview);
+}
+
+// ✅ Mount API routes
 app.use("/api/v1/auth", require("./routes/auth"));
 app.use("/api/v1/users", require("./routes/users"));
 app.use("/api/v1/courses", require("./routes/courses"));
@@ -77,12 +74,12 @@ app.use("/api/v1/enrollments", require("./routes/enrollments"));
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/progress", require("./routes/progress"));
 
-// ✅ Health check endpoint
+// ✅ Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// ✅ 404 fallback
+// ✅ Fallback for 404
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
@@ -90,7 +87,7 @@ app.use((req, res) => {
 // ✅ Global error handler
 app.use(require("./middleware/errorHandler"));
 
-// ✅ Start the server
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 
 (async () => {

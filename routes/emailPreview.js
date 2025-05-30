@@ -2,17 +2,16 @@ const express = require("express");
 const router = express.Router();
 const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
 
-// Dev-only preview route
 router.get("/preview-enrollment-email", (req, res) => {
   const sampleUser = {
-    name: "John Doe",
-    email: "john@example.com",
+    name: "Jane Doe",
+    email: "jane@example.com",
   };
 
   const sampleCourse = {
     title: "Algebra 1",
     description:
-      "Introduction to Algebra covering variables, equations, and more.",
+      "Learn the fundamentals of algebra: equations, variables, and more.",
     price: 1200,
   };
 
