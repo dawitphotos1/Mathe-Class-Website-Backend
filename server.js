@@ -19,6 +19,11 @@ process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err.message);
   process.exit(1);
 });
+if (process.env.NODE_ENV !== "production") {
+  const emailPreview = require("./routes/emailPreview");
+  app.use("/dev", emailPreview);
+}
+
 
 // ✅ Setup CORS (important: before routes)
 const allowedOrigins = [
@@ -39,6 +44,8 @@ app.use(
     credentials: true,
   })
 );
+
+
 
 // ✅ Stripe webhook BEFORE body parsing
 app.use("/api/v1/stripe", require("./routes/stripeWebhook"));

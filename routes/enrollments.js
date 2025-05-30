@@ -1,4 +1,3 @@
-
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -7,7 +6,7 @@ const sendEmail = require("../utils/sendEmail");
 const fs = require("fs");
 const path = require("path");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-
+const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
 
@@ -179,7 +178,7 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     } for "${enrollment.course.title}"\n`;
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
 
-    const { subject, html } = courseEnrollmentApproved(
+    const { subject, html } = courseEnrollmentPending(
       enrollment.user,
       enrollment.course
     );
@@ -193,35 +192,6 @@ router.post("/confirm", authMiddleware, async (req, res) => {
   } catch (error) {
     console.error("❌ Error confirming enrollment:", error);
     res.status(500).json({ error: "Failed to confirm enrollment" });
-  }
-});
-
-// ✅ GET /my-courses (For students to view their approved courses)
-router.get("/my-courses", authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const enrollments = await UserCourseAccess.findAll({
-      where: {
-        userId,
-        approved: true,
-      },
-      include: [{ model: Course, as: "course" }],
-      order: [["accessGrantedAt", "DESC"]],
-    });
-
-    const courses = enrollments.map((e) => ({
-      id: e.course.id,
-      title: e.course.title,
-      description: e.course.description,
-      price: e.course.price,
-      enrolledAt: e.accessGrantedAt,
-    }));
-
-    res.json({ success: true, courses });
-  } catch (err) {
-    console.error("❌ Error fetching enrolled courses:", err);
-    res.status(500).json({ error: "Failed to fetch enrolled courses" });
   }
 });
 
