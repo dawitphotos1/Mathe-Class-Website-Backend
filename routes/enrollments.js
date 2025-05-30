@@ -129,12 +129,25 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     const { session_id } = req.body;
     const userId = req.user.id;
 
+    if (!session_id) {
+      return res.status(400).json({ error: "Missing session_id" });
+    }
+
     const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (!session) {
+      return res.status(400).json({ error: "Stripe session not found" });
+    }
+
     if (session.payment_status !== "paid") {
       return res.status(400).json({ error: "Payment not completed" });
     }
 
-    const { courseId } = session.metadata;
+    const { courseId } = session.metadata || {};
+    if (!courseId) {
+      return res
+        .status(400)
+        .json({ error: "Missing course ID in session metadata" });
+    }
 
     let enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId },
