@@ -1,5 +1,4 @@
 
-
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -19,7 +18,7 @@ function isAdminOrTeacher(req, res, next) {
   return res.status(403).json({ error: "Forbidden" });
 }
 
-// GET pending enrollments
+// ✅ GET /pending enrollments (Admin/Teacher only)
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const pending = await UserCourseAccess.findAll({
@@ -37,7 +36,7 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// GET approved enrollments
+// ✅ GET /approved enrollments (Admin/Teacher only)
 router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const approved = await UserCourseAccess.findAll({
@@ -55,7 +54,7 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// POST approve enrollment
+// ✅ POST /approve enrollment
 router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
 
@@ -68,14 +67,7 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
       ],
     });
 
-    if (!access) {
-      return res.status(404).json({ error: "Enrollment not found" });
-    }
-
-    if (!access.user || !access.course) {
-      console.error("Missing user or course info in enrollment:", access);
-      return res.status(500).json({ error: "Incomplete enrollment data" });
-    }
+    if (!access) return res.status(404).json({ error: "Enrollment not found" });
 
     access.approved = true;
     await access.save();
@@ -98,7 +90,7 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// POST reject enrollment
+// ✅ POST /reject enrollment
 router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
   try {
@@ -110,9 +102,7 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
       ],
     });
 
-    if (!access) {
-      return res.status(404).json({ error: "Enrollment not found" });
-    }
+    if (!access) return res.status(404).json({ error: "Enrollment not found" });
 
     const logMsg = `[REJECTED] ${new Date().toISOString()} - ${
       access.user?.email || "unknown"
@@ -126,7 +116,6 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
     await sendEmail(access.user.email, subject, html);
 
     await access.destroy();
-
     res.json({ message: "Enrollment rejected and email sent" });
   } catch (err) {
     console.error("Error rejecting enrollment:", err);
@@ -134,7 +123,7 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// POST confirm enrollment (Stripe)
+// ✅ POST /confirm (Stripe confirmation)
 router.post("/confirm", authMiddleware, async (req, res) => {
   try {
     const { session_id } = req.body;
@@ -194,5 +183,33 @@ router.post("/confirm", authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+// ✅ GET /my-courses (For students to view their approved courses)
+router.get("/my-courses", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
 
+    const enrollments = await UserCourseAccess.findAll({
+      where: {
+        userId,
+        approved: true,
+      },
+      include: [{ model: Course, as: "course" }],
+      order: [["accessGrantedAt", "DESC"]],
+    });
+
+    const courses = enrollments.map((e) => ({
+      id: e.course.id,
+      title: e.course.title,
+      description: e.course.description,
+      price: e.course.price,
+      enrolledAt: e.accessGrantedAt,
+    }));
+
+    res.json({ success: true, courses });
+  } catch (err) {
+    console.error("❌ Error fetching enrolled courses:", err);
+    res.status(500).json({ error: "Failed to fetch enrolled courses" });
+  }
+});
+
+module.exports = router;
