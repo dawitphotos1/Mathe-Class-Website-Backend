@@ -75,7 +75,7 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
       access.user.email
     } for "${access.course.title}"\n`;
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
-
+    console.log("📥 Received approval for:", req.body);
     const { subject, html } = courseEnrollmentApproved(
       access.user,
       access.course
