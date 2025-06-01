@@ -76,23 +76,30 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
     await access.save();
 
     const logMsg = `[APPROVED] ${new Date().toISOString()} - ${
-      access.user.email
-    } for "${access.course.title}"\n`;
+      access.user?.email || "unknown"
+    } for "${access.course?.title || "unknown"}"\n`;
+
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
+
+    // 🧪 Debug: Print email before sending
+    console.log("📧 Sending approval email to:", access.user.email);
 
     const { subject, html } = courseEnrollmentApproved(
       access.user,
       access.course
     );
+
     await sendEmail(access.user.email, subject, html);
 
-    res.json({ message: "Enrollment approved and email sent" });
+    console.log("✅ Enrollment approved and email sent");
+
+    // ✅ Send success response
+    return res.json({ success: true, message: "Enrollment approved" });
   } catch (err) {
     console.error("❌ Error in approve route:", err);
-    res.status(500).json({ error: "Something went wrong on the server." });
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
-
 
 // ✅ POST /reject enrollment
 router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
