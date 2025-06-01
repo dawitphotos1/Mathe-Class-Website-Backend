@@ -56,6 +56,7 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
 // ✅ POST /approve enrollment
 router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
+  console.log("📥 Approve request received:", { userId, courseId });
 
   try {
     const access = await UserCourseAccess.findOne({
@@ -66,7 +67,10 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
       ],
     });
 
-    if (!access) return res.status(404).json({ error: "Enrollment not found" });
+    if (!access) {
+      console.error("❌ Enrollment not found");
+      return res.status(404).json({ error: "Enrollment not found" });
+    }
 
     access.approved = true;
     await access.save();
@@ -75,7 +79,7 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
       access.user.email
     } for "${access.course.title}"\n`;
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
-    console.log("📥 Received approval for:", req.body);
+
     const { subject, html } = courseEnrollmentApproved(
       access.user,
       access.course
@@ -84,10 +88,11 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
 
     res.json({ message: "Enrollment approved and email sent" });
   } catch (err) {
-    console.error("Error approving enrollment:", err);
-    res.status(500).json({ error: "Failed to approve enrollment" });
+    console.error("❌ Error in approve route:", err);
+    res.status(500).json({ error: "Something went wrong on the server." });
   }
 });
+
 
 // ✅ POST /reject enrollment
 router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
