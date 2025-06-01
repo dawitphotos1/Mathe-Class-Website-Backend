@@ -51,6 +51,12 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ Serve static assets
 app.use(express.static("public"));
 
+// ✅ Request logger (add this here 👇)
+app.use((req, res, next) => {
+  console.log(`📥 [${req.method}] ${req.originalUrl}`);
+  next();
+});
+
 // ✅ Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
