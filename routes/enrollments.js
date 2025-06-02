@@ -206,5 +206,30 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to confirm enrollment" });
   }
 });
+// ✅ GET /api/v1/enrollments/my-courses
+router.get("/my-courses", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const enrollments = await UserCourseAccess.findAll({
+      where: { userId, approved: true },
+      include: [{ model: Course, as: "course" }],
+      order: [["accessGrantedAt", "DESC"]],
+    });
+
+    const formatted = enrollments.map((entry) => ({
+      id: entry.course.id,
+      title: entry.course.title,
+      description: entry.course.description,
+      price: entry.course.price,
+      enrolledAt: entry.accessGrantedAt,
+    }));
+
+    res.json({ success: true, courses: formatted });
+  } catch (err) {
+    console.error("❌ Error fetching my courses:", err);
+    res.status(500).json({ error: "Failed to load enrolled courses" });
+  }
+});
 
 module.exports = router;
