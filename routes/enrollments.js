@@ -137,9 +137,7 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     }
 
     const session = await stripe.checkout.sessions.retrieve(session_id);
-    console.log("✅ Stripe Session Retrieved:", session);
-    console.log("✅ Metadata:", session.metadata);
-    
+
     console.log("🔍 Stripe Session Fetched:", {
       id: session.id,
       payment_status: session.payment_status,
