@@ -56,7 +56,6 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
 // ✅ POST /approve
 router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
-  console.log("📥 Approve request received:", { userId, courseId });
 
   try {
     const access = await UserCourseAccess.findOne({
@@ -126,7 +125,7 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ POST /confirm (Fixed)
+// ✅ POST /confirm
 router.post("/confirm", authMiddleware, async (req, res) => {
   try {
     const { session_id } = req.body;
@@ -150,15 +149,18 @@ router.post("/confirm", authMiddleware, async (req, res) => {
         .json({ error: "Invalid or incomplete payment session" });
     }
 
-    if (!session.metadata || !session.metadata.courseId) {
-      console.error("❌ Missing courseId in Stripe session metadata", session);
+    const courseId = parseInt(session.metadata?.courseId);
+    if (!courseId) {
+      console.error(
+        "❌ Missing or invalid courseId in Stripe metadata:",
+        session.metadata
+      );
       return res
         .status(400)
-        .json({ error: "Missing course ID in session metadata" });
+        .json({ error: "Missing or invalid course ID in metadata" });
     }
 
-    const courseId = parseInt(session.metadata.courseId);
-
+    // Find or create the enrollment
     let enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId },
       include: [
@@ -175,6 +177,7 @@ router.post("/confirm", authMiddleware, async (req, res) => {
         accessGrantedAt: new Date(),
       });
 
+      // Re-fetch with associations
       enrollment = await UserCourseAccess.findOne({
         where: { userId, courseId },
         include: [
@@ -184,24 +187,25 @@ router.post("/confirm", authMiddleware, async (req, res) => {
       });
     }
 
-    if (!enrollment || !enrollment.user || !enrollment.course) {
-      console.error(
-        "❌ Enrollment missing user or course association:",
-        enrollment
-      );
+    // Fallback if associations failed
+    let user = enrollment.user;
+    let course = enrollment.course;
+
+    if (!user) user = await User.findByPk(userId);
+    if (!course) course = await Course.findByPk(courseId);
+
+    if (!user || !course) {
+      console.error("❌ Could not load user or course:", { user, course });
       return res.status(500).json({ error: "Enrollment is incomplete" });
     }
 
     const logMsg = `[PENDING] ${new Date().toISOString()} - ${
-      enrollment.user.email
-    } for "${enrollment.course.title}"\n`;
+      user.email
+    } for "${course.title}"\n`;
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
 
-    const { subject, html } = courseEnrollmentPending(
-      enrollment.user,
-      enrollment.course
-    );
-    await sendEmail(enrollment.user.email, subject, html);
+    const { subject, html } = courseEnrollmentPending(user, course);
+    await sendEmail(user.email, subject, html);
 
     res.json({
       success: true,
@@ -213,7 +217,6 @@ router.post("/confirm", authMiddleware, async (req, res) => {
       message: error.message,
       stack: error.stack,
     });
-    
     res.status(500).json({ error: "Failed to confirm enrollment" });
   }
 });
