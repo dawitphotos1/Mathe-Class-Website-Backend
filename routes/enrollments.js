@@ -17,7 +17,7 @@ function isAdminOrTeacher(req, res, next) {
   return res.status(403).json({ error: "Forbidden" });
 }
 
-// ✅ GET /pending enrollments (Admin/Teacher only)
+// ✅ GET /pending enrollments
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const pending = await UserCourseAccess.findAll({
@@ -35,7 +35,7 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ GET /approved enrollments (Admin/Teacher only)
+// ✅ GET /approved enrollments
 router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const approved = await UserCourseAccess.findAll({
@@ -53,7 +53,7 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ POST /approve enrollment
+// ✅ POST /approve
 router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
   console.log("📥 Approve request received:", { userId, courseId });
@@ -68,7 +68,6 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
     });
 
     if (!access) {
-      console.error("❌ Enrollment not found");
       return res.status(404).json({ error: "Enrollment not found" });
     }
 
@@ -78,32 +77,25 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
     const logMsg = `[APPROVED] ${new Date().toISOString()} - ${
       access.user?.email || "unknown"
     } for "${access.course?.title || "unknown"}"\n`;
-
     fs.appendFileSync(path.join(__dirname, "../logs/enrollments.log"), logMsg);
-
-    // 🧪 Debug: Print email before sending
-    console.log("📧 Sending approval email to:", access.user.email);
 
     const { subject, html } = courseEnrollmentApproved(
       access.user,
       access.course
     );
-
     await sendEmail(access.user.email, subject, html);
 
-    console.log("✅ Enrollment approved and email sent");
-
-    // ✅ Send success response
-    return res.json({ success: true, message: "Enrollment approved" });
+    res.json({ success: true, message: "Enrollment approved" });
   } catch (err) {
     console.error("❌ Error in approve route:", err);
-    return res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: "Something went wrong" });
   }
 });
 
-// ✅ POST /reject enrollment
+// ✅ POST /reject
 router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
+
   try {
     const access = await UserCourseAccess.findOne({
       where: { userId, courseId },
@@ -134,7 +126,7 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ POST /confirm (Stripe confirmation)
+// ✅ POST /confirm (Fixed)
 router.post("/confirm", authMiddleware, async (req, res) => {
   try {
     const { session_id } = req.body;
@@ -145,20 +137,29 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     }
 
     const session = await stripe.checkout.sessions.retrieve(session_id);
-    if (!session) {
-      return res.status(400).json({ error: "Stripe session not found" });
+    console.log("✅ Stripe Session Retrieved:", session);
+    console.log("✅ Metadata:", session.metadata);
+    
+    console.log("🔍 Stripe Session Fetched:", {
+      id: session.id,
+      payment_status: session.payment_status,
+      metadata: session.metadata,
+    });
+
+    if (!session || session.payment_status !== "paid") {
+      return res
+        .status(400)
+        .json({ error: "Invalid or incomplete payment session" });
     }
 
-    if (session.payment_status !== "paid") {
-      return res.status(400).json({ error: "Payment not completed" });
-    }
-
-    const { courseId } = session.metadata || {};
-    if (!courseId) {
+    if (!session.metadata || !session.metadata.courseId) {
+      console.error("❌ Missing courseId in Stripe session metadata", session);
       return res
         .status(400)
         .json({ error: "Missing course ID in session metadata" });
     }
+
+    const courseId = parseInt(session.metadata.courseId);
 
     let enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId },
@@ -169,7 +170,7 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     });
 
     if (!enrollment) {
-      enrollment = await UserCourseAccess.create({
+      await UserCourseAccess.create({
         userId,
         courseId,
         approved: false,
@@ -183,6 +184,14 @@ router.post("/confirm", authMiddleware, async (req, res) => {
           { model: Course, as: "course" },
         ],
       });
+    }
+
+    if (!enrollment || !enrollment.user || !enrollment.course) {
+      console.error(
+        "❌ Enrollment missing user or course association:",
+        enrollment
+      );
+      return res.status(500).json({ error: "Enrollment is incomplete" });
     }
 
     const logMsg = `[PENDING] ${new Date().toISOString()} - ${
@@ -202,11 +211,16 @@ router.post("/confirm", authMiddleware, async (req, res) => {
         "Enrollment confirmation received. Pending teacher/admin approval.",
     });
   } catch (error) {
-    console.error("❌ Error confirming enrollment:", error);
+    console.error("❌ Error confirming enrollment:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    
     res.status(500).json({ error: "Failed to confirm enrollment" });
   }
 });
-// ✅ GET /api/v1/enrollments/my-courses
+
+// ✅ GET /my-courses
 router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
