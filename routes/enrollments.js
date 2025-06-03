@@ -273,14 +273,17 @@ function isAdminOrTeacher(req, res, next) {
 
 // 🛠️ Ensure logs directory and write log
 function appendToLogFile(message) {
-  const logsDir = path.join(__dirname, "../logs");
-  const logFilePath = path.join(logsDir, "enrollments.log");
+  const logDir = path.join(__dirname, "..", "logs");
+  const logFilePath = path.join(logDir, "enrollments.log");
 
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir);
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir);
   }
 
-  fs.appendFileSync(logFilePath, message);
+  fs.appendFileSync(
+    logFilePath,
+    `Enrollment confirmed: ${new Date().toISOString()} - User ${userId} enrolled in Course ${courseId}\n`
+  );
 }
 
 // ✅ GET /pending enrollments
