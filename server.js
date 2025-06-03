@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
+const enrollmentRoutes = require("./routes/enrollmentRoutes");
 
 dotenv.config();
 const app = express();
@@ -40,7 +41,7 @@ app.use(
 
 // ✅ Stripe webhook BEFORE body parsing
 app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
-
+app.use("/api/v1/enrollments", enrollmentRoutes);
 // ✅ Trust proxy (important on Render or Netlify functions)
 app.set("trust proxy", 1);
 
