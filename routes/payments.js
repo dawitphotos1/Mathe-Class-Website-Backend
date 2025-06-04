@@ -146,7 +146,6 @@
 
 
 
-
 // payments.js
 const express = require("express");
 const router = express.Router();
@@ -249,7 +248,11 @@ router.post("/confirm", authMiddleware, async (req, res) => {
 
     res.status(200).json({ success: true, message: "Enrollment confirmed" });
   } catch (err) {
-    console.error("❌ Error confirming payment:", err);
+    console.error("❌ Error confirming payment:", {
+      message: err.message,
+      stack: err.stack,
+      metadata: err?.session?.metadata,
+    });
     res.status(500).json({ error: "Failed to confirm enrollment" });
   }
 });
