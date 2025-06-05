@@ -112,6 +112,8 @@
 // module.exports = router;
 
 
+
+
 const express = require("express");
 const router = express.Router();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
@@ -120,8 +122,6 @@ const authMiddleware = require("../middleware/authMiddleware");
 const sendEmail = require("../utils/sendEmail");
 const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
 const enrollmentPendingAdmin = require("../utils/emails/enrollmentPendingAdmin");
-
-const ADMIN_EMAIL = "admin@mathclass.com"; // 🔁 Replace with your actual admin email or make dynamic later
 
 // ✅ Create Stripe Checkout Session
 router.post("/create-checkout-session", authMiddleware, async (req, res) => {
@@ -242,21 +242,22 @@ router.post("/confirm", authMiddleware, async (req, res) => {
       const { subject, html } = courseEnrollmentPending(student, course);
       await sendEmail(student.email, subject, html);
 
-      // Email to admin
-      const adminEmailContent = enrollmentPendingAdmin(student, course);
-      await sendEmail(
-        ADMIN_EMAIL,
-        adminEmailContent.subject,
-        adminEmailContent.html
-      );
+      // ✅ Dynamically send to all admins
+      const adminUsers = await User.findAll({ where: { role: "admin" } });
+      for (const admin of adminUsers) {
+        const adminEmailContent = enrollmentPendingAdmin(student, course);
+        await sendEmail(
+          admin.email,
+          adminEmailContent.subject,
+          adminEmailContent.html
+        );
+      }
     }
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Enrollment confirmed and pending approval",
-      });
+    res.status(200).json({
+      success: true,
+      message: "Enrollment confirmed and pending approval",
+    });
   } catch (err) {
     console.error("❌ Error confirming payment:", {
       message: err.message,
