@@ -205,16 +205,27 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     const metadataUserId = parseInt(metadata?.userId);
     const authenticatedUserId = parseInt(user.id);
 
-    if (
-      !courseId ||
-      !metadataUserId ||
-      metadataUserId !== authenticatedUserId
-    ) {
-      console.warn("❌ Invalid metadata or mismatched user.");
-      console.log("Metadata:", metadata);
-      console.log("Authenticated user ID:", authenticatedUserId);
-      return res.status(400).json({ error: "Invalid or mismatched metadata" });
+    // 🧪 Diagnostic logging
+    console.log("✅ Metadata received from Stripe:", metadata);
+    console.log("🧑 From Stripe metadata userId:", metadataUserId);
+    console.log("🔐 From Auth token userId:", authenticatedUserId);
+
+    if (!courseId || !metadataUserId || isNaN(authenticatedUserId)) {
+      return res
+        .status(400)
+        .json({ error: "Missing or invalid user or course ID" });
     }
+
+    if (metadataUserId !== authenticatedUserId) {
+      return res.status(400).json({
+        error: "Invalid or mismatched metadata",
+        details: {
+          fromStripe: metadataUserId,
+          fromToken: authenticatedUserId,
+        },
+      });
+    }
+
 
     const existingAccess = await UserCourseAccess.findOne({
       where: { userId: authenticatedUserId, courseId },
