@@ -1,4 +1,3 @@
-
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -27,10 +26,7 @@ function appendToLogFile(message) {
     fs.mkdirSync(logDir);
   }
 
-  fs.appendFileSync(
-    logFilePath,
-    `Enrollment confirmed: ${new Date().toISOString()} - User ${userId} enrolled in Course ${courseId}\n`
-  );
+  fs.appendFileSync(logFilePath, message);
 }
 
 // ✅ GET /pending enrollments
@@ -89,10 +85,16 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
     access.approved = true;
     await access.save();
 
-    const logMsg = `[APPROVED] ${new Date().toISOString()} - ${
-      access.user?.email || "unknown"
-    } for "${access.course?.title || "unknown"}"\n`;
-    appendToLogFile(logMsg);
+    try {
+      appendToLogFile(
+        `[APPROVED] ${new Date().toISOString()} - ${
+          access.user?.email || "unknown"
+        } for "${access.course?.title || "unknown"}"
+`
+      );
+    } catch (logErr) {
+      console.warn("⚠️ Failed to write to log file:", logErr.message);
+    }
 
     const { subject, html } = courseEnrollmentApproved(
       access.user,
