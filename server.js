@@ -1,7 +1,3 @@
-process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT EXCEPTION:", err.stack || err.message);
-  process.exit(1);
-});
 
 const express = require("express");
 const dotenv = require("dotenv");
