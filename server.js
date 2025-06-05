@@ -19,7 +19,7 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// ✅ Setup CORS (important: before routes)
+// ✅ Setup CORS (before routes)
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -28,20 +28,26 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn("❌ CORS blocked:", origin);
-        callback(new Error("Not allowed by CORS"));
+      if (!origin) {
+        // Allow server-to-server or Postman requests
+        return callback(null, true);
       }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      console.warn("❌ CORS blocked:", origin);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
 
+// ✅ Optional: handle preflight OPTIONS requests globally
+app.options("*", cors());
+
 // ✅ Stripe webhook BEFORE body parsing
 app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
-app.use("/api/v1/enrollments", enrollmentRoutes);
+
 // ✅ Trust proxy (important on Render or Netlify functions)
 app.set("trust proxy", 1);
 
@@ -52,7 +58,7 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ Serve static assets
 app.use(express.static("public"));
 
-// ✅ Request logger (add this here 👇)
+// ✅ Request logger
 app.use((req, res, next) => {
   console.log(`📥 [${req.method}] ${req.originalUrl}`);
   next();
@@ -113,3 +119,4 @@ const PORT = process.env.PORT || 5000;
     process.exit(1);
   }
 })();
+
