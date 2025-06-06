@@ -529,13 +529,16 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to load enrolled courses" });
   }
 });
-// ✅ DELETE /enrollments/:courseId
+
+// ✅ NEW: DELETE /enrollments/:courseId
 router.delete("/:courseId", authMiddleware, async (req, res) => {
   const userId = req.user.id;
   const courseId = parseInt(req.params.courseId);
 
   try {
-    const access = await UserCourseAccess.findOne({ where: { userId, courseId } });
+    const access = await UserCourseAccess.findOne({
+      where: { userId, courseId },
+    });
     if (!access) return res.status(404).json({ error: "Enrollment not found" });
 
     await access.destroy();
@@ -545,6 +548,5 @@ router.delete("/:courseId", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to unenroll" });
   }
 });
-
 
 module.exports = router;
