@@ -5,7 +5,8 @@ const {
   confirmEnrollment,
   approveEnrollment,
 } = require("../controllers/enrollmentController");
-const authenticate = require("../middleware/auth");
+const authenticate = require("../middleware/authMiddleware"); // ✅ matches your other files
+
 
 router.post("/confirm", authenticate, confirmEnrollment);
 router.post("/approve", authenticate, approveEnrollment); // ✅ new route
