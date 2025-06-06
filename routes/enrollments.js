@@ -514,14 +514,17 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
       order: [["accessGrantedAt", "DESC"]],
     });
 
-    const formatted = enrollments.map((entry) => ({
-      id: entry.course.id,
-      title: entry.course.title,
-      description: entry.course.description,
-      price: entry.course.price,
-      enrolledAt: entry.accessGrantedAt,
-      status: entry.approved ? "approved" : "pending",
-    }));
+    const formatted = enrollments.map((entry) => {
+      const c = entry.course;
+      return {
+        id: c?.id || null,
+        title: c?.title || "Unknown",
+        description: c?.description || "",
+        price: c?.price || 0,
+        enrolledAt: entry.accessGrantedAt,
+        status: entry.approved ? "approved" : "pending",
+      };
+    });
 
     res.json({ success: true, courses: formatted });
   } catch (err) {
