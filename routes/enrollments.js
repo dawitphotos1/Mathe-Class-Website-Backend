@@ -525,8 +525,8 @@ router.post("/confirm", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ UPDATED: GET /my-courses
-router.get("/my-courses", authMiddleware, async (req, res) {
+// ✅ GET /my-courses
+router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
