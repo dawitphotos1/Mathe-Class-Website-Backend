@@ -614,196 +614,16 @@ function appendToLogFile(message) {
   fs.appendFileSync(logFilePath, message);
 }
 
-router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
-  try {
-    const pending = await UserCourseAccess.findAll({
-      where: { approved: false },
-      include: [
-        { model: User, as: "user", attributes: ["id", "name", "email"] },
-        { model: Course, as: "course", attributes: ["id", "title"] },
-      ],
-      order: [["accessGrantedAt", "DESC"]],
-    });
-    res.json(pending);
-  } catch (err) {
-    console.error("Error fetching pending enrollments:", err);
-    res.status(500).json({ error: "Failed to fetch pending enrollments" });
-  }
-});
-
-router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
-  try {
-    const approved = await UserCourseAccess.findAll({
-      where: { approved: true },
-      include: [
-        { model: User, as: "user", attributes: ["id", "name", "email"] },
-        { model: Course, as: "course", attributes: ["id", "title"] },
-      ],
-      order: [["accessGrantedAt", "DESC"]],
-    });
-    res.json(approved);
-  } catch (err) {
-    console.error("Error fetching approved enrollments:", err);
-    res.status(500).json({ error: "Failed to fetch approved enrollments" });
-  }
-});
-
-router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
-  const { userId, courseId } = req.body;
-  try {
-    const access = await UserCourseAccess.findOne({
-      where: { userId, courseId },
-      include: [
-        { model: User, as: "user" },
-        { model: Course, as: "course" },
-      ],
-    });
-
-    if (!access) return res.status(404).json({ error: "Enrollment not found" });
-
-    access.approved = true;
-    await access.save();
-
-    try {
-      appendToLogFile(
-        `[APPROVED] ${new Date().toISOString()} - ${
-          access.user?.email || "unknown"
-        } for "${access.course?.title || "unknown"}"\n`
-      );
-    } catch (logErr) {
-      console.warn("⚠️ Failed to write to log file:", logErr.message);
-    }
-
-    const { subject, html } = courseEnrollmentApproved(
-      access.user,
-      access.course
-    );
-    await sendEmail(access.user.email, subject, html);
-
-    res.json({ success: true, message: "Enrollment approved" });
-  } catch (err) {
-    console.error("❌ Error in approve route:", err);
-    res.status(500).json({ error: "Something went wrong" });
-  }
-});
-
-router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
-  const { userId, courseId } = req.body;
-  try {
-    const access = await UserCourseAccess.findOne({
-      where: { userId, courseId },
-      include: [
-        { model: User, as: "user" },
-        { model: Course, as: "course" },
-      ],
-    });
-
-    if (!access) return res.status(404).json({ error: "Enrollment not found" });
-
-    const logMsg = `[REJECTED] ${new Date().toISOString()} - ${
-      access.user?.email || "unknown"
-    } from "${access.course?.title || "unknown"}"\n`;
-    appendToLogFile(logMsg);
-
-    const { subject, html } = courseEnrollmentRejected(
-      access.user,
-      access.course
-    );
-    await sendEmail(access.user.email, subject, html);
-
-    await access.destroy();
-    res.json({ message: "Enrollment rejected and email sent" });
-  } catch (err) {
-    console.error("Error rejecting enrollment:", err);
-    res.status(500).json({ error: "Failed to reject enrollment" });
-  }
-});
-
-router.post("/confirm", authMiddleware, async (req, res) => {
-  try {
-    const { session_id } = req.body;
-    const userId = req.user.id;
-
-    if (!session_id)
-      return res.status(400).json({ error: "Missing session_id" });
-
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-    if (!session || session.payment_status !== "paid") {
-      return res
-        .status(400)
-        .json({ error: "Invalid or incomplete payment session" });
-    }
-
-    const courseId = parseInt(session.metadata?.courseId);
-    if (!courseId) {
-      return res
-        .status(400)
-        .json({ error: "Missing or invalid course ID in metadata" });
-    }
-
-    let enrollment = await UserCourseAccess.findOne({
-      where: { userId, courseId },
-      include: [
-        { model: User, as: "user" },
-        { model: Course, as: "course" },
-      ],
-    });
-
-    if (!enrollment) {
-      await UserCourseAccess.create({
-        userId,
-        courseId,
-        approved: false,
-        accessGrantedAt: new Date(),
-      });
-
-      enrollment = await UserCourseAccess.findOne({
-        where: { userId, courseId },
-        include: [
-          { model: User, as: "user" },
-          { model: Course, as: "course" },
-        ],
-      });
-    }
-
-    let user = enrollment.user;
-    let course = enrollment.course;
-
-    if (!user) user = await User.findByPk(userId);
-    if (!course) course = await Course.findByPk(courseId);
-
-    if (!user || !course)
-      return res.status(500).json({ error: "Enrollment is incomplete" });
-
-    appendToLogFile(
-      `[PENDING] ${new Date().toISOString()} - ${user.email} for "${
-        course.title
-      }"\n`
-    );
-
-    const { subject, html } = courseEnrollmentPending(user, course);
-    await sendEmail(user.email, subject, html);
-
-    res.json({
-      success: true,
-      message:
-        "Enrollment confirmation received. Pending teacher/admin approval.",
-    });
-  } catch (error) {
-    console.error("❌ Error confirming enrollment:", error);
-    res.status(500).json({ error: "Failed to confirm enrollment" });
-  }
-});
-
-// ✅ DEBUGGED: GET /my-courses
+// ✅ GET /my-courses (enhanced debug)
 router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
-    console.log("🔐 Authenticated user:", req.user);
+    console.log("🔐 /my-courses route hit");
+    console.log("🔑 Authenticated user:", req.user);
 
     const userId = req.user?.id;
     if (!userId) {
       console.error("❌ No user ID in request");
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Unauthorized: No user ID" });
     }
 
     const enrollments = await UserCourseAccess.findAll({
@@ -818,10 +638,17 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
       order: [["accessGrantedAt", "DESC"]],
     });
 
-    console.log("📦 Raw enrollments:");
+    if (!Array.isArray(enrollments)) {
+      console.error("❌ enrollments is not an array:", enrollments);
+      return res.status(500).json({ error: "Unexpected enrollments format" });
+    }
+
+    console.log("📦 Raw enrollments found:", enrollments.length);
+
     enrollments.forEach((e, i) => {
       console.log(`Enrollment ${i + 1}:`, {
-        course: e.course ? e.course.title : "⚠️ MISSING COURSE",
+        hasCourse: !!e.course,
+        courseTitle: e.course?.title || "MISSING",
         approved: e.approved,
       });
     });
@@ -841,10 +668,10 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
         };
       });
 
-    console.log("✅ Returning courses:", formatted);
+    console.log("✅ Returning courses:", formatted.length);
     res.json({ success: true, courses: formatted });
   } catch (err) {
-    console.error("🔥 FATAL ERROR in /my-courses:", {
+    console.error("🔥 FATAL ERROR in /my-courses route", {
       message: err.message,
       stack: err.stack,
     });
