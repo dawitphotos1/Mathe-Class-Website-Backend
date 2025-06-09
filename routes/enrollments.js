@@ -586,7 +586,6 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -606,7 +605,6 @@ function isAdminOrTeacher(req, res, next) {
   return res.status(403).json({ error: "Forbidden" });
 }
 
-// 🛠️ Ensure logs directory and write log
 function appendToLogFile(message) {
   const logDir = path.join(__dirname, "..", "logs");
   const logFilePath = path.join(logDir, "enrollments.log");
@@ -616,7 +614,6 @@ function appendToLogFile(message) {
   fs.appendFileSync(logFilePath, message);
 }
 
-// ✅ GET /pending enrollments
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const pending = await UserCourseAccess.findAll({
@@ -634,7 +631,6 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ GET /approved enrollments
 router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const approved = await UserCourseAccess.findAll({
@@ -652,7 +648,6 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ POST /approve
 router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
   try {
@@ -664,9 +659,7 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
       ],
     });
 
-    if (!access) {
-      return res.status(404).json({ error: "Enrollment not found" });
-    }
+    if (!access) return res.status(404).json({ error: "Enrollment not found" });
 
     access.approved = true;
     await access.save();
@@ -694,7 +687,6 @@ router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ POST /reject
 router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   const { userId, courseId } = req.body;
   try {
@@ -727,15 +719,13 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// ✅ POST /confirm
 router.post("/confirm", authMiddleware, async (req, res) => {
   try {
     const { session_id } = req.body;
     const userId = req.user.id;
 
-    if (!session_id) {
+    if (!session_id)
       return res.status(400).json({ error: "Missing session_id" });
-    }
 
     const session = await stripe.checkout.sessions.retrieve(session_id);
     if (!session || session.payment_status !== "paid") {
@@ -782,14 +772,14 @@ router.post("/confirm", authMiddleware, async (req, res) => {
     if (!user) user = await User.findByPk(userId);
     if (!course) course = await Course.findByPk(courseId);
 
-    if (!user || !course) {
+    if (!user || !course)
       return res.status(500).json({ error: "Enrollment is incomplete" });
-    }
 
-    const logMsg = `[PENDING] ${new Date().toISOString()} - ${
-      user.email
-    } for "${course.title}"\n`;
-    appendToLogFile(logMsg);
+    appendToLogFile(
+      `[PENDING] ${new Date().toISOString()} - ${user.email} for "${
+        course.title
+      }"\n`
+    );
 
     const { subject, html } = courseEnrollmentPending(user, course);
     await sendEmail(user.email, subject, html);
@@ -805,21 +795,35 @@ router.post("/confirm", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ FIXED: GET /my-courses
+// ✅ DEBUGGED: GET /my-courses
 router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    console.log("🔐 Authenticated user:", req.user);
+
+    const userId = req.user?.id;
+    if (!userId) {
+      console.error("❌ No user ID in request");
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     const enrollments = await UserCourseAccess.findAll({
       where: { userId },
       include: [
         {
           model: Course,
-          as: "course",
+          as: "course", // must match alias from model association
           attributes: ["id", "slug", "title", "description", "price"],
         },
       ],
       order: [["accessGrantedAt", "DESC"]],
+    });
+
+    console.log("📦 Raw enrollments:");
+    enrollments.forEach((e, i) => {
+      console.log(`Enrollment ${i + 1}:`, {
+        course: e.course ? e.course.title : "⚠️ MISSING COURSE",
+        approved: e.approved,
+      });
     });
 
     const formatted = enrollments
@@ -837,15 +841,17 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
         };
       });
 
-    console.log("Returning my-courses:", formatted);
+    console.log("✅ Returning courses:", formatted);
     res.json({ success: true, courses: formatted });
   } catch (err) {
-    console.error("❌ Error fetching my courses:", err);
+    console.error("🔥 FATAL ERROR in /my-courses:", {
+      message: err.message,
+      stack: err.stack,
+    });
     res.status(500).json({ error: "Failed to load enrolled courses" });
   }
 });
 
-// ✅ DELETE /enrollments/:courseId
 router.delete("/:courseId", authMiddleware, async (req, res) => {
   const userId = req.user.id;
   const courseId = parseInt(req.params.courseId);
@@ -853,7 +859,6 @@ router.delete("/:courseId", authMiddleware, async (req, res) => {
     const access = await UserCourseAccess.findOne({
       where: { userId, courseId },
     });
-
     if (!access) return res.status(404).json({ error: "Enrollment not found" });
 
     await access.destroy();
