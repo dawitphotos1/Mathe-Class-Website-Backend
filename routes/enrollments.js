@@ -115,7 +115,6 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -127,6 +126,14 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
+
+// ✅ Thumbnail map based on category
+const THUMBNAIL_MAP = {
+  Math: "/thumbs/math.jpg",
+  Science: "/thumbs/science.jpg",
+  English: "/thumbs/english.jpg",
+  Uncategorized: "/thumbs/default.jpg",
+};
 
 function isAdminOrTeacher(req, res, next) {
   if (req.user && ["admin", "teacher"].includes(req.user.role)) {
@@ -193,13 +200,18 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
 
         if (!c) return null;
 
+        const category = c.category || "Uncategorized";
+        const thumbnail =
+          THUMBNAIL_MAP[category] || THUMBNAIL_MAP["Uncategorized"];
+
         return {
           id: c.id,
           slug: c.slug,
           title: c.title,
           description: c.description,
           price: c.price,
-          category: c.category || "Uncategorized",
+          category,
+          thumbnail,
           enrolledAt: entry.accessGrantedAt,
           status: entry.approved ? "approved" : "pending",
         };
