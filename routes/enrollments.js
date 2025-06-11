@@ -115,7 +115,6 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -192,7 +191,7 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
     const formatted = enrollments
       .map((entry, i) => {
         const c = entry.course;
-        console.log(`Enrollment ${i + 1}:\`, {
+        console.log(`Enrollment ${i + 1}:`, {
           hasCourse: !!c,
           courseTitle: c?.title || "MISSING",
           approved: entry.approved,
