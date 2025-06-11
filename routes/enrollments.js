@@ -115,6 +115,7 @@
 
 
 
+
 const express = require("express");
 const router = express.Router();
 const { UserCourseAccess, User, Course } = require("../models");
@@ -127,7 +128,6 @@ const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
 
-// ✅ Thumbnail map based on category
 const THUMBNAIL_MAP = {
   Math: "/thumbs/math.jpg",
   Science: "/thumbs/science.jpg",
@@ -192,7 +192,7 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
     const formatted = enrollments
       .map((entry, i) => {
         const c = entry.course;
-        console.log(`Enrollment ${i + 1}:`, {
+        console.log(`Enrollment ${i + 1}:\`, {
           hasCourse: !!c,
           courseTitle: c?.title || "MISSING",
           approved: entry.approved,
