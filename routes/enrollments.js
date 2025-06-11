@@ -38,54 +38,44 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
     console.log("🔐 /my-courses route hit");
     console.log("🔑 Authenticated user:", req.user);
-
+  
     const userId = req.user?.id;
     if (!userId) {
       console.error("❌ No user ID in request");
       return res.status(401).json({ error: "Unauthorized: No user ID" });
     }
-
+  
     const enrollments = await UserCourseAccess.findAll({
       where: { userId },
       include: [
         {
           model: Course,
           as: "course",
-          attributes: [
-            "id",
-            "slug",
-            "title",
-            "description",
-            "price",
-            "category",
-          ],
+          attributes: ["id", "slug", "title", "description", "price", "category"],
+          required: false, // 💡 add this to avoid failing if course is null
         },
       ],
       order: [["accessGrantedAt", "DESC"]],
     });
-
+  
     if (!Array.isArray(enrollments)) {
       console.error("❌ enrollments is not an array:", enrollments);
       return res.status(500).json({ error: "Unexpected enrollments format" });
     }
-
+  
     console.log("📦 Raw enrollments found:", enrollments.length);
-
+  
     const formatted = enrollments
       .map((entry, i) => {
         const c = entry.course;
-        console.log(`Enrollment ${i + 1}:`, {
-          hasCourse: !!c,
-          courseTitle: c?.title || "MISSING",
-          approved: entry.approved,
-        });
-
-        if (!c) return null;
-
+        if (!c) {
+          console.warn(`⚠️ Skipping enrollment ${i + 1}: no course found`);
+          return null;
+        }
+  
         const category = c.category || "Uncategorized";
-        const thumbnail =
-          THUMBNAIL_MAP[category] || THUMBNAIL_MAP["Uncategorized"];
-
+        const thumbnail = THUMBNAIL_MAP[category] || THUMBNAIL_MAP["Uncategorized"];
+  
         return {
           id: c.id,
           slug: c.slug,
@@ -99,7 +89,7 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
         };
       })
       .filter(Boolean);
-
+  
     console.log("✅ Returning courses:", formatted.length);
     res.json({ success: true, courses: formatted });
   } catch (err) {
@@ -109,7 +99,10 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
     });
     res.status(500).json({ error: "Failed to load enrolled courses" });
   }
-});
+  
+
+
+
 
 // ✅ DELETE /:courseId
 router.delete("/:courseId", authMiddleware, async (req, res) => {
