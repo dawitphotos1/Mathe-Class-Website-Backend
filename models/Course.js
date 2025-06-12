@@ -84,10 +84,10 @@ const { Model, DataTypes } = require("sequelize");
 function generateSlug(title) {
   return title
     .toLowerCase()
-    .replace(/&/g, "and") // replace & with "and"
-    .replace(/[^a-z0-9\s-]/g, "") // remove non-alphanumeric
-    .replace(/\s+/g, "-") // replace spaces with -
-    .replace(/-+/g, "-") // remove multiple dashes
+    .replace(/&/g, "and") // & → and
+    .replace(/[^a-z0-9\s-]/g, "") // remove punctuation
+    .replace(/\s+/g, "-") // spaces → dashes
+    .replace(/-+/g, "-") // collapse dashes
     .trim();
 }
 
@@ -159,7 +159,7 @@ const initCourse = (sequelize) => {
       timestamps: true,
       hooks: {
         beforeValidate: (course) => {
-          if (!course.slug && course.title) {
+          if (course.title) {
             course.slug = generateSlug(course.title);
           }
         },
