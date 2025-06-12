@@ -41,7 +41,7 @@ app.use(
 app.options("*", cors());
 
 // Stripe webhook
-app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
+// app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
 
 // Body parser
 app.set("trust proxy", 1);
