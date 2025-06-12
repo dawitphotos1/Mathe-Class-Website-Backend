@@ -18,7 +18,7 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// ✅ Setup CORS with headers and methods
+// ✅ Setup CORS
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -38,23 +38,22 @@ app.use(
   })
 );
 
-// ✅ Handle preflight requests
-app.options("*", cors());
+app.options("*", cors()); // Handle preflight requests
 
-// ✅ Stripe webhook BEFORE body parsing
+// ✅ Stripe webhook route — MUST come before body parsing middleware
 app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
 
 // ✅ Trust proxy for cookies/auth
 app.set("trust proxy", 1);
 
-// ✅ Body parsers
+// ✅ Body parsers — placed after Stripe webhook
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ✅ Serve static files
 app.use(express.static("public"));
 
-// ✅ Log all requests
+// ✅ Request logger
 app.use((req, res, next) => {
   console.log(`📥 [${req.method}] ${req.originalUrl}`);
   next();
@@ -73,7 +72,7 @@ if (process.env.NODE_ENV !== "production") {
   app.use("/dev", emailPreview);
 }
 
-// ✅ Mount API routes
+// ✅ Mount all API routes
 app.use("/api/v1/auth", require("./routes/auth"));
 app.use("/api/v1/users", require("./routes/users"));
 app.use("/api/v1/courses", require("./routes/courses"));
