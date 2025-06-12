@@ -7,7 +7,7 @@ const { sequelize } = require("./models");
 dotenv.config();
 const app = express();
 
-// Global crash handling
+// ✅ Global crash handling
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err.message);
   process.exit(1);
@@ -18,7 +18,7 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// CORS
+// ✅ Setup CORS with headers and methods
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -27,7 +27,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // Allow Postman and server-to-server requests
       if (allowedOrigins.includes(origin)) return callback(null, true);
       console.warn("❌ CORS blocked:", origin);
       return callback(new Error("Not allowed by CORS"));
@@ -38,39 +38,42 @@ app.use(
   })
 );
 
+// ✅ Handle preflight requests
 app.options("*", cors());
 
-// Stripe webhook
-// app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
+// ✅ Stripe webhook BEFORE body parsing
+app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
 
-// Body parser
+// ✅ Trust proxy for cookies/auth
 app.set("trust proxy", 1);
+
+// ✅ Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
+// ✅ Serve static files
 app.use(express.static("public"));
 
-// Request logging
+// ✅ Log all requests
 app.use((req, res, next) => {
   console.log(`📥 [${req.method}] ${req.originalUrl}`);
   next();
 });
 
-// Rate limiting
+// ✅ Apply rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
 });
 app.use("/api/v1/", limiter);
 
-// Dev preview
+// ✅ Development email preview route
 if (process.env.NODE_ENV !== "production") {
   const emailPreview = require("./routes/emailPreview");
   app.use("/dev", emailPreview);
 }
 
-// Routes
+// ✅ Mount API routes
 app.use("/api/v1/auth", require("./routes/auth"));
 app.use("/api/v1/users", require("./routes/users"));
 app.use("/api/v1/courses", require("./routes/courses"));
@@ -80,20 +83,20 @@ app.use("/api/v1/enrollments", require("./routes/enrollments"));
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/progress", require("./routes/progress"));
 
-// Health
+// ✅ Health check route
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// 404
+// ✅ Catch-all for unknown routes
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// Global error handler
+// ✅ Global error handler
 app.use(require("./middleware/errorHandler"));
 
-// Start server
+// ✅ Start the server
 const PORT = process.env.PORT || 5000;
 
 (async () => {
