@@ -1,3 +1,4 @@
+
 // const express = require("express");
 // const router = express.Router();
 // const { UserCourseAccess, User, Course } = require("../models");
@@ -33,17 +34,126 @@
 //   fs.appendFileSync(logFilePath, message);
 // }
 
-// // ✅ GET /my-courses
+// // ==================== ENROLLMENT ENDPOINTS ====================
+
+// // GET /api/v1/enrollments/pending - Get all pending enrollments
+// router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
+//   try {
+//     const enrollments = await UserCourseAccess.findAll({
+//       where: { approved: false },
+//       include: [
+//         {
+//           model: User,
+//           as: "user",
+//           attributes: ["id", "name", "email"],
+//         },
+//         {
+//           model: Course,
+//           as: "course",
+//           attributes: ["id", "title", "description", "price"],
+//         },
+//       ],
+//       order: [["accessGrantedAt", "DESC"]],
+//     });
+
+//     res.json(enrollments);
+//   } catch (err) {
+//     console.error("Error fetching pending enrollments:", err);
+//     res.status(500).json({
+//       error: "Failed to fetch pending enrollments",
+//       details: process.env.NODE_ENV === "development" ? err.message : undefined,
+//     });
+//   }
+// });
+
+// // GET /api/v1/enrollments/approved - Get all approved enrollments
+// router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
+//   try {
+//     const enrollments = await UserCourseAccess.findAll({
+//       where: { approved: true },
+//       include: [
+//         {
+//           model: User,
+//           as: "user",
+//           attributes: ["id", "name", "email"],
+//         },
+//         {
+//           model: Course,
+//           as: "course",
+//           attributes: ["id", "title", "description", "price"],
+//         },
+//       ],
+//       order: [["accessGrantedAt", "DESC"]],
+//     });
+
+//     res.json(enrollments);
+//   } catch (err) {
+//     console.error("Error fetching approved enrollments:", err);
+//     res.status(500).json({
+//       error: "Failed to fetch approved enrollments",
+//       details: process.env.NODE_ENV === "development" ? err.message : undefined,
+//     });
+//   }
+// });
+
+// // POST /api/v1/enrollments/approve - Approve an enrollment
+// router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
+//   try {
+//     const { userId, courseId } = req.body;
+
+//     if (!userId || !courseId) {
+//       return res
+//         .status(400)
+//         .json({ error: "userId and courseId are required" });
+//     }
+
+//     const enrollment = await UserCourseAccess.findOne({
+//       where: { userId, courseId },
+//       include: [
+//         { model: User, as: "user" },
+//         { model: Course, as: "course" },
+//       ],
+//     });
+
+//     if (!enrollment) {
+//       return res.status(404).json({ error: "Enrollment not found" });
+//     }
+
+//     // Update enrollment status
+//     enrollment.approved = true;
+//     await enrollment.save();
+
+//     // Log the approval
+//     const logMsg = `[APPROVED] ${new Date().toISOString()} - User ${userId} approved for course ${courseId}\n`;
+//     appendToLogFile(logMsg);
+
+//     // Send approval email if user and course exist
+//     if (enrollment.user && enrollment.course) {
+//       const { subject, html } = courseEnrollmentApproved(
+//         enrollment.user,
+//         enrollment.course
+//       );
+//       await sendEmail(enrollment.user.email, subject, html);
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "Enrollment approved successfully",
+//       enrollment,
+//     });
+//   } catch (err) {
+//     console.error("Error approving enrollment:", err);
+//     res.status(500).json({
+//       error: "Failed to approve enrollment",
+//       details: process.env.NODE_ENV === "development" ? err.message : undefined,
+//     });
+//   }
+// });
+
+// // GET /api/v1/enrollments/my-courses - Get current user's courses
 // router.get("/my-courses", authMiddleware, async (req, res) => {
 //   try {
-//     console.log("🔐 /my-courses route hit");
-//     console.log("🔑 Authenticated user:", req.user);
-
-//     const userId = req.user?.id;
-//     if (!userId) {
-//       console.error("❌ No user ID in request");
-//       return res.status(401).json({ error: "Unauthorized: No user ID" });
-//     }
+//     const userId = req.user.id;
 
 //     const enrollments = await UserCourseAccess.findAll({
 //       where: { userId },
@@ -59,26 +169,15 @@
 //             "price",
 //             "category",
 //           ],
-//           required: false,
 //         },
 //       ],
 //       order: [["accessGrantedAt", "DESC"]],
 //     });
 
-//     if (!Array.isArray(enrollments)) {
-//       console.error("❌ enrollments is not an array:", enrollments);
-//       return res.status(500).json({ error: "Unexpected enrollments format" });
-//     }
-
-//     console.log("📦 Raw enrollments found:", enrollments.length);
-
 //     const formatted = enrollments
-//       .map((entry, i) => {
+//       .map((entry) => {
 //         const c = entry.course;
-//         if (!c) {
-//           console.warn(`⚠️ Skipping enrollment ${i + 1}: no course found`);
-//           return null;
-//         }
+//         if (!c) return null;
 
 //         const category = c.category || "Uncategorized";
 //         const thumbnail =
@@ -98,39 +197,47 @@
 //       })
 //       .filter(Boolean);
 
-//     console.log("✅ Returning courses:", formatted.length);
 //     res.json({ success: true, courses: formatted });
 //   } catch (err) {
-//     console.error("🔥 FATAL ERROR in /my-courses route", {
-//       message: err.message,
-//       stack: err.stack,
+//     console.error("Error fetching user courses:", err);
+//     res.status(500).json({
+//       error: "Failed to load enrolled courses",
+//       details: process.env.NODE_ENV === "development" ? err.message : undefined,
 //     });
-//     res.status(500).json({ error: "Failed to load enrolled courses" });
 //   }
-// }); // <-- This was missing in your original file
+// });
 
-// // ✅ DELETE /:courseId
+// // DELETE /api/v1/enrollments/:courseId - Unenroll from a course
 // router.delete("/:courseId", authMiddleware, async (req, res) => {
-//   const userId = req.user.id;
-//   const courseId = parseInt(req.params.courseId);
-
 //   try {
-//     const access = await UserCourseAccess.findOne({
+//     const userId = req.user.id;
+//     const courseId = parseInt(req.params.courseId);
+
+//     if (isNaN(courseId)) {
+//       return res.status(400).json({ error: "Invalid course ID" });
+//     }
+
+//     const enrollment = await UserCourseAccess.findOne({
 //       where: { userId, courseId },
 //     });
 
-//     if (!access) {
+//     if (!enrollment) {
 //       return res.status(404).json({ error: "Enrollment not found" });
 //     }
 
-//     await access.destroy();
+//     await enrollment.destroy();
+
+//     // Log the unenrollment
+//     const logMsg = `[UNENROLLED] ${new Date().toISOString()} - User ${userId} unenrolled from course ${courseId}\n`;
+//     appendToLogFile(logMsg);
+
 //     res.json({ success: true, message: "Unenrolled successfully" });
 //   } catch (err) {
-//     console.error("🔥 FATAL ERROR in DELETE /enrollments/:courseId", {
-//       message: err.message,
-//       stack: err.stack,
+//     console.error("Error unenrolling from course:", err);
+//     res.status(500).json({
+//       error: "Failed to unenroll from course",
+//       details: process.env.NODE_ENV === "development" ? err.message : undefined,
 //     });
-//     res.status(500).json({ error: "Failed to unenroll from course" });
 //   }
 // });
 
@@ -173,19 +280,13 @@ function appendToLogFile(message) {
   fs.appendFileSync(logFilePath, message);
 }
 
-// ==================== ENROLLMENT ENDPOINTS ====================
-
-// GET /api/v1/enrollments/pending - Get all pending enrollments
+// ✅ Get all pending enrollments
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const enrollments = await UserCourseAccess.findAll({
       where: { approved: false },
       include: [
-        {
-          model: User,
-          as: "user",
-          attributes: ["id", "name", "email"],
-        },
+        { model: User, as: "user", attributes: ["id", "name", "email"] },
         {
           model: Course,
           as: "course",
@@ -194,28 +295,20 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
       ],
       order: [["accessGrantedAt", "DESC"]],
     });
-
     res.json(enrollments);
   } catch (err) {
     console.error("Error fetching pending enrollments:", err);
-    res.status(500).json({
-      error: "Failed to fetch pending enrollments",
-      details: process.env.NODE_ENV === "development" ? err.message : undefined,
-    });
+    res.status(500).json({ error: "Failed to fetch pending enrollments" });
   }
 });
 
-// GET /api/v1/enrollments/approved - Get all approved enrollments
+// ✅ Get all approved enrollments
 router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const enrollments = await UserCourseAccess.findAll({
       where: { approved: true },
       include: [
-        {
-          model: User,
-          as: "user",
-          attributes: ["id", "name", "email"],
-        },
+        { model: User, as: "user", attributes: ["id", "name", "email"] },
         {
           model: Course,
           as: "course",
@@ -224,75 +317,20 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
       ],
       order: [["accessGrantedAt", "DESC"]],
     });
-
     res.json(enrollments);
   } catch (err) {
     console.error("Error fetching approved enrollments:", err);
-    res.status(500).json({
-      error: "Failed to fetch approved enrollments",
-      details: process.env.NODE_ENV === "development" ? err.message : undefined,
-    });
+    res.status(500).json({ error: "Failed to fetch approved enrollments" });
   }
 });
 
-// POST /api/v1/enrollments/approve - Approve an enrollment
-router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
-  try {
-    const { userId, courseId } = req.body;
-
-    if (!userId || !courseId) {
-      return res
-        .status(400)
-        .json({ error: "userId and courseId are required" });
-    }
-
-    const enrollment = await UserCourseAccess.findOne({
-      where: { userId, courseId },
-      include: [
-        { model: User, as: "user" },
-        { model: Course, as: "course" },
-      ],
-    });
-
-    if (!enrollment) {
-      return res.status(404).json({ error: "Enrollment not found" });
-    }
-
-    // Update enrollment status
-    enrollment.approved = true;
-    await enrollment.save();
-
-    // Log the approval
-    const logMsg = `[APPROVED] ${new Date().toISOString()} - User ${userId} approved for course ${courseId}\n`;
-    appendToLogFile(logMsg);
-
-    // Send approval email if user and course exist
-    if (enrollment.user && enrollment.course) {
-      const { subject, html } = courseEnrollmentApproved(
-        enrollment.user,
-        enrollment.course
-      );
-      await sendEmail(enrollment.user.email, subject, html);
-    }
-
-    res.json({
-      success: true,
-      message: "Enrollment approved successfully",
-      enrollment,
-    });
-  } catch (err) {
-    console.error("Error approving enrollment:", err);
-    res.status(500).json({
-      error: "Failed to approve enrollment",
-      details: process.env.NODE_ENV === "development" ? err.message : undefined,
-    });
-  }
-});
-
-// GET /api/v1/enrollments/my-courses - Get current user's courses
+// ✅ Get current user's enrolled courses
 router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized: No user ID" });
+    }
 
     const enrollments = await UserCourseAccess.findAll({
       where: { userId },
@@ -308,6 +346,7 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
             "price",
             "category",
           ],
+          required: false,
         },
       ],
       order: [["accessGrantedAt", "DESC"]],
@@ -338,45 +377,81 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
 
     res.json({ success: true, courses: formatted });
   } catch (err) {
-    console.error("Error fetching user courses:", err);
-    res.status(500).json({
-      error: "Failed to load enrolled courses",
-      details: process.env.NODE_ENV === "development" ? err.message : undefined,
-    });
+    console.error("Error loading my courses:", err);
+    res.status(500).json({ error: "Failed to load enrolled courses" });
   }
 });
 
-// DELETE /api/v1/enrollments/:courseId - Unenroll from a course
+// ✅ Unenroll from a course
 router.delete("/:courseId", authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const courseId = parseInt(req.params.courseId);
+
   try {
-    const userId = req.user.id;
-    const courseId = parseInt(req.params.courseId);
-
-    if (isNaN(courseId)) {
-      return res.status(400).json({ error: "Invalid course ID" });
-    }
-
-    const enrollment = await UserCourseAccess.findOne({
+    const access = await UserCourseAccess.findOne({
       where: { userId, courseId },
     });
-
-    if (!enrollment) {
+    if (!access) {
       return res.status(404).json({ error: "Enrollment not found" });
     }
 
-    await enrollment.destroy();
+    await access.destroy();
 
-    // Log the unenrollment
     const logMsg = `[UNENROLLED] ${new Date().toISOString()} - User ${userId} unenrolled from course ${courseId}\n`;
     appendToLogFile(logMsg);
 
     res.json({ success: true, message: "Unenrolled successfully" });
   } catch (err) {
     console.error("Error unenrolling from course:", err);
-    res.status(500).json({
-      error: "Failed to unenroll from course",
-      details: process.env.NODE_ENV === "development" ? err.message : undefined,
+    res.status(500).json({ error: "Failed to unenroll from course" });
+  }
+});
+
+// ✅ Approve an enrollment
+router.post("/approve", authMiddleware, isAdminOrTeacher, async (req, res) => {
+  try {
+    const { userId, courseId } = req.body;
+
+    if (!userId || !courseId) {
+      return res
+        .status(400)
+        .json({ error: "userId and courseId are required" });
+    }
+
+    const enrollment = await UserCourseAccess.findOne({
+      where: { userId, courseId },
+      include: [
+        { model: User, as: "user" },
+        { model: Course, as: "course" },
+      ],
     });
+
+    if (!enrollment) {
+      return res.status(404).json({ error: "Enrollment not found" });
+    }
+
+    enrollment.approved = true;
+    await enrollment.save();
+
+    const logMsg = `[APPROVED] ${new Date().toISOString()} - User ${userId} approved for course ${courseId}\n`;
+    appendToLogFile(logMsg);
+
+    if (enrollment.user && enrollment.course) {
+      const { subject, html } = courseEnrollmentApproved(
+        enrollment.user,
+        enrollment.course
+      );
+      await sendEmail(enrollment.user.email, subject, html);
+    }
+
+    res.json({
+      success: true,
+      message: "Enrollment approved successfully",
+      enrollment,
+    });
+  } catch (err) {
+    console.error("Error approving enrollment:", err);
+    res.status(500).json({ error: "Failed to approve enrollment" });
   }
 });
 
