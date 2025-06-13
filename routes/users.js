@@ -42,10 +42,13 @@ router.get("/me", authMiddleware, async (req, res) => {
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const pendingUsers = await User.findAll({
-      where: { approvalStatus: "pending" },
+      where: {
+        approvalStatus: "pending",
+        role: "student",
+      },
       attributes: ["id", "name", "email", "role", "subject", "createdAt"],
     });
-    res.json(pendingUsers);
+    res.json(users);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch pending users" });
   }
@@ -54,10 +57,13 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
 router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const approvedUsers = await User.findAll({
-      where: { approvalStatus: "approved", role: "student" },
+      where: {
+        approvalStatus: "approved",
+        role: "student",
+      },
       attributes: ["id", "name", "email", "subject", "createdAt"],
     });
-    res.json(approvedUsers);
+    res.json(users);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch approved users" });
   }
