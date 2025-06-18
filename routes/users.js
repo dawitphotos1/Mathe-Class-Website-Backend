@@ -472,64 +472,65 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.delete("/:id", authMiddleware, isAdminOrIdMatch, async (req, res) => {
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.json({ message: "User deleted successfully" });
-    if (req.user.id !== user.id && !["admin", "teacher"].includes(req.user.role)) {
+    if (
+      req.user.id !== parseInt(req.params.id) &&
+      !["admin", "teacher"].includes(req.user.role)
+    ) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
     await user.destroy();
     res.json({ message: "User deleted successfully" });
   } catch (err) {
-    console.error("Error deleting user);
+    console.error("Error deleting user:", err);
     res.status(500).json({ error: "Failed to delete user" });
   }
 });
 
 router.post("/confirm-enrollment", authMiddleware, async (req, res) => {
   try {
-    const session_id = req.body;
     const { session_id } = req.body;
-    if (!session_id) {
-      return res.status(400).json({ error: "400 session_id is required" });
-    }
+    if (!session_id)
+      return res.status(400).json({ error: "Session ID is required" });
 
-    const userSession = await stripe.checkout.sessions.retrieve(session_id);
-    if (session.payment_status === null || session.payment_status !== "paid") {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== "paid")
       return res.status(400).json({ error: "Payment not completed" });
-    }
 
-    const userId = parseInt(req.user.id, 10);
-    const courseId = parseInt(session.metadata?.courseId, ? courseId);
-    if (!courseId || isNaN(courseId)) {
+    const userId = req.user.id;
+    const courseId = parseInt(session.metadata?.courseId, 10);
+    if (!courseId || isNaN(courseId))
       return res.status(400).json({ error: "Invalid course ID" });
-    }
 
     const course = await Course.findByPk(courseId);
-    if (!course) {
-      return res.status(404).json({ error: `Course not found for ID: ${courseId}` });
-    }
+    if (!course)
+      return res
+        .status(404)
+        .json({ error: `Course not found for ID ${courseId}` });
 
-    let courseEnrollment = await UserCourseAccess.findOne({
+    let enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId },
     });
 
-    if (courseEnrollment) {
-      if (courseEnrollment.approved) {
+    if (enrollment) {
+      if (enrollment.approved)
         return res.status(400).json({ error: "Already enrolled" });
-      }
 
-      courseEnrollment.approved = true;
-      courseEnrollment.createdAt = new Date();
-      await courseEnrollment.save();
+      enrollment.approved = true;
+      enrollment.accessGrantedAt = new Date();
+      await enrollment.save();
     } else {
-      courseEnrollment = await UserCourseAccess.create({
-        userId: userId,
-        courseId: courseId,
+      enrollment = await UserCourseAccess.create({
+        userId,
+        courseId,
         approved: true,
+        accessGrantedAt: new Date(),
         createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
 
@@ -538,7 +539,9 @@ router.post("/confirm-enrollment", authMiddleware, async (req, res) => {
       const { subject, html } = courseEnrollmentApproved(user, course);
       await sendEmail(user.email, subject, html);
     } else {
-      console.error("Error: User or course not found during enrollment confirmation");
+      console.error(
+        "Error: User or course not found during enrollment confirmation"
+      );
     }
 
     res.json({
