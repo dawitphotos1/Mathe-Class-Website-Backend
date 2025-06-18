@@ -5,7 +5,7 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
 const lessonRoutes = require("./routes/lessonRoutes");
-app.use("/api/v1", lessonRoutes);
+
 
 dotenv.config();
 const app = express();
@@ -48,6 +48,7 @@ app.options("*", cors()); // Handle preflight requests
 
 // ✅ Stripe webhook route — MUST come before body parsing middleware
 app.use("/api/v1/stripe", require("./routes/stripeWebhook"));
+app.use("/api/v1", lessonRoutes);
 
 // ✅ Trust proxy for cookies/auth
 app.set("trust proxy", 1);
