@@ -153,7 +153,6 @@
 // })();
 
 
-
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
@@ -173,6 +172,39 @@ process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err.stack || err.message);
   process.exit(1);
 });
+
+// ✅ CORS setup - MUST be BEFORE any other middleware
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://math-class-platform.netlify.app",
+  "https://mathe-class-website-backend-1.onrender.com",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      console.log("🔍 CORS request origin:", origin);
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn("❌ CORS BLOCKED:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+// ✅ Handle preflight requests for all routes
+app.options("*", cors());
+
+// ✅ Express setup
+app.set("trust proxy", 1);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
 // ✅ Load routes
 let lessonRoutes,
@@ -199,51 +231,16 @@ try {
   enrollments = require("./routes/enrollments");
   admin = require("./routes/admin");
   progress = require("./routes/progress");
+
   if (process.env.NODE_ENV !== "production") {
     emailPreview = require("./routes/emailPreview");
   }
+
   console.log("Routes loaded successfully");
 } catch (err) {
   console.error("Error loading routes:", err.stack || err.message);
   process.exit(1);
 }
-
-// ✅ CORS setup
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://math-class-platform.netlify.app",
-  "https://mathe-class-website-backend-1.onrender.com",
-];
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      console.log("🔍 CORS request origin:", origin);
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn("❌ CORS BLOCKED:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-// ✅ Preflight OPTIONS handling (after cors setup)
-app.options("*", cors());
-
-// ✅ Stripe webhook before body parsing
-app.use("/api/v1/stripe", stripeWebhook);
-app.use("/api/v1", lessonRoutes);
-
-// ✅ Express setup
-app.set("trust proxy", 1);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public"));
 
 // ✅ Logging
 app.use((req, res, next) => {
@@ -253,17 +250,21 @@ app.use((req, res, next) => {
 
 // ✅ Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 100,
 });
 app.use("/api/v1/", limiter);
+
+// ✅ Stripe webhook first
+app.use("/api/v1/stripe", stripeWebhook);
+app.use("/api/v1", lessonRoutes);
 
 // ✅ Dev-only email preview
 if (process.env.NODE_ENV !== "production") {
   app.use("/dev", emailPreview);
 }
 
-// ✅ Mount routes
+// ✅ Mount all other routes
 app.use("/api/v1/auth", auth);
 app.use("/api/v1/users", users);
 app.use("/api/v1/courses", courses);
@@ -286,7 +287,7 @@ app.use((req, res) => {
 // ✅ Global error handler
 app.use(require("./middleware/errorHandler"));
 
-// ✅ Start the server
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 
 (async () => {
