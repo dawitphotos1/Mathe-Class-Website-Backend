@@ -61,18 +61,19 @@
 // };
 
 
-
 require("dotenv").config();
 
 module.exports = {
-  development: {
-    // You can leave this empty or point to Neon also, or keep local config
-  },
   production: {
     use_env_variable: "DATABASE_URL",
     dialect: "postgres",
     logging: false,
-  
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    },
     pool: {
       max: 10,
       min: 0,
