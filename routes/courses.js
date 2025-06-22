@@ -150,6 +150,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/v1/courses/slug/:slug — fetch course by slug (for viewer/enrollment)
+// GET /api/v1/courses/slug/:slug
 router.get("/slug/:slug", async (req, res) => {
   try {
     const course = await Course.findOne({
@@ -158,33 +159,54 @@ router.get("/slug/:slug", async (req, res) => {
         {
           model: User,
           as: "teacher",
-          attributes: ["id", "name", "email"],
+          attributes: ["id", "name", "email", "profileImage"], // add profileImage
+        },
+        {
+          association: "units",
+          include: [
+            {
+              association: "lessons",
+              attributes: ["id", "title", "description"],
+            },
+          ],
         },
       ],
     });
 
     if (!course) {
-      return res.status(404).json({ error: "Course not found" });
+      return res.status(404).json({ success: false, error: "Course not found" });
     }
 
     const courseData = course.toJSON();
 
-    res.json({
+    const formatted = {
+      success: true,
       id: courseData.id,
       title: courseData.title,
       price: Number(courseData.price),
-      description: courseData.description || "No description available",
+      description: courseData.description,
+      studentCount: courseData.studentCount || 0,
+      introVideoUrl: courseData.introVideoUrl || null,
+      thumbnail: courseData.thumbnail || null,
       teacher: {
-        name: courseData.teacher?.name || "Unknown",
+        name: courseData.teacher?.name || "Unknown Instructor",
+        profileImage: courseData.teacher?.profileImage || null,
       },
-      features: courseData.features || [],
-      lessons: [], // Placeholder for lessons
-      unitCount: 0, // Placeholder
-      lessonCount: 0, // Placeholder
-    });
+      units: (courseData.units || []).map((unit) => ({
+        unitName: unit.unitName,
+        lessons: (unit.lessons || []).map((lesson) => ({
+          id: lesson.id,
+          title: lesson.title,
+          description: lesson.description,
+        })),
+      })),
+    };
+
+    res.json(formatted);
   } catch (err) {
     console.error("Error fetching course by slug:", err);
     res.status(500).json({
+      success: false,
       error: "Failed to fetch course",
       details: err.message,
     });
