@@ -1,22 +1,81 @@
-'use strict';
+// "use strict";
 
-/** @type {import('sequelize-cli').Migration} */
+// module.exports = {
+//   up: async (queryInterface, DataTypes) => {
+//     const tableInfo = await queryInterface.describeTable("Courses");
+//     if (!tableInfo.studentCount) {
+//       await queryInterface.addColumn("Courses", "studentCount", {
+//         type: DataTypes.INTEGER,
+//         allowNull: true,
+//         defaultValue: 0,
+//       });
+//     }
+//     if (!tableInfo.thumbnail) {
+//       await queryInterface.addColumn("Courses", "thumbnail", {
+//         type: DataTypes.STRING,
+//         allowNull: true,
+//       });
+//     }
+//     if (!tableInfo.introVideoUrl) {
+//       await queryInterface.addColumn("Courses", "introVideoUrl", {
+//         type: DataTypes.STRING,
+//         allowNull: true,
+//       });
+//     }
+//   },
+
+//   down: async (queryInterface) => {
+//     const tableInfo = await queryInterface.describeTable("Courses");
+//     if (tableInfo.studentCount) {
+//       await queryInterface.removeColumn("Courses", "studentCount");
+//     }
+//     if (tableInfo.thumbnail) {
+//       await queryInterface.removeColumn("Courses", "thumbnail");
+//     }
+//     if (tableInfo.introVideoUrl) {
+//       await queryInterface.removeColumn("Courses", "introVideoUrl");
+//     }
+//   },
+// };
+
+
+
+"use strict";
+
 module.exports = {
-  async up (queryInterface, Sequelize) {
-    /**
-     * Add altering commands here.
-     *
-     * Example:
-     * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
-     */
+  up: async (queryInterface, DataTypes) => {
+    const tableInfo = await queryInterface.describeTable("Courses");
+    if (!tableInfo.studentCount) {
+      await queryInterface.addColumn("Courses", "studentCount", {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+      });
+    }
+    if (!tableInfo.thumbnail) {
+      await queryInterface.addColumn("Courses", "thumbnail", {
+        type: DataTypes.STRING,
+        allowNull: true,
+      });
+    }
+    if (!tableInfo.introVideoUrl) {
+      await queryInterface.addColumn("Courses", "introVideoUrl", {
+        type: DataTypes.STRING,
+        allowNull: true,
+      });
+    }
   },
 
-  async down (queryInterface, Sequelize) {
-    /**
-     * Add reverting commands here.
-     *
-     * Example:
-     * await queryInterface.dropTable('users');
-     */
-  }
+  down: async (queryInterface) {
+    const tableInfo = await queryInterface.describeTable("Courses");
+    if (tableInfo.studentCount) {
+      await queryInterface.removeColumn("Courses", "studentCount");
+    }
+    if (tableInfo.thumbnail) {
+      await queryInterface.removeColumn("Courses", "thumbnail");
+    }
+    if (tableInfo.introVideoUrl) {
+      await queryInterface.removeColumn("Courses", "introVideoUrl");
+    }
+  },
 };
