@@ -41,13 +41,17 @@
 //           attributes: ["id", "name", "email", "profileImage"], // add profileImage
 //         },
 //         {
-//           association: "units",
-//           include: [
-//             {
-//               association: "lessons",
-//               attributes: ["id", "title", "description"],
-//             },
+//           association: "lessons",
+//           attributes: [
+//             "id",
+//             "title",
+//             "contentType",
+//             "contentUrl",
+//             "isUnitHeader",
+//             "unitId",
+//             "orderIndex",
 //           ],
+//           order: [["orderIndex", "ASC"]],
 //         },
 //       ],
 //     });
@@ -137,7 +141,6 @@
 
 
 
-
 const express = require("express");
 const { Course, User, Lesson } = require("../models");
 const router = express.Router();
@@ -153,17 +156,13 @@ router.get("/", async (req, res) => {
       id: course.id,
       title: course.title,
       slug: course.slug,
-      description: course.description || "No description available",
-      price: Number(course.price) || 0,
+      description: course.description,
+      price: Number(course.price),
     }));
 
     res.json({ success: true, courses: formattedCourses });
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error fetching courses:`, {
-      message: err.message,
-      stack: err.stack,
-      path: req.path,
-    });
+    console.error("Error fetching courses:", err);
     res.status(500).json({
       success: false,
       error: "Failed to fetch courses",
@@ -186,19 +185,19 @@ router.get("/slug/:slug", async (req, res) => {
         {
           model: Lesson,
           as: "lessons",
-          where: { isUnitHeader: true }, // Fetch unit headers as "units"
-          required: false, // Allow courses with no units
-          include: [
-            {
-              model: Lesson,
-              as: "unitLessons", // Child lessons linked via unitId
-              where: { isUnitHeader: false }, // Non-unit-header lessons
-              required: false, // Allow units with no lessons
-              attributes: ["id", "title", "content"],
-            },
+          attributes: [
+            "id",
+            "title",
+            "contentType",
+            "contentUrl",
+            "isUnitHeader",
+            "unitId",
+            "orderIndex",
           ],
+          order: [["orderIndex", "ASC"]],
         },
       ],
+      order: [[{ model: Lesson, as: "lessons" }, "orderIndex", "ASC"]],
     });
 
     if (!course) {
@@ -209,40 +208,46 @@ router.get("/slug/:slug", async (req, res) => {
 
     const courseData = course.toJSON();
 
+    // 🧠 Group lessons into units based on isUnitHeader and unitId
+    const lessons = courseData.lessons || [];
+    const units = [];
+    const unitMap = {};
+
+    for (const lesson of lessons) {
+      if (lesson.isUnitHeader) {
+        unitMap[lesson.id] = {
+          unitName: lesson.title,
+          lessons: [],
+        };
+        units.push(unitMap[lesson.id]);
+      } else if (lesson.unitId && unitMap[lesson.unitId]) {
+        unitMap[lesson.unitId].lessons.push({
+          id: lesson.id,
+          title: lesson.title,
+          description: lesson.contentUrl || "",
+        });
+      }
+    }
+
     const formatted = {
       success: true,
       id: courseData.id,
       title: courseData.title,
-      price: Number(courseData.price) || 0,
-      description: courseData.description || "No description available",
-      studentCount: Number(courseData.studentCount) || 0,
+      price: Number(courseData.price),
+      description: courseData.description,
+      studentCount: courseData.studentCount || 0,
       introVideoUrl: courseData.introVideoUrl || null,
       thumbnail: courseData.thumbnail || null,
       teacher: {
         name: courseData.teacher?.name || "Unknown Instructor",
         profileImage: courseData.teacher?.profileImage || null,
       },
-      units: (courseData.lessons || []).map((unit) => ({
-        unitName: unit.title,
-        lessons: (unit.unitLessons || []).map((lesson) => ({
-          id: lesson.id,
-          title: lesson.title,
-          description: lesson.content || "No content available",
-        })),
-      })),
+      units,
     };
 
     res.json(formatted);
   } catch (err) {
-    console.error(
-      `[${new Date().toISOString()}] Error fetching course by slug:`,
-      {
-        message: err.message,
-        stack: err.stack,
-        path: req.path,
-        params: req.params,
-      }
-    );
+    console.error("Error fetching course by slug:", err);
     res.status(500).json({
       success: false,
       error: "Failed to fetch course",
@@ -259,72 +264,33 @@ router.get("/:id", async (req, res) => {
         {
           model: User,
           as: "teacher",
-          attributes: ["id", "name", "email", "profileImage"],
-        },
-        {
-          model: Lesson,
-          as: "lessons",
-          where: { isUnitHeader: true }, // Fetch unit headers as "units"
-          required: false,
-          include: [
-            {
-              model: Lesson,
-              as: "unitLessons",
-              where: { isUnitHeader: false },
-              required: false,
-              attributes: ["id", "title", "content"],
-            },
-          ],
+          attributes: ["id", "name", "email"],
         },
       ],
     });
 
     if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Course not found" });
+      return res.status(404).json({ error: "Course not found" });
     }
 
     const courseData = course.toJSON();
 
-    const formatted = {
-      success: true,
+    res.json({
       id: courseData.id,
       title: courseData.title,
-      price: Number(courseData.price) || 0,
+      price: Number(courseData.price),
       description: courseData.description || "No description available",
       teacher: {
-        name: courseData.teacher?.name || "Unknown Instructor",
-        profileImage: courseData.teacher?.profileImage || null,
+        name: courseData.teacher?.name || "Unknown",
       },
-      units: (courseData.lessons || []).map((unit) => ({
-        unitName: unit.title,
-        lessons: (unit.unitLessons || []).map((lesson) => ({
-          id: lesson.id,
-          title: lesson.title,
-          description: lesson.content || "No content available",
-        })),
-      })),
-      unitCount: (courseData.lessons || []).length,
-      lessonCount: (courseData.lessons || []).reduce(
-        (count, unit) => count + (unit.unitLessons || []).length,
-        0
-      ),
-    };
-
-    res.json(formatted);
+      features: courseData.features || [],
+      lessons: [],
+      unitCount: 0,
+      lessonCount: 0,
+    });
   } catch (err) {
-    console.error(
-      `[${new Date().toISOString()}] Error fetching course by ID:`,
-      {
-        message: err.message,
-        stack: err.stack,
-        path: req.path,
-        params: req.params,
-      }
-    );
+    console.error("Error fetching course by ID:", err);
     res.status(500).json({
-      success: false,
       error: "Failed to fetch course",
       details: err.message,
     });
