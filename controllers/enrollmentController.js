@@ -45,7 +45,8 @@ exports.confirmEnrollment = async (req, res) => {
       accessGrantedAt: new Date(),
       approved: false,
     });
-
+    console.log("✅ Enrollment saved with approved = false");
+ 
     const course = await Course.findByPk(courseId);
     if (course) {
       const { subject, html } = courseEnrollmentPending(user, course);
