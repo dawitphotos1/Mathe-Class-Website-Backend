@@ -1,16 +1,13 @@
+
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
 
-
-app.use("/api/v1/lessons", lessonRoutes);
-
-
 dotenv.config();
-const app = express();
-
+const app = express(); // ✅ App must be declared before any app.use()
+const lessonRoutes = require("./routes/lessonRoutes");
 // ✅ Crash handling
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err.stack || err.message);
@@ -29,7 +26,6 @@ const allowedOrigins = [
   "https://mathe-class-website-backend-1.onrender.com",
 ];
 
-// ✅ Dynamic CORS middleware
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -38,13 +34,8 @@ app.use(
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(origin) || origin.includes("localhost")) {
         console.log("✅ CORS allowed:", origin);
-        return callback(null, true);
-      }
-
-      if (origin.includes("localhost")) {
-        console.log("⚠️ CORS allowed (localhost dev):", origin);
         return callback(null, true);
       }
 
@@ -65,6 +56,19 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
+
+// ✅ Logging middleware
+app.use((req, res, next) => {
+  console.log(`📥 [${req.method}] ${req.originalUrl}`);
+  next();
+});
+
+// ✅ Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
+app.use("/api/v1/", limiter);
 
 // ✅ Load routes
 let lessonRoutes,
@@ -102,30 +106,9 @@ try {
   process.exit(1);
 }
 
-// ✅ Logging middleware
-app.use((req, res, next) => {
-  console.log(`📥 [${req.method}] ${req.originalUrl}`);
-  next();
-});
-
-// ✅ Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-app.use("/api/v1/", limiter);
-
-// ✅ Stripe webhook first
+// ✅ Mount routes
 app.use("/api/v1/stripe", stripeWebhook);
-app.use("/api/v1", lessonRoutes);
-app.use("/api/v1/lessons", lessonRoutes);
-
-// ✅ Dev-only email preview
-if (process.env.NODE_ENV !== "production") {
-  app.use("/dev", emailPreview);
-}
-
-// ✅ Mount all other routes
+app.use("/api/v1/lessons", lessonRoutes); // ✅ Correct route for lessons
 app.use("/api/v1/auth", auth);
 app.use("/api/v1/users", users);
 app.use("/api/v1/courses", courses);
@@ -134,6 +117,11 @@ app.use("/api/v1/email", email);
 app.use("/api/v1/enrollments", enrollments);
 app.use("/api/v1/admin", admin);
 app.use("/api/v1/progress", progress);
+
+// ✅ Dev-only email preview
+if (process.env.NODE_ENV !== "production") {
+  app.use("/dev", emailPreview);
+}
 
 // ✅ Health check
 app.get("/health", (req, res) => {
