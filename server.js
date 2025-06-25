@@ -7,7 +7,7 @@ const { sequelize } = require("./models");
 
 dotenv.config();
 const app = express(); // ✅ App must be declared before any app.use()
-const lessonRoutes = require("./routes/lessonRoutes");
+
 // ✅ Crash handling
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err.stack || err.message);
