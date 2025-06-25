@@ -10,6 +10,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
+const {confirmEnrollment } = require("../controllers/enrollmentController");
 
 function isAdminOrTeacher(req, res, next) {
   if (req.user && ["admin", "teacher"].includes(req.user.role)) {
@@ -238,7 +239,7 @@ router.post("/reject", authMiddleware, isAdminOrTeacher, async (req, res) => {
         .status(400)
         .json({ success: false, error: "userId and courseId are required" });
     }
-
+    router.post("/confirm", authMiddleware, confirmEnrollment);
     const enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId },
       include: [

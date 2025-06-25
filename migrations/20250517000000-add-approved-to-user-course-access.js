@@ -1,13 +1,37 @@
 
+// "use strict";
+
+// module.exports = {
+//   async up(queryInterface, DataTypes) {
+//     const tableInfo = await queryInterface.describeTable("UserCourseAccess");
+//     if (!tableInfo.approved && !tableInfo.Approved) {
+//       await queryInterface.addColumn("UserCourseAccess", "approved", {
+//         type: DataTypes.BOOLEAN,
+//         allowNull: true,
+//         defaultValue: false,
+//       });
+//     }
+//   },
+
+//   async down(queryInterface) {
+//     const tableInfo = await queryInterface.describeTable("UserCourseAccess");
+//     if (tableInfo.approved || tableInfo.Approved) {
+//       await queryInterface.removeColumn("UserCourseAccess", "approved");
+//     }
+//   },
+// };
+
+
 "use strict";
 
 module.exports = {
   async up(queryInterface, DataTypes) {
     const tableInfo = await queryInterface.describeTable("UserCourseAccess");
-    if (!tableInfo.approved && !tableInfo.Approved) {
+    if (!("approved" in tableInfo)) {
+      console.log("Adding 'approved' column to UserCourseAccess...");
       await queryInterface.addColumn("UserCourseAccess", "approved", {
         type: DataTypes.BOOLEAN,
-        allowNull: true,
+        allowNull: false,
         defaultValue: false,
       });
     }
@@ -15,7 +39,8 @@ module.exports = {
 
   async down(queryInterface) {
     const tableInfo = await queryInterface.describeTable("UserCourseAccess");
-    if (tableInfo.approved || tableInfo.Approved) {
+    if ("approved" in tableInfo) {
+      console.log("Removing 'approved' column from UserCourseAccess...");
       await queryInterface.removeColumn("UserCourseAccess", "approved");
     }
   },
