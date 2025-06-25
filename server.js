@@ -270,7 +270,7 @@ try {
 
 // ✅ Mount routes
 app.use("/api/v1/stripe", stripeWebhook);
-app.use("/api/v1/lessons", lessonRoutes);
+app.use("/api/v1/courses", lessonRoutes); // updated from /lessons to /courses
 app.use("/api/v1/auth", auth);
 app.use("/api/v1/users", users);
 app.use("/api/v1/courses", courses);

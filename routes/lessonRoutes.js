@@ -68,13 +68,16 @@
 
 // module.exports = router;
 
-
-
 const express = require("express");
 const router = express.Router();
-const { getLessonsByCourseId } = require("../controllers/lessonController");
+const lessonController = require("../controllers/lessonController");
+const authenticate = require("../middleware/authenticate");
 
-router.get("/courses/:courseId/lessons", getLessonsByCourseId); // <== This supports frontend path
+// Fetch lessons for a specific course
+router.get(
+  "/courses/:courseId/lessons",
+  authenticate,
+  lessonController.getLessonsByCourse
+);
 
 module.exports = router;
-
