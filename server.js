@@ -3,7 +3,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
-const lessonRoutes = require("./routes/lessonRoutes");
+
 dotenv.config();
 const app = express();
 
