@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
+const lessonRoutes = require("./routes/lessonRoutes");
 
 dotenv.config();
 const app = express();
@@ -115,6 +116,7 @@ app.use("/api/v1/", limiter);
 // ✅ Stripe webhook first (must be before body-parser middleware)
 app.use("/api/v1/stripe", stripeWebhook);
 app.use("/api/v1", lessonRoutes);
+app.use("/api/v1/lessons", lessonRoutes);
 
 // ✅ Dev-only email preview
 if (process.env.NODE_ENV !== "production") {

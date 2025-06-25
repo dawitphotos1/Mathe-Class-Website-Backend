@@ -9,9 +9,9 @@ const initCourse = require("./Course");
 const initUserCourseAccess = require("./UserCourseAccess");
 
 const models = {};
-
-// Sequelize setup
-models.Sequelize = Sequelize;
+LessonCompletion: require("./lessoncompletion")(sequelize, DataTypes),
+  // Sequelize setup
+  (models.Sequelize = Sequelize);
 models.sequelize = sequelize;
 
 // Initialize models
