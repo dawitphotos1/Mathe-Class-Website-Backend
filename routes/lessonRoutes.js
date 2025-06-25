@@ -72,14 +72,9 @@
 
 const express = require("express");
 const router = express.Router();
-const lessonController = require("../controllers/lessonController");
-const authenticate = require("../middleware/authenticate");
+const { getLessonsByCourseId } = require("../controllers/lessonController");
 
-// GET /api/v1/lessons/courses/:courseId/lessons
-router.get(
-  "/courses/:courseId/lessons",
-  authenticate,
-  lessonController.getLessonsByCourseId
-);
+router.get("/courses/:courseId/lessons", getLessonsByCourseId); // <== This supports frontend path
 
 module.exports = router;
+

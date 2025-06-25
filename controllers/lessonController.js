@@ -19,28 +19,21 @@
 // };
 
 
-
-// controllers/lessonController.js
-const { Lesson, Course } = require("../models");
+const { Lesson } = require("../models");
 
 exports.getLessonsByCourseId = async (req, res) => {
-  const { courseId } = req.params;
-
   try {
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res.status(404).json({ error: "Course not found" });
-    }
+    const courseId = req.params.courseId;
 
     const lessons = await Lesson.findAll({
       where: { courseId },
-      order: [["orderIndex", "ASC"]],
+      order: [["createdAt", "ASC"]],
     });
 
-    return res.status(200).json({ lessons });
+    res.status(200).json({ lessons });
   } catch (err) {
-    console.error("🔥 getLessonsByCourseId error:", err); // 👈 Add this line
-    return res.status(500).json({ error: "Failed to load lessons" });
+    console.error("Error fetching lessons:", err);
+    res.status(500).json({ error: "Server error loading lessons" });
   }
 };
+
