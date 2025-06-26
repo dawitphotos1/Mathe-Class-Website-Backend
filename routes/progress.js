@@ -63,16 +63,29 @@ router.post("/complete", auth, async (req, res) => {
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
-
 router.get("/:userId", auth, async (req, res) => {
   try {
+    const userId = req.params.userId;
+
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing userId param" });
+    }
+
     const progress = await LessonProgress.findAll({
-      where: { userId: req.params.userId },
+      where: { userId },
     });
+
     res.json({ success: true, progress });
-  } catch (error) {
-    console.error("Error fetching progress:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch progress" });
+  } catch (err) {
+    console.error(
+      "❌ Error in GET /progress/:userId:",
+      err.stack || err.message
+    );
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to load progress data" });
   }
 });
 
