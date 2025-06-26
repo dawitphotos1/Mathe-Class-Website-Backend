@@ -1,15 +1,15 @@
+
 // require("dotenv").config();
 // const express = require("express");
 // const cors = require("cors");
 // const rateLimit = require("express-rate-limit");
 // const { sequelize } = require("./models");
-// const models = require("./models");
 // const fs = require("fs");
 // const path = require("path");
 
 // const app = express();
 
-// // Crash/error handling
+// // Handle uncaught exceptions and rejections
 // process.on("unhandledRejection", (err) => {
 //   console.error("UNHANDLED REJECTION:", err.stack || err.message);
 //   process.exit(1);
@@ -20,7 +20,7 @@
 //   process.exit(1);
 // });
 
-// // CORS configuration
+// // --------- ✅ CORS Configuration ----------
 // const allowedOrigins = [
 //   "http://localhost:3000",
 //   "https://math-class-platform.netlify.app",
@@ -29,8 +29,8 @@
 
 // app.use(
 //   cors({
-//     origin: (origin, callback) => {
-//       console.log(`[CORS] Origin: ${origin}`);
+//     origin: function (origin, callback) {
+//       console.log(`[CORS] Incoming Origin: ${origin}`);
 //       if (
 //         !origin ||
 //         allowedOrigins.includes(origin) ||
@@ -38,8 +38,7 @@
 //       ) {
 //         callback(null, true);
 //       } else {
-//         console.log(`[CORS] Blocked origin: ${origin}`);
-//         callback(new Error(`CORS policy: Origin ${origin} not allowed`));
+//         callback(new Error("CORS policy: Not allowed by CORS"));
 //       }
 //     },
 //     credentials: true,
@@ -48,16 +47,16 @@
 //   })
 // );
 
-// // Handle preflight requests
+// // ✅ Handle OPTIONS preflight for all routes
 // app.options("*", cors());
 
-// // Middleware
+// // ---------- Middleware ----------
 // app.set("trust proxy", 1);
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
 // app.use(express.static("public"));
-
-// // Request logger
+// app.use("/uploads", express.static("uploads")); // <-- serve uploaded files
+// // Logger
 // app.use((req, res, next) => {
 //   console.log(
 //     `📥 [${req.method}] ${req.originalUrl} from ${req.get("origin")}`
@@ -65,41 +64,34 @@
 //   next();
 // });
 
-// // API rate limiter
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 100,
-// });
-// app.use("/api/v1/", limiter);
+// // Rate limiter
+// app.use(
+//   "/api/v1/",
+//   rateLimit({
+//     windowMs: 15 * 60 * 1000,
+//     max: 100,
+//   })
+// );
 
-// // Route imports
-// let lessonRoutes,
-//   stripeWebhook,
-//   auth,
-//   users,
-//   courses,
-//   payments,
-//   email,
-//   enrollments,
-//   admin,
-//   progress,
-//   emailPreview;
-
+// // ---------- Route Setup ----------
+// let routes = {};
 // try {
 //   console.log("📦 Loading routes...");
-//   lessonRoutes = require("./routes/lessonRoutes");
-//   stripeWebhook = require("./routes/stripeWebhook");
-//   auth = require("./routes/auth");
-//   users = require("./routes/users");
-//   courses = require("./routes/courses");
-//   payments = require("./routes/payments");
-//   email = require("./routes/email");
-//   enrollments = require("./routes/enrollments");
-//   admin = require("./routes/admin");
-//   progress = require("./routes/progress");
+//   routes = {
+//     lessonRoutes: require("./routes/lessonRoutes"),
+//     stripeWebhook: require("./routes/stripeWebhook"),
+//     auth: require("./routes/auth"),
+//     users: require("./routes/users"),
+//     courses: require("./routes/courses"),
+//     payments: require("./routes/payments"),
+//     email: require("./routes/email"),
+//     enrollments: require("./routes/enrollments"),
+//     admin: require("./routes/admin"),
+//     progress: require("./routes/progress"),
+//   };
 
 //   if (process.env.NODE_ENV !== "production") {
-//     emailPreview = require("./routes/emailPreview");
+//     routes.emailPreview = require("./routes/emailPreview");
 //   }
 
 //   console.log("✅ Routes loaded");
@@ -108,26 +100,28 @@
 //   process.exit(1);
 // }
 
-// // Route mounting
-// app.use("/api/v1/lessons", lessonRoutes);
-// app.use("/api/v1/stripe", stripeWebhook);
-// app.use("/api/v1/auth", auth);
-// app.use("/api/v1/users", users);
-// app.use("/api/v1/courses", courses);
-// app.use("/api/v1/payments", payments);
-// app.use("/api/v1/email", email);
-// app.use("/api/v1/enrollments", enrollments);
-// app.use("/api/v1/admin", admin);
-// app.use("/api/v1/progress", progress);
+// // ---------- Mount Routes ----------
+// app.use("/api/v1/lessons", routes.lessonRoutes);
+// app.use("/api/v1/stripe", routes.stripeWebhook);
+// app.use("/api/v1/auth", routes.auth);
+// app.use("/api/v1/users", routes.users);
+// app.use("/api/v1/courses", routes.courses);
+// app.use("/api/v1/payments", routes.payments);
+// app.use("/api/v1/email", routes.email);
+// app.use("/api/v1/enrollments", routes.enrollments);
+// app.use("/api/v1/admin", routes.admin);
+// app.use("/api/v1/progress", routes.progress);
+// app.use("/api/v1/upload", require("./routes/upload")); // <-- add upload route
+// app.use("/api/v1/files", require("./routes/files"));
 
-// if (process.env.NODE_ENV !== "production") {
-//   app.use("/dev", emailPreview);
+
+// if (routes.emailPreview) {
+//   app.use("/dev", routes.emailPreview);
 // }
 
-// // Mock /api/v1/users/me endpoint (replace with actual auth logic)
+// // ✅ Mock for /users/me (replace with auth logic later)
 // app.get("/api/v1/users/me", (req, res) => {
 //   try {
-//     // Replace with actual user fetching logic (e.g., from JWT)
 //     const user = {
 //       id: 2,
 //       role: "student",
@@ -141,7 +135,7 @@
 //   }
 // });
 
-// // Health check endpoint
+// // Health check
 // app.get("/health", (req, res) => {
 //   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 // });
@@ -160,7 +154,7 @@
 //     .json({ error: "Internal server error", details: err.message });
 // });
 
-// // Start server
+// // ---------- Start Server ----------
 // const PORT = process.env.PORT || 5000;
 
 // (async () => {
@@ -174,12 +168,11 @@
 //     app.listen(PORT, "0.0.0.0", () => {
 //       console.log(`🚀 Server running on port ${PORT}`);
 //     });
-//   } catch (error) {
-//     console.error("❌ Failed to start:", error.stack || error.message);
+//   } catch (err) {
+//     console.error("❌ Failed to start server:", err.stack || err.message);
 //     process.exit(1);
 //   }
 // })();
-
 
 
 
@@ -193,54 +186,52 @@ const path = require("path");
 
 const app = express();
 
-// Handle uncaught exceptions and rejections
+// 🔒 Handle unhandled errors
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err.stack || err.message);
   process.exit(1);
 });
-
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err.stack || err.message);
   process.exit(1);
 });
 
-// --------- ✅ CORS Configuration ----------
+// ✅ CORS Configuration
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
   "https://mathe-class-website-backend-1.onrender.com",
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      console.log(`[CORS] Incoming Origin: ${origin}`);
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.includes("localhost")
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error("CORS policy: Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+const corsOptions = {
+  origin: function (origin, callback) {
+    console.log(`[CORS] Request from: ${origin}`);
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      origin.includes("localhost")
+    ) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error("CORS policy: Origin not allowed"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
-// ✅ Handle OPTIONS preflight for all routes
-app.options("*", cors());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // Handles preflight
 
 // ---------- Middleware ----------
 app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-app.use("/uploads", express.static("uploads")); // <-- serve uploaded files
-// Logger
+app.use("/uploads", express.static("uploads"));
+
 app.use((req, res, next) => {
   console.log(
     `📥 [${req.method}] ${req.originalUrl} from ${req.get("origin")}`
@@ -248,16 +239,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiter
-app.use(
-  "/api/v1/",
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-  })
-);
+// ⏱️ Rate limiter
+app.use("/api/v1/", rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
-// ---------- Route Setup ----------
+// ---------- Load Routes ----------
 let routes = {};
 try {
   console.log("📦 Loading routes...");
@@ -272,6 +257,8 @@ try {
     enrollments: require("./routes/enrollments"),
     admin: require("./routes/admin"),
     progress: require("./routes/progress"),
+    upload: require("./routes/upload"),
+    files: require("./routes/files"),
   };
 
   if (process.env.NODE_ENV !== "production") {
@@ -295,26 +282,27 @@ app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
 app.use("/api/v1/admin", routes.admin);
 app.use("/api/v1/progress", routes.progress);
-app.use("/api/v1/upload", require("./routes/upload")); // <-- add upload route
-app.use("/api/v1/files", require("./routes/files"));
-
+app.use("/api/v1/upload", routes.upload);
+app.use("/api/v1/files", routes.files);
 
 if (routes.emailPreview) {
   app.use("/dev", routes.emailPreview);
 }
 
-// ✅ Mock for /users/me (replace with auth logic later)
+// ✅ Mock /me route
 app.get("/api/v1/users/me", (req, res) => {
   try {
-    const user = {
-      id: 2,
-      role: "student",
-      name: "Test Student",
-      email: "student@example.com",
-    };
-    res.json({ success: true, user });
+    res.json({
+      success: true,
+      user: {
+        id: 2,
+        role: "student",
+        name: "Test Student",
+        email: "student@example.com",
+      },
+    });
   } catch (err) {
-    console.error("[ERROR] /api/v1/users/me:", err);
+    console.error("[ERROR] /users/me:", err);
     res.status(500).json({ success: false, error: "Failed to fetch user" });
   }
 });
