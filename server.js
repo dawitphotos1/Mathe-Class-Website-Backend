@@ -175,6 +175,8 @@
 // })();
 
 
+
+
 require("dotenv").config();
 const express = require("express");
 const rateLimit = require("express-rate-limit");
@@ -194,7 +196,7 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// ✅ Universal CORS headers applied to ALL responses
+// ✅ Universal CORS headers
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   res.setHeader("Access-Control-Allow-Origin", origin || "*");
@@ -205,10 +207,7 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
 
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
@@ -276,8 +275,12 @@ if (routes.emailPreview) {
   app.use("/dev", routes.emailPreview);
 }
 
-// ✅ Mock /me route
+// ✅ /me mock with CORS headers
 app.get("/api/v1/users/me", (req, res) => {
+  const origin = req.headers.origin;
+  res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
   try {
     res.json({
       success: true,

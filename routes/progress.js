@@ -27,16 +27,16 @@
 // module.exports = router;
 
 
-
 const express = require("express");
 const router = express.Router();
 const { LessonProgress } = require("../models");
 const auth = require("../middleware/authMiddleware");
 
-// Force CORS headers on all responses from this router
+// ✅ Force CORS headers on every response
 router.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Credentials", "true");
+  const origin = req.headers.origin;
+  res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   next();
 });
 
@@ -59,13 +59,18 @@ router.post("/complete", auth, async (req, res) => {
 
     res.json({ success: true, message: "Lesson marked complete" });
   } catch (error) {
-    console.error("Error marking lesson complete:", error);
+    console.error(
+      "❌ Error marking lesson complete:",
+      error.stack || error.message
+    );
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
+
 router.get("/:userId", auth, async (req, res) => {
   try {
     const userId = req.params.userId;
+    console.log("🔍 Fetching progress for userId:", userId);
 
     if (!userId) {
       return res
