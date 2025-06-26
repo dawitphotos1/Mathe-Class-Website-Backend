@@ -239,7 +239,7 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-
+app.use("/uploads", express.static("uploads")); // <-- serve uploaded files
 // Logger
 app.use((req, res, next) => {
   console.log(
@@ -295,7 +295,8 @@ app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
 app.use("/api/v1/admin", routes.admin);
 app.use("/api/v1/progress", routes.progress);
-app.use("/api/v1/lessons", require("./routes/lessons"));
+app.use("/api/v1/upload", require("./routes/upload")); // <-- add upload route
+app.use("/api/v1/files", require("./routes/files"));
 
 
 if (routes.emailPreview) {

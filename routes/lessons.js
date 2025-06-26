@@ -19,6 +19,7 @@ const express = require("express");
 const router = express.Router();
 const { Lesson } = require("../models");
 const authMiddleware = require("../middleware/authMiddleware");
+const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
 
 router.post("/:courseId/lessons", authMiddleware, async (req, res) => {
   try {
