@@ -307,23 +307,37 @@ app.get("/api/v1/users/me", (req, res) => {
   }
 });
 
-// Health check
+// ✅ Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// 404 handler
+// ✅ 404 handler
 app.use((req, res) => {
   console.log(`[404] ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: "Not Found" });
 });
 
-// Global error handler
+// ✅ Global error handler
 app.use((err, req, res, next) => {
   console.error("[ERROR] Global:", err.stack || err.message);
   res
     .status(500)
     .json({ error: "Internal server error", details: err.message });
+});
+
+// ✅ FINAL fallback to inject CORS headers (even for unhandled routes or errors)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
 });
 
 // ---------- Start Server ----------
