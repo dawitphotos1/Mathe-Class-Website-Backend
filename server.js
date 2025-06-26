@@ -175,10 +175,8 @@
 // })();
 
 
-
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
 const fs = require("fs");
@@ -196,34 +194,23 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// ✅ CORS Configuration
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://math-class-platform.netlify.app",
-  "https://mathe-class-website-backend-1.onrender.com",
-];
+// ✅ Universal CORS headers applied to ALL responses
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    console.log(`[CORS] Request from: ${origin}`);
-    if (
-      !origin ||
-      allowedOrigins.includes(origin) ||
-      origin.includes("localhost")
-    ) {
-      callback(null, true);
-    } else {
-      console.warn(`[CORS] Blocked origin: ${origin}`);
-      callback(new Error("CORS policy: Origin not allowed"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // Handles preflight
+  next();
+});
 
 // ---------- Middleware ----------
 app.set("trust proxy", 1);
@@ -324,20 +311,6 @@ app.use((err, req, res, next) => {
   res
     .status(500)
     .json({ error: "Internal server error", details: err.message });
-});
-
-// ✅ FINAL fallback to inject CORS headers (even for unhandled routes or errors)
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
 });
 
 // ---------- Start Server ----------
