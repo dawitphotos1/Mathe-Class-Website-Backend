@@ -295,6 +295,8 @@ app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
 app.use("/api/v1/admin", routes.admin);
 app.use("/api/v1/progress", routes.progress);
+app.use("/api/v1/lessons", require("./routes/lessons"));
+
 
 if (routes.emailPreview) {
   app.use("/dev", routes.emailPreview);
