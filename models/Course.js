@@ -108,6 +108,7 @@
 // module.exports = initCourse;
 
 
+
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define(
     "Course",
@@ -169,6 +170,10 @@ module.exports = (sequelize, DataTypes) => {
     Course.hasMany(models.Lesson, {
       foreignKey: "courseId",
       as: "lessons",
+    });
+    Course.hasMany(models.UserCourseAccess, {
+      foreignKey: "courseId",
+      as: "enrollments",
     });
   };
 

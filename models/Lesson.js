@@ -93,7 +93,6 @@
 // };
 
 
-
 module.exports = (sequelize, DataTypes) => {
   const Lesson = sequelize.define(
     "Lesson",
@@ -145,7 +144,6 @@ module.exports = (sequelize, DataTypes) => {
           model: "Courses",
           key: "id",
         },
-        onUpdate: "CASCADE",
       },
       unitId: {
         type: DataTypes.INTEGER,
@@ -154,8 +152,6 @@ module.exports = (sequelize, DataTypes) => {
           model: "Lessons",
           key: "id",
         },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
       },
       userId: {
         type: DataTypes.INTEGER,
@@ -164,8 +160,14 @@ module.exports = (sequelize, DataTypes) => {
           model: "Users",
           key: "id",
         },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
       },
     },
     {
