@@ -33,64 +33,37 @@
 // module.exports = models;
 
 
-const fs = require("fs");
-const path = require("path");
-const Sequelize = require("sequelize");
-const basename = path.basename(__filename);
-const env = process.env.NODE_ENV || "development";
 
-let config;
-try {
-  config = require(path.join(__dirname, "../config/config.json"))[env];
-} catch (err) {
-  console.warn("config.json not found, falling back to environment variables");
-  config = {
-    use_env_variable: "DATABASE_URL",
-    dialect: "postgres",
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    },
-  };
-}
 
-const db = {};
+const { Sequelize, DataTypes } = require("sequelize");
+const sequelize = require("../config/db");
 
-let sequelize;
-if (config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
-} else {
-  sequelize = new Sequelize(
-    config.database,
-    config.username,
-    config.password,
-    config
-  );
-}
+// Import model definitions
+const initUser = require("./User");
+const initLesson = require("./Lesson");
+const initCourse = require("./Course");
+const initUserCourseAccess = require("./UserCourseAccess");
+const initLessonCompletion = require("./lessoncompletion");
 
-fs.readdirSync(__dirname)
-  .filter((file) => {
-    return (
-      file.indexOf(".") !== 0 && file !== basename && file.slice(-3) === ".js"
-    );
-  })
-  .forEach((file) => {
-    const model = require(path.join(__dirname, file))(
-      sequelize,
-      Sequelize.DataTypes
-    );
-    db[model.name] = model;
-  });
+const models = {};
 
-Object.keys(db).forEach((modelName) => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
+// Initialize models
+models.User = initUser(sequelize, DataTypes);
+models.Lesson = initLesson(sequelize, DataTypes);
+models.Course = initCourse(sequelize, DataTypes);
+models.UserCourseAccess = initUserCourseAccess(sequelize, DataTypes);
+models.LessonCompletion = initLessonCompletion(sequelize, DataTypes);
+
+// Apply associations
+Object.values(models).forEach((model) => {
+  if (typeof model.associate === "function") {
+    model.associate(models);
   }
 });
 
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
+// Export Sequelize instance and models
+models.sequelize = sequelize;
+models.Sequelize = Sequelize;
 
-module.exports = db;
+module.exports = models;
+

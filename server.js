@@ -160,16 +160,17 @@
 
 
 
+
+require("dotenv").config(); // ✅ Load environment variables first
 const express = require("express");
-const dotenv = require("dotenv");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
-const { sequelize } = require("./models");
+const { sequelize } = require("./models"); // ✅ Connects via config/db.js
+const models = require("./models");         // ✅ Loads all models and associations
 
-dotenv.config();
 const app = express();
 
-// ✅ Crash handling
+// ✅ Crash/error handling for production stability
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err.stack || err.message);
   process.exit(1);
@@ -180,7 +181,7 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// ✅ CORS setup
+// ✅ CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -208,20 +209,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// ✅ Logging middleware
+// ✅ Simple request logger
 app.use((req, res, next) => {
   console.log(`📥 [${req.method}] ${req.originalUrl}`);
   next();
 });
 
-// ✅ Rate limiting
+// ✅ API rate limiter
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
 });
 app.use("/api/v1/", limiter);
 
-// ✅ Load routes
+// ✅ Route imports
 let lessonRoutes,
   stripeWebhook,
   auth,
@@ -236,7 +237,7 @@ let lessonRoutes,
 
 try {
   console.log("📦 Loading routes...");
-  lessonRoutes = require("./routes/lessonRoutes"); // ✅ this exports /courses/:id/lessons
+  lessonRoutes = require("./routes/lessonRoutes");
   stripeWebhook = require("./routes/stripeWebhook");
   auth = require("./routes/auth");
   users = require("./routes/users");
@@ -257,8 +258,8 @@ try {
   process.exit(1);
 }
 
-// ✅ Mount routes (corrected!)
-app.use("/api/v1/lessons", lessonRoutes); // ✅ FIXED: properly mount lessons here
+// ✅ Route mounting
+app.use("/api/v1/lessons", lessonRoutes);
 app.use("/api/v1/stripe", stripeWebhook);
 app.use("/api/v1/auth", auth);
 app.use("/api/v1/users", users);
@@ -273,7 +274,7 @@ if (process.env.NODE_ENV !== "production") {
   app.use("/dev", emailPreview);
 }
 
-// ✅ Health check
+// ✅ Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
@@ -297,7 +298,7 @@ const PORT = process.env.PORT || 5000;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    await sequelize.sync({ force: false });
+    await sequelize.sync({ force: false }); // or `alter: true` if needed
     console.log("✅ Database synced");
 
     app.listen(PORT, "0.0.0.0", () => {
