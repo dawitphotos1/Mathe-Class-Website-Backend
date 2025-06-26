@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
+const models = require("./models");
 const fs = require("fs");
 const path = require("path");
 
@@ -19,12 +20,27 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// CORS configuration (temporary: allow all origins for debugging)
+// CORS configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://math-class-platform.netlify.app",
+  "https://mathe-class-website-backend-1.onrender.com",
+];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log(`[CORS] Origin: ${origin || "No origin"}`);
-      callback(null, true); // Allow all origins
+      console.log(`[CORS] Origin: ${origin}`);
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.includes("localhost")
+      ) {
+        callback(null, true);
+      } else {
+        console.log(`[CORS] Blocked origin: ${origin}`);
+        callback(new Error(`CORS policy: Origin ${origin} not allowed`));
+      }
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -44,9 +60,7 @@ app.use(express.static("public"));
 // Request logger
 app.use((req, res, next) => {
   console.log(
-    `📥 [${req.method}] ${req.originalUrl} from ${
-      req.get("origin") || "No origin"
-    }`
+    `📥 [${req.method}] ${req.originalUrl} from ${req.get("origin")}`
   );
   next();
 });
@@ -109,6 +123,23 @@ app.use("/api/v1/progress", progress);
 if (process.env.NODE_ENV !== "production") {
   app.use("/dev", emailPreview);
 }
+
+// Mock /api/v1/users/me endpoint (replace with actual auth logic)
+app.get("/api/v1/users/me", (req, res) => {
+  try {
+    // Replace with actual user fetching logic (e.g., from JWT)
+    const user = {
+      id: 2,
+      role: "student",
+      name: "Test Student",
+      email: "student@example.com",
+    };
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error("[ERROR] /api/v1/users/me:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch user" });
+  }
+});
 
 // Health check endpoint
 app.get("/health", (req, res) => {
