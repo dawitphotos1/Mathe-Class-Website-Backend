@@ -33,13 +33,29 @@
 // module.exports = models;
 
 
-
 const fs = require("fs");
 const path = require("path");
 const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || "development";
-const config = require(__dirname + "/../config/config.json")[env];
+
+let config;
+try {
+  config = require(path.join(__dirname, "../config/config.json"))[env];
+} catch (err) {
+  console.warn("config.json not found, falling back to environment variables");
+  config = {
+    use_env_variable: "DATABASE_URL",
+    dialect: "postgres",
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    },
+  };
+}
+
 const db = {};
 
 let sequelize;

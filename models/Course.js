@@ -108,7 +108,6 @@
 // module.exports = initCourse;
 
 
-
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define(
     "Course",
