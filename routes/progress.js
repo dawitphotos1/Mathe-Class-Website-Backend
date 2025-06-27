@@ -67,6 +67,33 @@ router.post("/complete", auth, async (req, res) => {
   }
 });
 
+router.post("/incomplete", auth, async (req, res) => {
+  try {
+    const { lessonId } = req.body;
+    const userId = req.user.id;
+
+    if (!lessonId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing lessonId" });
+    }
+
+    await LessonProgress.upsert({
+      userId,
+      lessonId,
+      completed: false,
+    });
+
+    res.json({ success: true, message: "Lesson marked as incomplete" });
+  } catch (error) {
+    console.error(
+      "❌ Error marking lesson incomplete:",
+      error.stack || error.message
+    );
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
 router.get("/:userId", auth, async (req, res) => {
   try {
     const userId = req.params.userId;
