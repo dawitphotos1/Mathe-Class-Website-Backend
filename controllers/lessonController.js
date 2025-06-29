@@ -49,17 +49,12 @@
 
 
 
-const { Lesson, Course } = require("../models");
-const {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} = require("firebase/storage");
-const { v4: uuidv4 } = require("uuid");
 
-// Initialize Firebase Storage
-const storage = getStorage();
+
+const { Lesson, Course } = require("../models");
+const { storage } = require("../config/firebaseAdmin");
+const { ref, uploadBytes, getDownloadURL } = require("firebase-admin/storage");
+const { v4: uuidv4 } = require("uuid");
 
 exports.getLessonsByCourse = async (req, res) => {
   try {
@@ -138,7 +133,10 @@ exports.createLesson = async (req, res) => {
     // Handle file upload
     if (req.files?.contentFile) {
       const file = req.files.contentFile;
-      const fileRef = ref(storage, `lessons/content/${uuidv4()}_${file.name}`);
+      const fileRef = ref(
+        storage.bucket(),
+        `lessons/content/${uuidv4()}_${file.name}`
+      );
       await uploadBytes(fileRef, file.data);
       contentUrl = await getDownloadURL(fileRef);
     }
@@ -146,7 +144,10 @@ exports.createLesson = async (req, res) => {
     // Handle video upload
     if (req.files?.videoFile) {
       const video = req.files.videoFile;
-      const videoRef = ref(storage, `lessons/videos/${uuidv4()}_${video.name}`);
+      const videoRef = ref(
+        storage.bucket(),
+        `lessons/videos/${uuidv4()}_${video.name}`
+      );
       await uploadBytes(videoRef, video.data);
       videoUrl = await getDownloadURL(videoRef);
     }
