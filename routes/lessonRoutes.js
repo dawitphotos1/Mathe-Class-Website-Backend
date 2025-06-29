@@ -36,6 +36,8 @@
 // module.exports = router;
 
 
+
+
 const express = require("express");
 const router = express.Router();
 const {
@@ -46,10 +48,13 @@ const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const multer = require("multer");
 
-// Configure Multer for file uploads
+// Configure Multer for file uploads (memory storage)
 const upload = multer({ storage: multer.memoryStorage() });
 
+// GET /:courseId/lessons - Get lessons by course
 router.get("/:courseId/lessons", authMiddleware, getLessonsByCourse);
+
+// POST /:courseId/lessons - Create a lesson (restricted to teacher/admin roles)
 router.post(
   "/:courseId/lessons",
   authMiddleware,
