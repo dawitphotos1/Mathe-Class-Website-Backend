@@ -49,12 +49,12 @@
 
 
 
-
-
 const { Lesson, Course } = require("../models");
-const { storage } = require("../config/firebaseAdmin");
-const { ref, uploadBytes, getDownloadURL } = require("firebase-admin/storage");
+const { getStorage, ref, uploadBytes, getDownloadURL } = require("firebase/storage");
 const { v4: uuidv4 } = require("uuid");
+
+// Initialize Firebase Storage
+const storage = getStorage();
 
 exports.getLessonsByCourse = async (req, res) => {
   try {
@@ -106,14 +106,11 @@ exports.getLessonsByCourse = async (req, res) => {
 exports.createLesson = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, content, contentType, isPreview, isUnitHeader, orderIndex } =
-      req.body;
+    const { title, content, contentType, isPreview, isUnitHeader, orderIndex } = req.body;
     const user = req.user;
 
     if (user.role !== "teacher" && user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ error: "Only teachers or admins can create lessons" });
+      return res.status(403).json({ error: "Only teachers or admins can create lessons" });
     }
 
     const course = await Course.findByPk(courseId);
@@ -122,9 +119,7 @@ exports.createLesson = async (req, res) => {
     }
 
     if (user.role === "teacher" && course.teacherId !== user.id) {
-      return res
-        .status(403)
-        .json({ error: "You can only create lessons for your own courses" });
+      return res.status(403).json({ error: "You can only create lessons for your own courses" });
     }
 
     let contentUrl = null;
@@ -133,10 +128,7 @@ exports.createLesson = async (req, res) => {
     // Handle file upload
     if (req.files?.contentFile) {
       const file = req.files.contentFile;
-      const fileRef = ref(
-        storage.bucket(),
-        `lessons/content/${uuidv4()}_${file.name}`
-      );
+      const fileRef = ref(storage, `lessons/content/${uuidv4()}_${file.name}`);
       await uploadBytes(fileRef, file.data);
       contentUrl = await getDownloadURL(fileRef);
     }
@@ -144,10 +136,7 @@ exports.createLesson = async (req, res) => {
     // Handle video upload
     if (req.files?.videoFile) {
       const video = req.files.videoFile;
-      const videoRef = ref(
-        storage.bucket(),
-        `lessons/videos/${uuidv4()}_${video.name}`
-      );
+      const videoRef = ref(storage, `lessons/videos/${uuidv4()}_${video.name}`);
       await uploadBytes(videoRef, video.data);
       videoUrl = await getDownloadURL(videoRef);
     }
@@ -170,8 +159,6 @@ exports.createLesson = async (req, res) => {
     res.status(201).json({ success: true, lesson });
   } catch (error) {
     console.error("Error creating lesson:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", details: error.message });
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };
