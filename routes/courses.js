@@ -38,6 +38,14 @@ router.post(
   async (req, res) => {
     try {
       const { title, description, price, category } = req.body;
+      console.log("Incoming course data:", {
+        title,
+        description,
+        price,
+        category,
+        teacherId: req.user?.id,
+      });
+      
       const userId = req.user?.id;
 
       if (!userId) {
