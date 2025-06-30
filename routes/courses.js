@@ -1,8 +1,16 @@
+// ✅ FULL UPDATED `routes/courses.js` with thumbnail, video, and category support
 const express = require("express");
 const { Course, User, Lesson } = require("../models");
 const router = express.Router();
 const fs = require("fs");
 const path = require("path");
+const multer = require("multer");
+
+// ✅ File Upload Storage Config
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+});
 
 function appendToLogFile(message) {
   const logDir = path.join(__dirname, "..", "logs");
@@ -16,6 +24,61 @@ function appendToLogFile(message) {
     console.error("Failed to write to log file:", err);
   }
 }
+
+// ✅ Create Course API with File Upload
+router.post(
+  "/",
+  upload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "introVideo", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const { title, description, price, category } = req.body;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+
+      const thumbnailFile = req.files?.thumbnail?.[0];
+      const introVideoFile = req.files?.introVideo?.[0];
+
+      const thumbnailUrl = thumbnailFile
+        ? `/uploads/${thumbnailFile.filename}`
+        : null;
+      const introVideoUrl = introVideoFile
+        ? `/uploads/${introVideoFile.filename}`
+        : null;
+
+      const newCourse = await Course.create({
+        title,
+        description,
+        price,
+        category,
+        teacherId: userId,
+        thumbnail: thumbnailUrl,
+        introVideoUrl,
+      });
+
+      appendToLogFile(
+        `[SUCCESS] ${new Date().toISOString()} - Created course ${title}`
+      );
+
+      res.status(201).json({ success: true, course: newCourse });
+    } catch (err) {
+      console.error("Error creating course:", err);
+      appendToLogFile(
+        `[ERROR] ${new Date().toISOString()} - Create course: ${err.message}`
+      );
+      res.status(500).json({
+        success: false,
+        error: "Failed to create course",
+        details: err.message,
+      });
+    }
+  }
+);
 
 // GET /api/v1/courses — list all courses
 router.get("/", async (req, res) => {
