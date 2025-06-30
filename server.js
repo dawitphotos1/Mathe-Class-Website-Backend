@@ -163,9 +163,9 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
+const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
 
@@ -181,20 +181,20 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-// ✅ Universal CORS headers
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
-  );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+// ✅ CORS configuration (replace this in your current file)
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://mathe-class-website-frontend.onrender.com", // <-- Add your deployed frontend here
+];
 
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: "GET,POST,PUT,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type,Authorization",
+  })
+);
 
 // ---------- Middleware ----------
 app.set("trust proxy", 1);
@@ -243,7 +243,7 @@ try {
     routes.emailPreview = require("./routes/emailPreview");
   }
 
-  // Debug: check all route exports are routers (functions or have .use method)
+  // 🔍 Ensure route exports are valid Express routers
   for (const [name, route] of Object.entries(routes)) {
     if (
       !(
@@ -283,10 +283,6 @@ if (routes.emailPreview) {
 
 // ✅ /me mock with CORS headers
 app.get("/api/v1/users/me", (req, res) => {
-  const origin = req.headers.origin;
-  res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-
   try {
     res.json({
       success: true,
