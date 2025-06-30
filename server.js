@@ -193,7 +193,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -216,33 +215,24 @@ process.on("uncaughtException", (err) => {
 // ✅ CORS Configuration
 const allowedOrigins = [
   "https://math-class-platform.netlify.app", // Netlify frontend
-  "http://localhost:3000", // For local development
+  "http://localhost:3000", // Local dev frontend
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, origin);
-      } else {
-        console.log(`[CORS] Blocked request from origin: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: allowedOrigins,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Origin",
-      "X-Requested-With",
-      "Content-Type",
-      "Accept",
-      "Authorization",
-    ],
   })
 );
 
-// Handle preflight OPTIONS requests
+// ✅ Allow preflight requests
 app.options("*", cors());
+
+// ✅ Optional: CORS Debug Log
+app.use((req, res, next) => {
+  console.log(`[CORS] Origin: ${req.get("origin")}`);
+  next();
+});
 
 // ---------- Middleware ----------
 app.set("trust proxy", 1);
@@ -252,7 +242,7 @@ app.use(express.static("public"));
 app.use("/uploads", express.static("uploads"));
 app.use("/api/v1/progress", progressRoutes);
 
-// 🔍 Log incoming requests
+// 🔍 Log all incoming requests
 app.use((req, res, next) => {
   console.log(
     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -265,7 +255,7 @@ app.use(
   "/api/v1/",
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit to 100 requests per IP
+    max: 100,
     message: { error: "Too many requests, please try again later" },
   })
 );
@@ -331,7 +321,7 @@ if (routes.emailPreview) {
   app.use("/dev", routes.emailPreview);
 }
 
-// ✅ /me mock for test
+// ✅ Mock /me route for testing
 app.get("/api/v1/users/me", (req, res) => {
   try {
     res.json({
