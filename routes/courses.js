@@ -5,7 +5,8 @@ const router = express.Router();
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
-
+const auth = require("../middleware/auth");
+const roleMiddleware = require("../middleware/roleMiddleware");
 // ✅ File Upload Storage Config
 const upload = multer({
   dest: "uploads/",
@@ -28,6 +29,8 @@ function appendToLogFile(message) {
 // ✅ Create Course API with File Upload
 router.post(
   "/",
+  auth, // ✅ Enforces JWT
+  roleMiddleware(["teacher"]), // ✅ Ensures only teachers can create courses
   upload.fields([
     { name: "thumbnail", maxCount: 1 },
     { name: "introVideo", maxCount: 1 },
