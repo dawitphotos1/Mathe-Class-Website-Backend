@@ -50,7 +50,6 @@
 // module.exports = initUserCourseAccess;
 
 
-
 const { Model, DataTypes } = require("sequelize");
 
 class UserCourseAccess extends Model {}
@@ -87,15 +86,16 @@ const initUserCourseAccess = (sequelize) => {
     }
   );
 
-  // 🔁 Associate inside the initializer
+  // ✅ Associations
   UserCourseAccess.associate = (models) => {
     UserCourseAccess.belongsTo(models.User, {
       foreignKey: "userId",
       as: "user",
     });
+
     UserCourseAccess.belongsTo(models.Course, {
       foreignKey: "courseId",
-      as: "course",
+      as: "course", // ✅ Must match controller include
     });
   };
 
