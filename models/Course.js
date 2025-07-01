@@ -123,15 +123,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
+      materialUrl: {
+        // ✅ move it here
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
     },
     {
       tableName: "Courses",
-    },
-    materialUrl: {
-      type: DataTypes.STRING,
-      allowNull: true,
     }
-    
   );
 
   Course.associate = (models) => {
