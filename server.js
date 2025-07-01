@@ -193,14 +193,23 @@
 
 
 
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
+const fs = require("fs");
+const path = require("path");
 const { sequelize } = require("./models");
-const progressRoutes = require("./routes/progress");
 
 const app = express();
+
+// ✅ Ensure 'uploads' directory exists (for file uploads)
+const uploadsPath = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+  console.log("📁 Created uploads directory");
+}
 
 // 🔒 Handle unhandled errors
 process.on("unhandledRejection", (err) => {
@@ -214,8 +223,8 @@ process.on("uncaughtException", (err) => {
 
 // ✅ CORS Configuration
 const allowedOrigins = [
-  "https://math-class-platform.netlify.app", // Netlify frontend
-  "http://localhost:3000", // Local dev frontend
+  "https://math-class-platform.netlify.app", // deployed frontend
+  "http://localhost:3000", // local frontend
 ];
 
 app.use(
@@ -225,10 +234,10 @@ app.use(
   })
 );
 
-// ✅ Allow preflight requests
+// ✅ Handle preflight OPTIONS requests
 app.options("*", cors());
 
-// ✅ Optional: CORS Debug Log
+// 🔍 Debug logging for CORS origin
 app.use((req, res, next) => {
   console.log(`[CORS] Origin: ${req.get("origin")}`);
   next();
@@ -239,18 +248,9 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-app.use("/uploads", express.static("uploads"));
-app.use("/api/v1/progress", progressRoutes);
+app.use("/uploads", express.static("uploads")); // Serve uploaded files
 
-// 🔍 Log all incoming requests
-app.use((req, res, next) => {
-  console.log(
-    `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
-  );
-  next();
-});
-
-// ⏱️ Rate limiter
+// ⏱️ Apply rate limiting
 app.use(
   "/api/v1/",
   rateLimit({
@@ -259,6 +259,14 @@ app.use(
     message: { error: "Too many requests, please try again later" },
   })
 );
+
+// 🔍 Log incoming requests
+app.use((req, res, next) => {
+  console.log(
+    `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
+  );
+  next();
+});
 
 // ---------- Load Routes ----------
 let routes = {};
@@ -286,13 +294,11 @@ try {
 
   for (const [name, route] of Object.entries(routes)) {
     if (
-      !(
-        typeof route === "function" ||
-        (typeof route === "object" && typeof route.use === "function")
-      )
+      !route ||
+      (typeof route !== "function" && typeof route.use !== "function")
     ) {
       throw new Error(
-        `Route '${name}' does not export an Express router instance`
+        `❌ Route '${name}' does not export a valid Express router`
       );
     }
   }
@@ -321,7 +327,7 @@ if (routes.emailPreview) {
   app.use("/dev", routes.emailPreview);
 }
 
-// ✅ Mock /me route for testing
+// ✅ Mock /me route for frontend testing (remove in prod)
 app.get("/api/v1/users/me", (req, res) => {
   try {
     res.json({
@@ -339,7 +345,7 @@ app.get("/api/v1/users/me", (req, res) => {
   }
 });
 
-// ✅ Health check
+// ✅ Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
@@ -353,9 +359,10 @@ app.use((req, res) => {
 // ✅ Global error handler
 app.use((err, req, res, next) => {
   console.error("[ERROR] Global:", err.stack || err.message);
-  res
-    .status(500)
-    .json({ error: "Internal server error", details: err.message });
+  res.status(500).json({
+    error: "Internal server error",
+    details: err.message,
+  });
 });
 
 // ---------- Start Server ----------
