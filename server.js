@@ -192,8 +192,6 @@
 
 
 
-
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -204,7 +202,7 @@ const { sequelize } = require("./models");
 
 const app = express();
 
-// ✅ Ensure 'uploads' directory exists (for file uploads)
+// 📁 Ensure 'uploads' directory exists
 const uploadsPath = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
@@ -223,29 +221,28 @@ process.on("uncaughtException", (err) => {
 
 // ✅ CORS Configuration
 const allowedOrigins = [
-  "https://math-class-platform.netlify.app", // deployed frontend
-  "http://localhost:3000", // local frontend
+  "https://math-class-platform.netlify.app",
+  "http://localhost:3000",
 ];
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-};
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin);
+      } else {
+        console.warn(`Blocked CORS origin: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-
-
-// ✅ Handle preflight OPTIONS requests
+// ✅ Preflight request support
 app.options("*", cors());
 
-// 🔍 Debug logging for CORS origin
+// 🔍 CORS Debugging
 app.use((req, res, next) => {
   console.log(`[CORS] Origin: ${req.get("origin")}`);
   next();
@@ -256,19 +253,19 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-app.use("/uploads", express.static("uploads")); // Serve uploaded files
+app.use("/uploads", express.static("uploads"));
 
-// ⏱️ Apply rate limiting
+// ⏱️ Rate limiter
 app.use(
   "/api/v1/",
   rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 100,
-    message: { error: "Too many requests, please try again later" },
+    message: { error: "Too many requests, try again later" },
   })
 );
 
-// 🔍 Log incoming requests
+// 🔍 Request logging
 app.use((req, res, next) => {
   console.log(
     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -280,7 +277,6 @@ app.use((req, res, next) => {
 let routes = {};
 try {
   console.log("📦 Loading routes...");
-
   routes = {
     lessonRoutes: require("./routes/lessonRoutes"),
     stripeWebhook: require("./routes/stripeWebhook"),
@@ -305,9 +301,7 @@ try {
       !route ||
       (typeof route !== "function" && typeof route.use !== "function")
     ) {
-      throw new Error(
-        `❌ Route '${name}' does not export a valid Express router`
-      );
+      throw new Error(`❌ Route '${name}' is invalid`);
     }
   }
 
@@ -335,38 +329,33 @@ if (routes.emailPreview) {
   app.use("/dev", routes.emailPreview);
 }
 
-// ✅ Mock /me route for frontend testing (remove in prod)
+// ✅ Mock test route
 app.get("/api/v1/users/me", (req, res) => {
-  try {
-    res.json({
-      success: true,
-      user: {
-        id: 2,
-        role: "student",
-        name: "Test Student",
-        email: "student@example.com",
-      },
-    });
-  } catch (err) {
-    console.error("[ERROR] /users/me:", err);
-    res.status(500).json({ success: false, error: "Failed to fetch user" });
-  }
+  res.json({
+    success: true,
+    user: {
+      id: 2,
+      role: "student",
+      name: "Test Student",
+      email: "student@example.com",
+    },
+  });
 });
 
-// ✅ Health check endpoint
+// ✅ Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// ✅ 404 handler
+// ✅ 404 fallback
 app.use((req, res) => {
-  console.log(`[404] ${req.method} ${req.originalUrl}`);
+  console.warn(`[404] ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: "Not Found" });
 });
 
 // ✅ Global error handler
 app.use((err, req, res, next) => {
-  console.error("[ERROR] Global:", err.stack || err.message);
+  console.error("[GLOBAL ERROR]", err.stack || err.message);
   res.status(500).json({
     error: "Internal server error",
     details: err.message,
@@ -379,16 +368,14 @@ const PORT = process.env.PORT || 5000;
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log("✅ PostgreSQL connected");
-
+    console.log("✅ Connected to PostgreSQL");
     await sequelize.sync({ force: false });
-    console.log("✅ Database synced");
-
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
+    console.log("✅ DB Synced");
+    app.listen(PORT, "0.0.0.0", () =>
+      console.log(`🚀 Server running on http://localhost:${PORT}`)
+    );
   } catch (err) {
-    console.error("❌ Failed to start server:", err.stack || err.message);
+    console.error("❌ Server start error:", err.stack || err.message);
     process.exit(1);
   }
 })();
