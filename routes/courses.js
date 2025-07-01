@@ -438,7 +438,6 @@
 
 
 
-
 const express = require("express");
 const { Course, User, Lesson } = require("../models");
 const router = express.Router();
@@ -461,13 +460,16 @@ function appendToLogFile(message) {
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
-    fs.appendFileSync(logFilePath, `${new Date().toISOString()} - ${message}\n`);
+    fs.appendFileSync(
+      logFilePath,
+      `${new Date().toISOString()} - ${message}\n`
+    );
   } catch (err) {
     console.error("Failed to write to log file:", err);
   }
 }
 
-// ✅ Create Course API with File Upload
+// ✅ Create Course API
 router.post(
   "/",
   auth,
@@ -478,23 +480,37 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      appendToLogFile("[DEBUG] POST /api/v1/courses triggered");
-      appendToLogFile(`req.body: ${JSON.stringify(req.body)}`);
-      appendToLogFile(`req.files: ${JSON.stringify(req.files)}`);
-      appendToLogFile(`req.user: ${JSON.stringify(req.user)}`);
+      console.log("📥 Incoming request to POST /courses");
+      console.log("🔍 req.body:", req.body);
+      console.log("📦 req.files:", req.files);
+      console.log("🧑 req.user:", req.user);
 
-      const { title, description, price, category } = req.body;
+      const { title, description, category } = req.body;
+      let price = parseFloat(req.body.price || 0);
       const userId = req.user?.id;
 
       if (!userId) {
-        return res.status(401).json({ success: false, error: "Unauthorized" });
+        return res
+          .status(401)
+          .json({ success: false, error: "Unauthorized – no user" });
+      }
+
+      if (!title || !description || isNaN(price)) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields (title, description, price)",
+        });
       }
 
       const thumbnailFile = req.files?.thumbnail?.[0];
       const introVideoFile = req.files?.introVideo?.[0];
 
-      const thumbnailUrl = thumbnailFile ? `/uploads/${thumbnailFile.filename}` : null;
-      const introVideoUrl = introVideoFile ? `/uploads/${introVideoFile.filename}` : null;
+      const thumbnailUrl = thumbnailFile
+        ? `/uploads/${thumbnailFile.filename}`
+        : null;
+      const introVideoUrl = introVideoFile
+        ? `/uploads/${introVideoFile.filename}`
+        : null;
 
       const newCourse = await Course.create({
         title,
@@ -520,8 +536,8 @@ router.post(
   }
 );
 
-// Other routes (unchanged but still present for completeness)
-// GET /api/v1/courses
+
+// GET all courses
 router.get("/", async (req, res) => {
   try {
     const courses = await Course.findAll({
@@ -549,7 +565,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/v1/courses/slug/:slug
+// GET by slug
 router.get("/slug/:slug", async (req, res) => {
   try {
     const course = await Course.findOne({
@@ -564,8 +580,15 @@ router.get("/slug/:slug", async (req, res) => {
           model: Lesson,
           as: "lessons",
           attributes: [
-            "id", "title", "content", "contentType", "contentUrl", "videoUrl",
-            "isUnitHeader", "unitId", "orderIndex"
+            "id",
+            "title",
+            "content",
+            "contentType",
+            "contentUrl",
+            "videoUrl",
+            "isUnitHeader",
+            "unitId",
+            "orderIndex",
           ],
           order: [["orderIndex", "ASC"]],
         },
@@ -575,7 +598,9 @@ router.get("/slug/:slug", async (req, res) => {
 
     if (!course) {
       appendToLogFile(`[ERROR] Course not found for slug: ${req.params.slug}`);
-      return res.status(404).json({ success: false, error: "Course not found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Course not found" });
     }
 
     const courseData = course.toJSON();
@@ -619,7 +644,9 @@ router.get("/slug/:slug", async (req, res) => {
     appendToLogFile(`[SUCCESS] Fetched course: ${req.params.slug}`);
   } catch (err) {
     console.error("Error fetching course by slug:", err);
-    appendToLogFile(`[ERROR] Fetch course by slug ${req.params.slug}: ${err.message}`);
+    appendToLogFile(
+      `[ERROR] Fetch course by slug ${req.params.slug}: ${err.message}`
+    );
     res.status(500).json({
       success: false,
       error: "Failed to fetch course",
@@ -628,12 +655,14 @@ router.get("/slug/:slug", async (req, res) => {
   }
 });
 
-// GET /api/v1/courses/:id
+// GET by ID
 router.get("/:id", async (req, res) => {
   try {
     const courseId = parseInt(req.params.id, 10);
     if (isNaN(courseId)) {
-      return res.status(400).json({ success: false, error: "Invalid course ID" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid course ID" });
     }
 
     const course = await Course.findByPk(courseId, {
@@ -647,8 +676,15 @@ router.get("/:id", async (req, res) => {
           model: Lesson,
           as: "lessons",
           attributes: [
-            "id", "title", "content", "contentType", "contentUrl", "videoUrl",
-            "isUnitHeader", "unitId", "orderIndex"
+            "id",
+            "title",
+            "content",
+            "contentType",
+            "contentUrl",
+            "videoUrl",
+            "isUnitHeader",
+            "unitId",
+            "orderIndex",
           ],
           order: [["orderIndex", "ASC"]],
         },
@@ -656,7 +692,9 @@ router.get("/:id", async (req, res) => {
     });
 
     if (!course) {
-      return res.status(404).json({ success: false, error: "Course not found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "Course not found" });
     }
 
     const courseData = course.toJSON();
@@ -695,13 +733,18 @@ router.get("/:id", async (req, res) => {
       },
       units,
       unitCount: units.length,
-      lessonCount: units.reduce((count, unit) => count + unit.lessons.length, 0),
+      lessonCount: units.reduce(
+        (count, unit) => count + unit.lessons.length,
+        0
+      ),
     });
 
     appendToLogFile(`[SUCCESS] Fetched course by ID: ${courseId}`);
   } catch (err) {
     console.error("Error fetching course by ID:", err);
-    appendToLogFile(`[ERROR] Fetch course by ID ${req.params.id}: ${err.message}`);
+    appendToLogFile(
+      `[ERROR] Fetch course by ID ${req.params.id}: ${err.message}`
+    );
     res.status(500).json({
       success: false,
       error: "Failed to fetch course",
@@ -711,6 +754,3 @@ router.get("/:id", async (req, res) => {
 });
 
 module.exports = router;
-
-// GET /api/v1/courses/:id/
-
