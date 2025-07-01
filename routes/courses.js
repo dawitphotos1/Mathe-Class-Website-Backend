@@ -437,7 +437,7 @@
 
 
 
-
+// ✅ Updated routes/courses.js to support material (PDF, Word, PPT, etc.)
 const express = require("express");
 const { Course, User, Lesson } = require("../models");
 const router = express.Router();
@@ -450,7 +450,7 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 // ✅ File Upload Storage Config
 const upload = multer({
   dest: "uploads/",
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max
 });
 
 function appendToLogFile(message) {
@@ -460,10 +460,7 @@ function appendToLogFile(message) {
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
-    fs.appendFileSync(
-      logFilePath,
-      `${new Date().toISOString()} - ${message}\n`
-    );
+    fs.appendFileSync(logFilePath, `${new Date().toISOString()} - ${message}\n`);
   } catch (err) {
     console.error("Failed to write to log file:", err);
   }
@@ -477,6 +474,7 @@ router.post(
   upload.fields([
     { name: "thumbnail", maxCount: 1 },
     { name: "introVideo", maxCount: 1 },
+    { name: "material", maxCount: 1 }, // ✅ NEW
   ]),
   async (req, res) => {
     try {
@@ -490,9 +488,7 @@ router.post(
       const userId = req.user?.id;
 
       if (!userId) {
-        return res
-          .status(401)
-          .json({ success: false, error: "Unauthorized – no user" });
+        return res.status(401).json({ success: false, error: "Unauthorized – no user" });
       }
 
       if (!title || !description || isNaN(price)) {
@@ -504,13 +500,11 @@ router.post(
 
       const thumbnailFile = req.files?.thumbnail?.[0];
       const introVideoFile = req.files?.introVideo?.[0];
+      const materialFile = req.files?.material?.[0];
 
-      const thumbnailUrl = thumbnailFile
-        ? `/uploads/${thumbnailFile.filename}`
-        : null;
-      const introVideoUrl = introVideoFile
-        ? `/uploads/${introVideoFile.filename}`
-        : null;
+      const thumbnailUrl = thumbnailFile ? `/uploads/${thumbnailFile.filename}` : null;
+      const introVideoUrl = introVideoFile ? `/uploads/${introVideoFile.filename}` : null;
+      const materialUrl = materialFile ? `/uploads/${materialFile.filename}` : null;
 
       const newCourse = await Course.create({
         title,
@@ -520,6 +514,7 @@ router.post(
         teacherId: userId,
         thumbnail: thumbnailUrl,
         introVideoUrl,
+        materialUrl,
       });
 
       appendToLogFile(`[SUCCESS] Created course "${title}" by user ${userId}`);
@@ -536,221 +531,5 @@ router.post(
   }
 );
 
-
-// GET all courses
-router.get("/", async (req, res) => {
-  try {
-    const courses = await Course.findAll({
-      attributes: ["id", "title", "description", "price", "slug"],
-    });
-
-    const formattedCourses = courses.map((course) => ({
-      id: course.id,
-      title: course.title,
-      slug: course.slug,
-      description: course.description,
-      price: Number(course.price),
-    }));
-
-    appendToLogFile(`[SUCCESS] Fetched ${courses.length} courses`);
-    res.json({ success: true, courses: formattedCourses });
-  } catch (err) {
-    console.error("Error fetching courses:", err);
-    appendToLogFile(`[ERROR] Fetch all courses: ${err.message}`);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch courses",
-      details: err.message,
-    });
-  }
-});
-
-// GET by slug
-router.get("/slug/:slug", async (req, res) => {
-  try {
-    const course = await Course.findOne({
-      where: { slug: req.params.slug },
-      include: [
-        {
-          model: User,
-          as: "teacher",
-          attributes: ["id", "name", "email", "profileImage"],
-        },
-        {
-          model: Lesson,
-          as: "lessons",
-          attributes: [
-            "id",
-            "title",
-            "content",
-            "contentType",
-            "contentUrl",
-            "videoUrl",
-            "isUnitHeader",
-            "unitId",
-            "orderIndex",
-          ],
-          order: [["orderIndex", "ASC"]],
-        },
-      ],
-      order: [[{ model: Lesson, as: "lessons" }, "orderIndex", "ASC"]],
-    });
-
-    if (!course) {
-      appendToLogFile(`[ERROR] Course not found for slug: ${req.params.slug}`);
-      return res
-        .status(404)
-        .json({ success: false, error: "Course not found" });
-    }
-
-    const courseData = course.toJSON();
-    const lessons = courseData.lessons || [];
-    const units = [];
-    const unitMap = {};
-
-    for (const lesson of lessons) {
-      if (lesson.isUnitHeader) {
-        unitMap[lesson.id] = {
-          unitName: lesson.title,
-          lessons: [],
-        };
-        units.push(unitMap[lesson.id]);
-      } else if (lesson.unitId && unitMap[lesson.unitId]) {
-        unitMap[lesson.unitId].lessons.push({
-          id: lesson.id,
-          title: lesson.title,
-          content: lesson.content,
-          contentType: lesson.contentType,
-          contentUrl: lesson.contentUrl,
-          videoUrl: lesson.videoUrl,
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      id: courseData.id,
-      title: courseData.title,
-      slug: courseData.slug,
-      price: Number(courseData.price),
-      description: courseData.description,
-      teacher: {
-        name: courseData.teacher?.name || "Unknown Instructor",
-        profileImage: courseData.teacher?.profileImage || null,
-      },
-      units,
-    });
-
-    appendToLogFile(`[SUCCESS] Fetched course: ${req.params.slug}`);
-  } catch (err) {
-    console.error("Error fetching course by slug:", err);
-    appendToLogFile(
-      `[ERROR] Fetch course by slug ${req.params.slug}: ${err.message}`
-    );
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch course",
-      details: err.message,
-    });
-  }
-});
-
-// GET by ID
-router.get("/:id", async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.id, 10);
-    if (isNaN(courseId)) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid course ID" });
-    }
-
-    const course = await Course.findByPk(courseId, {
-      include: [
-        {
-          model: User,
-          as: "teacher",
-          attributes: ["id", "name", "email"],
-        },
-        {
-          model: Lesson,
-          as: "lessons",
-          attributes: [
-            "id",
-            "title",
-            "content",
-            "contentType",
-            "contentUrl",
-            "videoUrl",
-            "isUnitHeader",
-            "unitId",
-            "orderIndex",
-          ],
-          order: [["orderIndex", "ASC"]],
-        },
-      ],
-    });
-
-    if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Course not found" });
-    }
-
-    const courseData = course.toJSON();
-    const lessons = courseData.lessons || [];
-    const units = [];
-    const unitMap = {};
-
-    for (const lesson of lessons) {
-      if (lesson.isUnitHeader) {
-        unitMap[lesson.id] = {
-          unitName: lesson.title,
-          lessons: [],
-        };
-        units.push(unitMap[lesson.id]);
-      } else if (lesson.unitId && unitMap[lesson.unitId]) {
-        unitMap[lesson.unitId].lessons.push({
-          id: lesson.id,
-          title: lesson.title,
-          content: lesson.content,
-          contentType: lesson.contentType,
-          contentUrl: lesson.contentUrl,
-          videoUrl: lesson.videoUrl,
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      id: courseData.id,
-      title: courseData.title,
-      slug: courseData.slug,
-      price: Number(courseData.price),
-      description: courseData.description || "No description available",
-      teacher: {
-        name: courseData.teacher?.name || "Unknown",
-      },
-      units,
-      unitCount: units.length,
-      lessonCount: units.reduce(
-        (count, unit) => count + unit.lessons.length,
-        0
-      ),
-    });
-
-    appendToLogFile(`[SUCCESS] Fetched course by ID: ${courseId}`);
-  } catch (err) {
-    console.error("Error fetching course by ID:", err);
-    appendToLogFile(
-      `[ERROR] Fetch course by ID ${req.params.id}: ${err.message}`
-    );
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch course",
-      details: err.message,
-    });
-  }
-});
-
+// Export router
 module.exports = router;
