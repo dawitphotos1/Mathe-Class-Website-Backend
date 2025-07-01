@@ -90,6 +90,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "userId",
       as: "user",
     });
+    Lesson.belongsTo(models.Lesson, {
+      foreignKey: "unitId",
+      as: "unitHeader",
+    });
+
     Lesson.hasMany(models.Lesson, {
       foreignKey: "unitId",
       as: "subLessons",
