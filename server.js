@@ -191,13 +191,15 @@
 // })();
 
 
+
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const fs = require("fs");
 const path = require("path");
-const { sequelize } = require("./models");
+const { sequelize, Sequelize } = require("./models"); // ensure Sequelize is imported too
 
 const app = express();
 
@@ -359,10 +361,34 @@ app.use((err, req, res, next) => {
 // ---------- Start Server ----------
 const PORT = process.env.PORT || 5000;
 
+const { QueryTypes } = Sequelize;
+
 (async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
+
+    // Check if 'attachmentUrls' column exists in 'Courses' table, if not add it
+    const columnCheck = await sequelize.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'Courses' AND column_name = 'attachmentUrls';
+      `,
+      { type: QueryTypes.SELECT }
+    );
+
+    if (columnCheck.length === 0) {
+      console.log(
+        "🛠️ Adding missing 'attachmentUrls' column to Courses table..."
+      );
+      await sequelize.query(
+        `ALTER TABLE "Courses" ADD COLUMN "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];`
+      );
+      console.log("✅ 'attachmentUrls' column added.");
+    } else {
+      console.log("✅ 'attachmentUrls' column already exists.");
+    }
 
     await sequelize.sync({ force: false });
     console.log("✅ DB synced");
