@@ -710,5 +710,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+module.exports = router;
+
 // GET /api/v1/courses/:id/
 
