@@ -436,7 +436,6 @@
 // module.exports = router;
 
 
-
 const express = require("express");
 const router = express.Router();
 const fs = require("fs");
@@ -446,7 +445,7 @@ const { Course, User, Lesson } = require("../models");
 const auth = require("../middleware/auth");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
-// Set up storage engine
+// Set up storage engine for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = "uploads/";
@@ -466,7 +465,7 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
 });
 
-// Logging helper
+// Log helper
 const appendToLogFile = (message) => {
   const logDir = path.join(__dirname, "..", "logs");
   const logFile = path.join(logDir, "courses.log");
@@ -478,7 +477,7 @@ const appendToLogFile = (message) => {
   }
 };
 
-// POST /api/v1/courses
+// POST /api/v1/courses — Create a course
 router.post(
   "/",
   auth,
@@ -497,6 +496,8 @@ router.post(
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      const slug = title.toLowerCase().replace(/\s+/g, "-").slice(0, 100); // optional slug
+
       const thumbnail = req.files?.thumbnail?.[0];
       const introVideo = req.files?.introVideo?.[0];
       const attachments = req.files?.attachments || [];
@@ -505,13 +506,13 @@ router.post(
       const introVideoUrl = introVideo
         ? `/uploads/${introVideo.filename}`
         : null;
-
       const attachmentUrls = attachments.map(
         (file) => `/uploads/${file.filename}`
       );
 
       const newCourse = await Course.create({
         title,
+        slug,
         description,
         category,
         teacherId,
@@ -520,11 +521,11 @@ router.post(
         attachmentUrls: JSON.stringify(attachmentUrls),
       });
 
-      appendToLogFile(`✅ Created course: ${title}`);
+      appendToLogFile(`✅ Course created: ${title} by user ${teacherId}`);
       res.status(201).json({ success: true, course: newCourse });
     } catch (err) {
       console.error("❌ Create course error:", err);
-      appendToLogFile(`❌ Error creating course: ${err.message}`);
+      appendToLogFile(`❌ Create course error: ${err.message}`);
       res.status(500).json({
         success: false,
         error: "Failed to create course",

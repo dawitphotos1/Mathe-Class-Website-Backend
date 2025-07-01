@@ -121,7 +121,6 @@
 // };
 
 
-
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define("Course", {
     title: { type: DataTypes.STRING, allowNull: false },
@@ -130,8 +129,8 @@ module.exports = (sequelize, DataTypes) => {
     slug: { type: DataTypes.STRING, unique: true },
     thumbnail: { type: DataTypes.STRING },
     introVideoUrl: { type: DataTypes.STRING },
-    attachmentUrls: { type: DataTypes.TEXT }, // JSON string of file URLs
     teacherId: { type: DataTypes.INTEGER, allowNull: false },
+    attachmentUrls: { type: DataTypes.TEXT, allowNull: true }, // ✅ This line is critical
   });
 
   Course.associate = (models) => {
