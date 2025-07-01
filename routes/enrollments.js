@@ -26,6 +26,34 @@ function appendToLogFile(message) {
   }
 }
 
+// GET /api/v1/enrollments/test-join
+router.get("/test-join", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    const data = await UserCourseAccess.findAll({
+      where: { userId },
+      include: [
+        {
+          model: Course,
+          as: "course",
+          attributes: ["id", "title", "slug", "description"],
+        },
+      ],
+    });
+
+    res.json({ success: true, count: data.length, courses: data });
+  } catch (err) {
+    console.error("❌ Test join error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Test join failed",
+      details: err.message,
+    });
+  }
+});
+
+
 // ✅ GET check enrollment status for a course (student)
 router.get("/check/:courseId", authMiddleware, async (req, res) => {
   try {
