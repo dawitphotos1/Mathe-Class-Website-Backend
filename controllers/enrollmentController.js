@@ -120,7 +120,6 @@
 
 
 
-
 const { UserCourseAccess, Course, Lesson, User } = require("../models");
 
 exports.getMyCourses = async (req, res) => {
@@ -128,7 +127,7 @@ exports.getMyCourses = async (req, res) => {
     const studentId = req.user.id;
 
     const enrollments = await UserCourseAccess.findAll({
-      where: { userId: studentId }, // fetch all, including pending
+      where: { userId: studentId },
       include: [
         {
           model: Course,
@@ -183,11 +182,11 @@ exports.getMyCourses = async (req, res) => {
           category: course.category,
           teacher: course.teacher || { name: "Unknown" },
           lessons: course.lessons || [],
-          status: entry.approved ? "approved" : "pending", // ✅ frontend needs this
+          status: entry.approved ? "approved" : "pending",
           enrolledAt: entry.accessGrantedAt,
         };
       })
-      .filter(Boolean); // remove nulls
+      .filter(Boolean);
 
     return res.json({ success: true, courses });
   } catch (error) {
@@ -195,6 +194,53 @@ exports.getMyCourses = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "Failed to load courses",
+      details: error.message,
+    });
+  }
+};
+
+// ✅ Add this function at the end of the file:
+exports.confirmEnrollment = async (req, res) => {
+  try {
+    const { courseId } = req.body;
+    const userId = req.user.id;
+
+    if (!courseId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "courseId is required" });
+    }
+
+    const existing = await UserCourseAccess.findOne({
+      where: { userId, courseId },
+    });
+
+    if (existing) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "Already enrolled or pending approval",
+        });
+    }
+
+    const newEnrollment = await UserCourseAccess.create({
+      userId,
+      courseId,
+      approved: false,
+      accessGrantedAt: new Date(),
+    });
+
+    return res.json({
+      success: true,
+      message: "Enrollment created and pending approval",
+      enrollment: newEnrollment,
+    });
+  } catch (error) {
+    console.error("🔥 Error in confirmEnrollment:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to confirm enrollment",
       details: error.message,
     });
   }
