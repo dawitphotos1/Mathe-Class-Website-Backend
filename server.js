@@ -191,7 +191,6 @@
 // })();
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -209,13 +208,13 @@ if (!fs.existsSync(uploadsPath)) {
   console.log("📁 Created uploads directory");
 }
 
-// 🔒 Handle unhandled errors
+// 🔒 Handle unhandled promise rejections and uncaught exceptions
 process.on("unhandledRejection", (err) => {
-  console.error("UNHANDLED REJECTION:", err.stack || err.message);
+  console.error("💥 UNHANDLED REJECTION:", err.stack || err.message);
   process.exit(1);
 });
 process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT EXCEPTION:", err.stack || err.message);
+  console.error("💥 UNCAUGHT EXCEPTION:", err.stack || err.message);
   process.exit(1);
 });
 
@@ -231,7 +230,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, origin);
       } else {
-        console.warn(`Blocked CORS origin: ${origin}`);
+        console.warn(`❌ Blocked by CORS: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -239,12 +238,14 @@ app.use(
   })
 );
 
-// ✅ Preflight request support
+// Preflight support
 app.options("*", cors());
 
-// 🔍 CORS Debugging
+// 🔍 Request logging for debugging
 app.use((req, res, next) => {
-  console.log(`[CORS] Origin: ${req.get("origin")}`);
+  console.log(
+    `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
+  );
   next();
 });
 
@@ -253,30 +254,23 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static("uploads")); // Serve uploaded files
 
-// ⏱️ Rate limiter
+// Rate limiting
 app.use(
   "/api/v1/",
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
-    message: { error: "Too many requests, try again later" },
+    message: { error: "Too many requests, try again later." },
   })
 );
-
-// 🔍 Request logging
-app.use((req, res, next) => {
-  console.log(
-    `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
-  );
-  next();
-});
 
 // ---------- Load Routes ----------
 let routes = {};
 try {
   console.log("📦 Loading routes...");
+
   routes = {
     lessonRoutes: require("./routes/lessonRoutes"),
     stripeWebhook: require("./routes/stripeWebhook"),
@@ -296,16 +290,17 @@ try {
     routes.emailPreview = require("./routes/emailPreview");
   }
 
+  // Validate all route exports
   for (const [name, route] of Object.entries(routes)) {
     if (
       !route ||
       (typeof route !== "function" && typeof route.use !== "function")
     ) {
-      throw new Error(`❌ Route '${name}' is invalid`);
+      throw new Error(`❌ Invalid route '${name}'`);
     }
   }
 
-  console.log("✅ Routes loaded");
+  console.log("✅ All routes loaded");
 } catch (err) {
   console.error("❌ Failed to load routes:", err.stack || err.message);
   process.exit(1);
@@ -329,7 +324,7 @@ if (routes.emailPreview) {
   app.use("/dev", routes.emailPreview);
 }
 
-// ✅ Mock test route
+// ✅ Mock user route for frontend testing (remove in production)
 app.get("/api/v1/users/me", (req, res) => {
   res.json({
     success: true,
@@ -342,12 +337,12 @@ app.get("/api/v1/users/me", (req, res) => {
   });
 });
 
-// ✅ Health check
+// ✅ Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// ✅ 404 fallback
+// ✅ 404 handler
 app.use((req, res) => {
   console.warn(`[404] ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: "Not Found" });
@@ -355,7 +350,7 @@ app.use((req, res) => {
 
 // ✅ Global error handler
 app.use((err, req, res, next) => {
-  console.error("[GLOBAL ERROR]", err.stack || err.message);
+  console.error("💥 Global Error:", err.stack || err.message);
   res.status(500).json({
     error: "Internal server error",
     details: err.message,
@@ -368,14 +363,16 @@ const PORT = process.env.PORT || 5000;
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log("✅ Connected to PostgreSQL");
+    console.log("✅ PostgreSQL connected");
+
     await sequelize.sync({ force: false });
-    console.log("✅ DB Synced");
+    console.log("✅ DB synced");
+
     app.listen(PORT, "0.0.0.0", () =>
-      console.log(`🚀 Server running on http://localhost:${PORT}`)
+      console.log(`🚀 Server running at http://localhost:${PORT}`)
     );
   } catch (err) {
-    console.error("❌ Server start error:", err.stack || err.message);
+    console.error("❌ Server startup error:", err.stack || err.message);
     process.exit(1);
   }
 })();

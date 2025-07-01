@@ -437,17 +437,16 @@
 
 
 
-
 const express = require("express");
-const { Course, User, Lesson } = require("../models");
 const router = express.Router();
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
+const { Course, User, Lesson } = require("../models");
 const auth = require("../middleware/auth");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
-// 📦 Set up file storage
+// Set up storage engine
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = "uploads/";
@@ -457,68 +456,54 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname.replace(
-      /\s+/g,
-      "_"
-    )}`;
-    cb(null, uniqueName);
+    const unique = `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+    cb(null, unique);
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
 });
 
-// 🧠 Logger
-function appendToLogFile(message) {
+// Logging helper
+const appendToLogFile = (message) => {
   const logDir = path.join(__dirname, "..", "logs");
-  const logFilePath = path.join(logDir, "courses.log");
+  const logFile = path.join(logDir, "courses.log");
   try {
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-    fs.appendFileSync(
-      logFilePath,
-      `${new Date().toISOString()} - ${message}\n`
-    );
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(logFile, `${new Date().toISOString()} - ${message}\n`);
   } catch (err) {
-    console.error("❌ Failed to write to log:", err.message);
+    console.error("❌ Log error:", err.message);
   }
-}
+};
 
-// ✅ Create Course Route
+// POST /api/v1/courses
 router.post(
   "/",
   auth,
   roleMiddleware(["teacher"]),
   upload.fields([
-    { name: "thumbnail", maxCount: 10 },
-    { name: "introVideo", maxCount: 10 },
+    { name: "thumbnail", maxCount: 1 },
+    { name: "introVideo", maxCount: 1 },
     { name: "attachments", maxCount: 10 },
   ]),
   async (req, res) => {
     try {
       const { title, description, category } = req.body;
-      const userId = req.user?.id;
-      // const price = req.body.price ? parseFloat(req.body.price) : 0;
+      const teacherId = req.user?.id;
 
       if (!title || !description || !category) {
-        return res.status(400).json({
-          success: false,
-          error: "Title, description, and category are required",
-        });
+        return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const thumbnailFile = req.files?.thumbnail?.[0];
-      const introVideoFile = req.files?.introVideo?.[0];
+      const thumbnail = req.files?.thumbnail?.[0];
+      const introVideo = req.files?.introVideo?.[0];
       const attachments = req.files?.attachments || [];
 
-      const thumbnailUrl = thumbnailFile
-        ? `/uploads/${thumbnailFile.filename}`
-        : null;
-      const introVideoUrl = introVideoFile
-        ? `/uploads/${introVideoFile.filename}`
+      const thumbnailUrl = thumbnail ? `/uploads/${thumbnail.filename}` : null;
+      const introVideoUrl = introVideo
+        ? `/uploads/${introVideo.filename}`
         : null;
 
       const attachmentUrls = attachments.map(
@@ -529,19 +514,17 @@ router.post(
         title,
         description,
         category,
-        // price,
-        teacherId: userId,
+        teacherId,
         thumbnail: thumbnailUrl,
         introVideoUrl,
-        attachmentUrls:
-          attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null,
+        attachmentUrls: JSON.stringify(attachmentUrls),
       });
 
-      appendToLogFile(`[SUCCESS] Course created: ${title} by user ${userId}`);
+      appendToLogFile(`✅ Created course: ${title}`);
       res.status(201).json({ success: true, course: newCourse });
     } catch (err) {
-      console.error("❌ Error in POST /courses:", err);
-      appendToLogFile(`[ERROR] POST /courses: ${err.message}`);
+      console.error("❌ Create course error:", err);
+      appendToLogFile(`❌ Error creating course: ${err.message}`);
       res.status(500).json({
         success: false,
         error: "Failed to create course",
@@ -551,5 +534,4 @@ router.post(
   }
 );
 
-// ✅ Export router
 module.exports = router;

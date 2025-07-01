@@ -71,41 +71,72 @@
 
 
 
+// module.exports = (sequelize, DataTypes) => {
+//   const Course = sequelize.define("Course", {
+//     title: {
+//       type: DataTypes.STRING,
+//       allowNull: false,
+//     },
+//     description: {
+//       type: DataTypes.TEXT,
+//       allowNull: false,
+//     },
+//     category: {
+//       type: DataTypes.STRING,
+//       allowNull: true,
+//     },
+//     slug: {
+//       type: DataTypes.STRING,
+//       unique: true,
+//     },
+//     thumbnail: {
+//       type: DataTypes.STRING,
+//     },
+//     introVideoUrl: {
+//       type: DataTypes.STRING,
+//     },
+//     teacherId: {
+//       type: DataTypes.INTEGER,
+//       allowNull: false,
+//     },
+//     attachmentUrls: {
+//       type: DataTypes.TEXT, // Stored as JSON string
+//       allowNull: true,
+//       get() {
+//         const raw = this.getDataValue("attachmentUrls");
+//         return raw ? JSON.parse(raw) : [];
+//       },
+//       set(value) {
+//         this.setDataValue("attachmentUrls", JSON.stringify(value));
+//       },
+//     },
+//   });
+
+//   Course.associate = (models) => {
+//     Course.belongsTo(models.User, { foreignKey: "teacherId", as: "teacher" });
+//     Course.hasMany(models.Lesson, { foreignKey: "courseId", as: "lessons" });
+//   };
+
+//   return Course;
+// };
+
+
+
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define("Course", {
-    title: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
-    category: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    thumbnail: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    introVideoUrl: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    attachmentUrls: {
-      type: DataTypes.TEXT, // Or JSONB if you're using Postgres
-      allowNull: true,
-    },
-    teacherId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
+    title: { type: DataTypes.STRING, allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    category: { type: DataTypes.STRING, allowNull: false },
+    slug: { type: DataTypes.STRING, unique: true },
+    thumbnail: { type: DataTypes.STRING },
+    introVideoUrl: { type: DataTypes.STRING },
+    attachmentUrls: { type: DataTypes.TEXT }, // JSON string of file URLs
+    teacherId: { type: DataTypes.INTEGER, allowNull: false },
   });
 
-  Course.associate = function (models) {
-    Course.belongsTo(models.User, { as: "teacher", foreignKey: "teacherId" });
-    Course.hasMany(models.Lesson, { as: "lessons", foreignKey: "courseId" });
+  Course.associate = (models) => {
+    Course.belongsTo(models.User, { foreignKey: "teacherId", as: "teacher" });
+    Course.hasMany(models.Lesson, { foreignKey: "courseId", as: "lessons" });
   };
 
   return Course;
