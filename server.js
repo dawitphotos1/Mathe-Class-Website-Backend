@@ -220,17 +220,16 @@ process.on("uncaughtException", (err) => {
 
 // ✅ CORS Configuration
 const allowedOrigins = [
-  "https://math-class-platform.netlify.app",
   "http://localhost:3000",
+  "https://math-class-platform.netlify.app",
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, origin);
+        callback(null, true);
       } else {
-        console.warn(`❌ Blocked by CORS: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },

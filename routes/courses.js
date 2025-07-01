@@ -436,6 +436,8 @@
 // module.exports = router;
 
 
+
+
 const express = require("express");
 const router = express.Router();
 const fs = require("fs");
@@ -445,7 +447,10 @@ const { Course, User, Lesson } = require("../models");
 const auth = require("../middleware/auth");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
-// Set up storage engine for file uploads
+// 🛠 Slug generator
+const slugify = (text) => text.toLowerCase().replace(/\s+/g, "-").slice(0, 100);
+
+// 🔧 File storage config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = "uploads/";
@@ -465,7 +470,7 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
 });
 
-// Log helper
+// 📝 Logger
 const appendToLogFile = (message) => {
   const logDir = path.join(__dirname, "..", "logs");
   const logFile = path.join(logDir, "courses.log");
@@ -477,7 +482,7 @@ const appendToLogFile = (message) => {
   }
 };
 
-// POST /api/v1/courses — Create a course
+// ✅ POST /api/v1/courses — Create a course
 router.post(
   "/",
   auth,
@@ -496,7 +501,7 @@ router.post(
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const slug = title.toLowerCase().replace(/\s+/g, "-").slice(0, 100); // optional slug
+      const slug = slugify(title);
 
       const thumbnail = req.files?.thumbnail?.[0];
       const introVideo = req.files?.introVideo?.[0];
@@ -512,13 +517,13 @@ router.post(
 
       const newCourse = await Course.create({
         title,
-        slug,
         description,
         category,
         teacherId,
         thumbnail: thumbnailUrl,
         introVideoUrl,
         attachmentUrls: JSON.stringify(attachmentUrls),
+        slug,
       });
 
       appendToLogFile(`✅ Course created: ${title} by user ${teacherId}`);
@@ -534,5 +539,85 @@ router.post(
     }
   }
 );
+
+// ✅ GET /api/v1/courses/slug/:slug — Fetch course by slug
+router.get("/slug/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const course = await Course.findOne({
+      where: { slug },
+      include: [
+        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
+        { model: Lesson, as: "lessons" },
+      ],
+    });
+
+    if (!course) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Course not found" });
+    }
+
+    const grouped = {};
+    course.lessons.forEach((lesson) => {
+      const unitName = lesson.unitName || "Uncategorized";
+      if (!grouped[unitName]) grouped[unitName] = [];
+      grouped[unitName].push({
+        id: lesson.id,
+        title: lesson.title,
+        contentUrl: lesson.contentUrl,
+        videoUrl: lesson.videoUrl,
+      });
+    });
+
+    const units = Object.entries(grouped).map(([unitName, lessons]) => ({
+      unitName,
+      lessons,
+    }));
+
+    res.json({
+      success: true,
+      id: course.id,
+      title: course.title,
+      slug: course.slug,
+      category: course.category,
+      description: course.description,
+      thumbnail: course.thumbnail,
+      introVideoUrl: course.introVideoUrl,
+      materialUrl: course.attachmentUrls,
+      teacher: course.teacher,
+      units,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching course by slug:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch course",
+      details: err.message,
+    });
+  }
+});
+
+// ✅ GET /api/v1/courses — List all courses (optional ?category=...)
+router.get("/", async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.category) {
+      where.category = req.query.category;
+    }
+
+    const courses = await Course.findAll({
+      where,
+      include: [{ model: User, as: "teacher", attributes: ["id", "name"] }],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json({ success: true, courses });
+  } catch (err) {
+    console.error("❌ Error listing courses:", err);
+    res.status(500).json({ success: false, error: "Failed to list courses" });
+  }
+});
 
 module.exports = router;
