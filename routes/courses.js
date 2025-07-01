@@ -523,7 +523,7 @@ router.post(
         thumbnail: thumbnailUrl,
         introVideoUrl,
         attachmentUrls: JSON.stringify(attachmentUrls),
-        slug,
+        slug: slugify(title), // i.e., "algebra 2" → "algebra-2"
       });
 
       appendToLogFile(`✅ Course created: ${title} by user ${teacherId}`);
