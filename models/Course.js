@@ -1,4 +1,3 @@
-
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define("Course", {
     title: { type: DataTypes.STRING, allowNull: false },
@@ -8,6 +7,8 @@ module.exports = (sequelize, DataTypes) => {
     thumbnail: { type: DataTypes.STRING },
     introVideoUrl: { type: DataTypes.STRING },
     teacherId: { type: DataTypes.INTEGER, allowNull: false },
+
+    // Change from TEXT to ARRAY of STRING for attachment URLs
     attachmentUrls: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
@@ -16,21 +17,8 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Course.associate = (models) => {
-    Course.belongsTo(models.User, {
-      foreignKey: "teacherId",
-      as: "teacher",
-    });
-
-    Course.hasMany(models.Lesson, {
-      foreignKey: "courseId",
-      as: "lessons",
-    });
-
-    // Optional: reverse association for access tracking
-    Course.hasMany(models.UserCourseAccess, {
-      foreignKey: "courseId",
-      as: "accesses",
-    });
+    Course.belongsTo(models.User, { foreignKey: "teacherId", as: "teacher" });
+    Course.hasMany(models.Lesson, { foreignKey: "courseId", as: "lessons" });
   };
 
   return Course;

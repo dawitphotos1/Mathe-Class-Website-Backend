@@ -12,7 +12,6 @@ const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
 const { confirmEnrollment } = require("../controllers/enrollmentController");
-const enrollmentController = require("../controllers/enrollmentController");
 
 function appendToLogFile(message) {
   const logDir = path.join(__dirname, "..", "logs");
@@ -26,34 +25,6 @@ function appendToLogFile(message) {
     console.error("Failed to write to log file:", err);
   }
 }
-
-// GET /api/v1/enrollments/test-join
-router.get("/test-join", authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user?.id;
-
-    const data = await UserCourseAccess.findAll({
-      where: { userId },
-      include: [
-        {
-          model: Course,
-          as: "course",
-          attributes: ["id", "title", "slug", "description"],
-        },
-      ],
-    });
-
-    res.json({ success: true, count: data.length, courses: data });
-  } catch (err) {
-    console.error("❌ Test join error:", err);
-    res.status(500).json({
-      success: false,
-      error: "Test join failed",
-      details: err.message,
-    });
-  }
-});
-
 
 // ✅ GET check enrollment status for a course (student)
 router.get("/check/:courseId", authMiddleware, async (req, res) => {
@@ -164,10 +135,9 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: "Unauthorized: No user ID",
-      });
+      return res
+        .status(401)
+        .json({ success: false, error: "Unauthorized: No user ID" });
     }
 
     const enrollments = await UserCourseAccess.findAll({
@@ -183,50 +153,30 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
             "description",
             "price",
             "category",
-            "thumbnail",
-            "introVideoUrl",
           ],
-          include: [
-            {
-              model: User,
-              as: "teacher",
-              attributes: ["id", "name", "email"],
-              required: false,
-            },
-          ],
+          required: true,
         },
       ],
       order: [["accessGrantedAt", "DESC"]],
     });
 
-    // Transform data to match frontend expectations
-    const courses = enrollments.map((entry) => ({
+    const formatted = enrollments.map((entry) => ({
       id: entry.course.id,
       slug: entry.course.slug,
       title: entry.course.title,
       description: entry.course.description,
-      price: entry.course.price,
+      price: parseFloat(entry.course.price) || 0,
       category: entry.course.category || "Uncategorized",
-      thumbnail: entry.course.thumbnail,
-      introVideoUrl: entry.course.introVideoUrl,
-      teacher: entry.course.teacher || { name: "Unknown Teacher" },
-      status: entry.approved ? "approved" : "pending",
       enrolledAt: entry.accessGrantedAt,
+      status: entry.approved ? "approved" : "pending",
     }));
 
-    res.json({ success: true, courses });
+    res.json({ success: true, courses: formatted });
   } catch (err) {
-    console.error("Error loading my courses:", {
-      message: err.message,
-      stack: err.stack,
-      userId: req.user?.id,
-    });
-    res.status(500).json({
-      success: false,
-      error: "Failed to load enrolled courses",
-      details:
-        process.env.NODE_ENV === "development" ? err.message : "Internal error",
-    });
+    console.error("Error loading my courses:", err);
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to load enrolled courses" });
   }
 });
 
