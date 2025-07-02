@@ -12,6 +12,7 @@ const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
 const { confirmEnrollment } = require("../controllers/enrollmentController");
+const enrollmentController = require("../controllers/enrollmentController");
 
 function appendToLogFile(message) {
   const logDir = path.join(__dirname, "..", "logs");
@@ -163,9 +164,10 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res
-        .status(401)
-        .json({ success: false, error: "Unauthorized: No user ID" });
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized: No user ID",
+      });
     }
 
     const enrollments = await UserCourseAccess.findAll({
@@ -181,30 +183,50 @@ router.get("/my-courses", authMiddleware, async (req, res) => {
             "description",
             "price",
             "category",
+            "thumbnail",
+            "introVideoUrl",
           ],
-          required: true,
+          include: [
+            {
+              model: User,
+              as: "teacher",
+              attributes: ["id", "name", "email"],
+              required: false,
+            },
+          ],
         },
       ],
       order: [["accessGrantedAt", "DESC"]],
     });
 
-    const formatted = enrollments.map((entry) => ({
+    // Transform data to match frontend expectations
+    const courses = enrollments.map((entry) => ({
       id: entry.course.id,
       slug: entry.course.slug,
       title: entry.course.title,
       description: entry.course.description,
-      price: parseFloat(entry.course.price) || 0,
+      price: entry.course.price,
       category: entry.course.category || "Uncategorized",
-      enrolledAt: entry.accessGrantedAt,
+      thumbnail: entry.course.thumbnail,
+      introVideoUrl: entry.course.introVideoUrl,
+      teacher: entry.course.teacher || { name: "Unknown Teacher" },
       status: entry.approved ? "approved" : "pending",
+      enrolledAt: entry.accessGrantedAt,
     }));
 
-    res.json({ success: true, courses: formatted });
+    res.json({ success: true, courses });
   } catch (err) {
-    console.error("Error loading my courses:", err);
-    res
-      .status(500)
-      .json({ success: false, error: "Failed to load enrolled courses" });
+    console.error("Error loading my courses:", {
+      message: err.message,
+      stack: err.stack,
+      userId: req.user?.id,
+    });
+    res.status(500).json({
+      success: false,
+      error: "Failed to load enrolled courses",
+      details:
+        process.env.NODE_ENV === "development" ? err.message : "Internal error",
+    });
   }
 });
 

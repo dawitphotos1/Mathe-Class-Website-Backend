@@ -1,17 +1,58 @@
+// // const { Model, DataTypes } = require("sequelize");
+
+// // class UserCourseAccess extends Model {
+// //   static associate(models) {
+// //     UserCourseAccess.belongsTo(models.User, {
+// //       foreignKey: "userId",
+// //       as: "user",
+// //     });
+// //     UserCourseAccess.belongsTo(models.Course, {
+// //       foreignKey: "courseId",
+// //       as: "course",
+// //     });
+// //   }
+// // }
+
+// // const initUserCourseAccess = (sequelize) => {
+// //   UserCourseAccess.init(
+// //     {
+// //       userId: {
+// //         type: DataTypes.INTEGER,
+// //         primaryKey: true,
+// //         references: { model: "Users", key: "id" },
+// //         onDelete: "CASCADE",
+// //       },
+// //       courseId: {
+// //         type: DataTypes.INTEGER,
+// //         primaryKey: true,
+// //         references: { model: "Courses", key: "id" },
+// //         onDelete: "CASCADE",
+// //       },
+// //       accessGrantedAt: {
+// //         type: DataTypes.DATE,
+// //         defaultValue: DataTypes.NOW,
+// //       },
+// //       approved: {
+// //         type: DataTypes.BOOLEAN,
+// //         defaultValue: false,
+// //       },
+// //     },
+// //     {
+// //       sequelize,
+// //       modelName: "UserCourseAccess",
+// //       tableName: "UserCourseAccess",
+// //       timestamps: false,
+// //     }
+// //   );
+// //   return UserCourseAccess;
+// // };
+
+// // module.exports = initUserCourseAccess;
+
+
 // const { Model, DataTypes } = require("sequelize");
 
-// class UserCourseAccess extends Model {
-//   static associate(models) {
-//     UserCourseAccess.belongsTo(models.User, {
-//       foreignKey: "userId",
-//       as: "user",
-//     });
-//     UserCourseAccess.belongsTo(models.Course, {
-//       foreignKey: "courseId",
-//       as: "course",
-//     });
-//   }
-// }
+// class UserCourseAccess extends Model {}
 
 // const initUserCourseAccess = (sequelize) => {
 //   UserCourseAccess.init(
@@ -44,6 +85,20 @@
 //       timestamps: false,
 //     }
 //   );
+
+//   // ✅ Associations
+//   UserCourseAccess.associate = (models) => {
+//     UserCourseAccess.belongsTo(models.User, {
+//       foreignKey: "userId",
+//       as: "user",
+//     });
+
+//     UserCourseAccess.belongsTo(models.Course, {
+//       foreignKey: "courseId",
+//       as: "course", // ✅ Must match controller include
+//     });
+//   };
+
 //   return UserCourseAccess;
 // };
 
@@ -52,22 +107,34 @@
 
 const { Model, DataTypes } = require("sequelize");
 
-class UserCourseAccess extends Model {}
+class UserCourseAccess extends Model {
+  static associate(models) {
+    UserCourseAccess.belongsTo(models.User, {
+      foreignKey: "userId",
+      as: "user",
+    });
+    UserCourseAccess.belongsTo(models.Course, {
+      foreignKey: "courseId",
+      as: "course",
+    });
+  }
+}
 
 const initUserCourseAccess = (sequelize) => {
   UserCourseAccess.init(
     {
-      userId: {
+      id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
-        references: { model: "Users", key: "id" },
-        onDelete: "CASCADE",
+        autoIncrement: true,
+      },
+      userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
       },
       courseId: {
         type: DataTypes.INTEGER,
-        primaryKey: true,
-        references: { model: "Courses", key: "id" },
-        onDelete: "CASCADE",
+        allowNull: false,
       },
       accessGrantedAt: {
         type: DataTypes.DATE,
@@ -85,20 +152,6 @@ const initUserCourseAccess = (sequelize) => {
       timestamps: false,
     }
   );
-
-  // ✅ Associations
-  UserCourseAccess.associate = (models) => {
-    UserCourseAccess.belongsTo(models.User, {
-      foreignKey: "userId",
-      as: "user",
-    });
-
-    UserCourseAccess.belongsTo(models.Course, {
-      foreignKey: "courseId",
-      as: "course", // ✅ Must match controller include
-    });
-  };
-
   return UserCourseAccess;
 };
 

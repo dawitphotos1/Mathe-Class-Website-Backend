@@ -25,7 +25,17 @@ Object.values(models).forEach((model) => {
     model.associate(models);
   }
 });
-
+// Add explicit associations for UserCourseAccess
+models.UserCourseAccess.associate = (models) => {
+  models.UserCourseAccess.belongsTo(models.Course, {
+    foreignKey: "courseId",
+    as: "course"
+  });
+  models.UserCourseAccess.belongsTo(models.User, {
+    foreignKey: "userId",
+    as: "user"
+  });
+};
 // Step 3: Add sequelize references to the models object
 models.sequelize = sequelize;
 models.Sequelize = Sequelize;
