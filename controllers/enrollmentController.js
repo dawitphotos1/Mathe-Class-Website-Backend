@@ -3,6 +3,8 @@ const { UserCourseAccess, Course, Lesson, User } = require("../models");
 
 exports.getMyCourses = async (req, res) => {
   try {
+    console.log("✅ user:", req.user);
+
     const studentId = req.user.id;
 
     const enrollments = await UserCourseAccess.findAll({
@@ -11,65 +13,47 @@ exports.getMyCourses = async (req, res) => {
         {
           model: Course,
           as: "course",
-          attributes: [
-            "id",
-            "title",
-            "slug",
-            "description",
-            "price",
-            "materialUrl",
-            "category",
-          ],
           include: [
             {
               model: Lesson,
               as: "lessons",
               required: false,
-              attributes: [
-                "id",
-                "title",
-                "contentUrl",
-                "videoUrl",
-                "unitId",
-                "isUnitHeader",
-              ],
             },
             {
               model: User,
               as: "teacher",
-              attributes: ["id", "name", "email"],
               required: false,
             },
           ],
         },
       ],
-      order: [["accessGrantedAt", "DESC"]],
     });
 
+    console.log("📦 Enrollments fetched:", enrollments.length);
+
     const courses = enrollments
-      .map((entry) => {
+      .map((entry, index) => {
+        if (!entry.course) {
+          console.warn(`⚠️ Enrollment ${index} missing course`);
+          return null;
+        }
+
         const course = entry.course;
-        if (!course) return null;
 
         return {
           id: course.id,
-          slug: course.slug,
           title: course.title,
-          description: course.description,
-          price: course.price,
-          materialUrl: course.materialUrl,
-          category: course.category,
-          teacher: course.teacher || { name: "Unknown" },
-          lessons: course.lessons || [],
+          slug: course.slug,
           status: entry.approved ? "approved" : "pending",
-          enrolledAt: entry.accessGrantedAt,
+          teacher: course.teacher,
+          lessons: course.lessons,
         };
       })
       .filter(Boolean);
 
     return res.json({ success: true, courses });
   } catch (error) {
-    console.error("🔥 Error in getMyCourses:", error);
+    console.error("🔥 getMyCourses failed:", error.stack || error.message);
     return res.status(500).json({
       success: false,
       error: "Failed to load courses",
@@ -77,6 +61,7 @@ exports.getMyCourses = async (req, res) => {
     });
   }
 };
+
 
 // ✅ Add this function at the end of the file:
 exports.confirmEnrollment = async (req, res) => {
