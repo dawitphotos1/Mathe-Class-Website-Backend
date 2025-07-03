@@ -1,25 +1,3 @@
-// "use strict";
-
-// module.exports = {
-//   up: async (queryInterface, Sequelize) => {
-//     await queryInterface.sequelize.query(`
-//       ALTER TABLE "UserCourseAccess" 
-//       ADD COLUMN IF NOT EXISTS "id" SERIAL PRIMARY KEY;
-      
-//       ALTER TABLE "UserCourseAccess" 
-//       ALTER COLUMN "approved" SET DEFAULT false;
-//     `);
-//   },
-
-//   down: async (queryInterface, Sequelize) => {
-//     await queryInterface.sequelize.query(`
-//       ALTER TABLE "UserCourseAccess" 
-//       DROP COLUMN IF EXISTS "id";
-//     `);
-//   },
-// };
-
-
 "use strict";
 
 module.exports = {

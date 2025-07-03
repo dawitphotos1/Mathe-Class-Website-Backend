@@ -1,95 +1,59 @@
 
 const { UserCourseAccess, Course, Lesson, User } = require("../models");
 
-exports.getMyCourses = async (req, res) => {
+exports.createCourse = async (req, res) => {
   try {
-    console.log("📥 Incoming /my-courses request");
-    console.log("🔍 req.user =", req.user);
+    console.log("📥 Incoming request to create a course");
+    console.log("🧠 req.user =", req.user);
+    console.log("📦 req.body =", req.body);
 
-    if (!req.user) {
-      console.error("❌ Unauthorized: req.user is undefined");
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+    if (!req.user || req.user.role !== "teacher") {
+      return res
+        .status(403)
+        .json({ success: false, error: "Only teachers can create courses." });
     }
 
-    const studentId = req.user.id;
+    const {
+      title,
+      description,
+      category,
+      slug,
+      price = 0,
+      materialUrl = null,
+      attachmentUrls = [],
+    } = req.body;
 
-    const enrollments = await UserCourseAccess.findAll({
-      where: { userId: studentId },
-      include: [
-        {
-          model: Course,
-          as: "course",
-          attributes: [
-            "id",
-            "title",
-            "slug",
-            "description",
-            "price",
-            "materialUrl",
-            "category",
-          ],
-          include: [
-            {
-              model: Lesson,
-              as: "lessons",
-              required: false,
-              attributes: [
-                "id",
-                "title",
-                "contentUrl",
-                "videoUrl",
-                "unitId",
-                "isUnitHeader",
-              ],
-            },
-            {
-              model: User,
-              as: "teacher",
-              attributes: ["id", "name", "email"],
-              required: false,
-            },
-          ],
-        },
-      ],
-      order: [["accessGrantedAt", "DESC"]],
+    // Validate required fields
+    if (!title || !slug || !category || !description) {
+      return res.status(400).json({
+        success: false,
+        error: "Title, slug, description, and category are required.",
+      });
+    }
+
+    const newCourse = await Course.create({
+      title,
+      slug,
+      description,
+      category,
+      price,
+      materialUrl,
+      attachmentUrls,
+      teacherId: req.user.id,
     });
 
-    console.log("📦 Enrollments count:", enrollments.length);
+    console.log("✅ Course created successfully:", newCourse.id);
 
-    const courses = enrollments
-      .map((entry, index) => {
-        if (!entry.course) {
-          console.warn(`⚠️ Enrollment ${index} has no course attached`);
-          return null;
-        }
-
-        return {
-          id: entry.course.id,
-          slug: entry.course.slug,
-          title: entry.course.title,
-          description: entry.course.description,
-          price: entry.course.price,
-          materialUrl: entry.course.materialUrl,
-          category: entry.course.category,
-          teacher: entry.course.teacher || { name: "Unknown" },
-          lessons: entry.course.lessons || [],
-          status: entry.approved ? "approved" : "pending",
-          enrolledAt: entry.accessGrantedAt,
-        };
-      })
-      .filter(Boolean);
-
-    return res.json({ success: true, courses });
+    return res.status(201).json({ success: true, course: newCourse });
   } catch (error) {
-    console.error("🔥 getMyCourses ERROR:", error.stack || error.message);
+    console.error("🔥 Error in createCourse:", error.stack || error.message);
     return res.status(500).json({
       success: false,
-      error: "Failed to load courses",
+      error: "Failed to create course",
       details: error.message,
     });
   }
 };
-
 
 
 // ✅ Add this function at the end of the file:
