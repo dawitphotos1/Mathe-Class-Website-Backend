@@ -104,76 +104,64 @@
 
 
 
-const path = require("path");
-const fs = require("fs");
-const { Course, UserCourseAccess, Lesson, User } = require("../models");
+const { UserCourseAccess, Course, User } = require("../models");
+const sendEmail = require("../utils/sendEmail");
+const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
-exports.createCourse = async (req, res) => {
+// Student confirms payment and triggers enrollment
+exports.confirmEnrollment = async (req, res) => {
   try {
-    console.log("📥 CREATE COURSE request received.");
-    console.log("🔐 Authenticated user:", req.user);
-    console.log("📝 Incoming fields:", req.body);
-    console.log("📎 Incoming files:", req.files);
+    const userId = req.user?.id;
+    const { courseId } = req.body;
 
-    if (!req.user || req.user.role !== "teacher") {
-      return res.status(403).json({
-        success: false,
-        error: "Only teachers can create courses.",
-      });
+    if (!userId || !courseId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing userId or courseId" });
     }
 
-    const {
-      title,
-      description,
-      category,
-      slug,
-      price = 0,
-      materialUrl = null,
-    } = req.body;
-
-    if (!title || !slug || !description || !category) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing required fields: title, slug, description, category",
-      });
-    }
-
-    // ✅ Handle attachments
-    const attachmentUrls = [];
-    if (req.files?.attachments) {
-      const files = Array.isArray(req.files.attachments)
-        ? req.files.attachments
-        : [req.files.attachments];
-
-      for (const file of files) {
-        const fileName = `${Date.now()}_${file.originalname}`;
-        const filePath = path.join(__dirname, "..", "uploads", fileName);
-
-        fs.writeFileSync(filePath, file.buffer); // save file
-        attachmentUrls.push(`/uploads/${fileName}`); // public URL
-      }
-    }
-
-    // ✅ Save course
-    const course = await Course.create({
-      title,
-      description,
-      category,
-      slug,
-      price: parseFloat(price),
-      materialUrl,
-      attachmentUrls,
-      teacherId: req.user.id,
+    const existing = await UserCourseAccess.findOne({
+      where: { userId, courseId },
     });
 
-    console.log("✅ Course created:", course.id);
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        error: "Already enrolled or pending approval",
+      });
+    }
 
-    return res.status(201).json({ success: true, course });
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Course not found" });
+    }
+
+    const enrollment = await UserCourseAccess.create({
+      userId,
+      courseId,
+      approved: false,
+      accessGrantedAt: new Date(),
+    });
+
+    const user = await User.findByPk(userId);
+    if (user && course) {
+      const { subject, html } = courseEnrollmentPending(user, course);
+      await sendEmail(user.email, subject, html);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Enrollment submitted and pending approval",
+      enrollment,
+    });
   } catch (error) {
-    console.error("🔥 CREATE COURSE ERROR:", error.stack || error.message);
-    return res.status(500).json({
+    console.error("Error confirming enrollment:", error);
+    res.status(500).json({
       success: false,
-      error: "Failed to create course",
+      error: "Failed to confirm enrollment",
       details: error.message,
     });
   }
