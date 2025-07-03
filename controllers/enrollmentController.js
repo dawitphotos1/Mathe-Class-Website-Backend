@@ -3,7 +3,13 @@ const { UserCourseAccess, Course, Lesson, User } = require("../models");
 
 exports.getMyCourses = async (req, res) => {
   try {
-    console.log("📥 Incoming request from:", req.user?.id);
+    console.log("📥 Incoming /my-courses request");
+    console.log("🔍 req.user =", req.user);
+
+    if (!req.user) {
+      console.error("❌ Unauthorized: req.user is undefined");
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
 
     const studentId = req.user.id;
 
