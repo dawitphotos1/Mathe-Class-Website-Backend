@@ -11,7 +11,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
 const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApproved");
 const courseEnrollmentRejected = require("../utils/emails/courseEnrollmentRejected");
-const { confirmEnrollment } = require("../controllers/enrollmentController");
+const { confirmEnrollment } = require("../controllers/courseController");
 
 function appendToLogFile(message) {
   const logDir = path.join(__dirname, "..", "logs");
