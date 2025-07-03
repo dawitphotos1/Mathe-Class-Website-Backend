@@ -3,11 +3,12 @@ const { UserCourseAccess, Course, Lesson, User } = require("../models");
 
 exports.createCourse = async (req, res) => {
   try {
-    console.log("📥 Incoming request to create a course");
-    console.log("🧠 req.user =", req.user);
-    console.log("📦 req.body =", req.body);
+    console.log("📥 CREATE COURSE request received.");
+    console.log("🔐 Authenticated user:", req.user);
+    console.log("📝 Incoming data:", req.body);
 
     if (!req.user || req.user.role !== "teacher") {
+      console.warn("❌ User is not a teacher or not authenticated");
       return res
         .status(403)
         .json({ success: false, error: "Only teachers can create courses." });
@@ -23,30 +24,29 @@ exports.createCourse = async (req, res) => {
       attachmentUrls = [],
     } = req.body;
 
-    // Validate required fields
-    if (!title || !slug || !category || !description) {
+    if (!title || !slug || !description || !category) {
       return res.status(400).json({
         success: false,
-        error: "Title, slug, description, and category are required.",
+        error: "Missing required fields: title, slug, description, category",
       });
     }
 
-    const newCourse = await Course.create({
+    const course = await Course.create({
       title,
-      slug,
       description,
       category,
+      slug,
       price,
       materialUrl,
       attachmentUrls,
       teacherId: req.user.id,
     });
 
-    console.log("✅ Course created successfully:", newCourse.id);
+    console.log("✅ Course created:", course.id);
 
-    return res.status(201).json({ success: true, course: newCourse });
+    return res.status(201).json({ success: true, course });
   } catch (error) {
-    console.error("🔥 Error in createCourse:", error.stack || error.message);
+    console.error("🔥 CREATE COURSE ERROR:", error.stack || error.message);
     return res.status(500).json({
       success: false,
       error: "Failed to create course",
@@ -54,8 +54,6 @@ exports.createCourse = async (req, res) => {
     });
   }
 };
-
-
 // ✅ Add this function at the end of the file:
 exports.confirmEnrollment = async (req, res) => {
   try {
