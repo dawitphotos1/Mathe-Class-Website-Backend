@@ -2,7 +2,7 @@
 // const fs = require("fs");
 // const path = require("path");
 // const multer = require("multer");
-// const { Course, User, Lesson } = require("../models");
+// const { Course, Lesson, User } = require("../models");
 // const auth = require("../middleware/auth");
 // const roleMiddleware = require("../middleware/roleMiddleware");
 
@@ -10,20 +10,17 @@
 
 // const slugify = (text) => text.toLowerCase().replace(/\s+/g, "-").slice(0, 100);
 
-// // 🔁 Auto-generate unique slug
 // const generateUniqueSlug = async (title) => {
 //   const baseSlug = slugify(title);
 //   let slug = baseSlug;
 //   let counter = 1;
-
 //   while (await Course.findOne({ where: { slug } })) {
 //     slug = `${baseSlug}-${counter++}`;
 //   }
-
 //   return slug;
 // };
 
-// // 🗂️ File upload config
+// // File upload config
 // const storage = multer.diskStorage({
 //   destination: (req, file, cb) => {
 //     const uploadPath = path.join(__dirname, "..", "uploads");
@@ -39,7 +36,7 @@
 
 // const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 
-// // ✅ Logger
+// // Logger
 // const appendToLogFile = (message) => {
 //   const logDir = path.join(__dirname, "..", "logs");
 //   const logFile = path.join(logDir, "courses.log");
@@ -51,7 +48,7 @@
 //   }
 // };
 
-// // ✅ POST /api/v1/courses
+// // ✅ Create Course
 // router.post(
 //   "/",
 //   auth,
@@ -108,7 +105,55 @@
 //   }
 // );
 
+// // ✅ Get All Courses
+// router.get("/", async (req, res) => {
+//   try {
+//     const courses = await Course.findAll({
+//       include: [
+//         { model: User, as: "teacher", attributes: ["id", "name", "email"] },
+//       ],
+//     });
+//     res.status(200).json(courses);
+//   } catch (err) {
+//     console.error("❌ Fetch courses error:", err.message);
+//     res.status(500).json({ error: "Failed to load courses" });
+//   }
+// });
+
+// // ✅ Get Course by Slug (with Lessons)
+// router.get("/slug/:slug", async (req, res) => {
+//   try {
+//     const { slug } = req.params;
+
+//     const course = await Course.findOne({
+//       where: { slug },
+//       include: [
+//         {
+//           model: Lesson,
+//           as: "lessons",
+//           order: [["order", "ASC"]],
+//         },
+//         {
+//           model: User,
+//           as: "teacher",
+//           attributes: ["id", "name", "email"],
+//         },
+//       ],
+//     });
+
+//     if (!course) {
+//       return res.status(404).json({ error: "Course not found" });
+//     }
+
+//     res.status(200).json(course);
+//   } catch (error) {
+//     console.error("❌ Fetch course by slug error:", error.message);
+//     res.status(500).json({ error: "Failed to fetch course" });
+//   }
+// });
+
 // module.exports = router;
+
 
 
 
@@ -231,6 +276,7 @@ router.get("/", async (req, res) => {
     res.status(200).json(courses);
   } catch (err) {
     console.error("❌ Fetch courses error:", err.message);
+    appendToLogFile(`❌ Fetch courses error: ${err.message}`);
     res.status(500).json({ error: "Failed to load courses" });
   }
 });
@@ -257,13 +303,24 @@ router.get("/slug/:slug", async (req, res) => {
     });
 
     if (!course) {
-      return res.status(404).json({ error: "Course not found" });
+      appendToLogFile(`❌ Course not found for slug: ${slug}`);
+      return res
+        .status(404)
+        .json({ success: false, error: "Course not found" });
     }
 
+    appendToLogFile(`✅ Fetched course: ${course.title} (slug: ${slug})`);
     res.status(200).json(course);
   } catch (error) {
     console.error("❌ Fetch course by slug error:", error.message);
-    res.status(500).json({ error: "Failed to fetch course" });
+    appendToLogFile(`❌ Fetch course by slug error: ${error.message}`);
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: "Failed to fetch course",
+        details: error.message,
+      });
   }
 });
 
