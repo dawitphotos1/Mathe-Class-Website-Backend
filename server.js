@@ -110,7 +110,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // ---------- Mount Routes ----------
-app.use("/api/v1/lessons", routes.lessonRoutes);
+app.use("/api/v1/courses", routes.lessonRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
