@@ -81,30 +81,33 @@
 
 
 
-
 const { Lesson, Course, UserCourseAccess } = require("../models");
 
-// ✅ GET /api/v1/lessons/:courseId
+// ✅ GET /api/v1/courses/:courseId/lessons
 exports.getLessonsByCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
     const userId = req.user.id;
 
+    // 🔐 Ensure student is approved for this course
     const enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId, approved: true },
     });
 
     if (!enrollment) {
-      return res
-        .status(403)
-        .json({ error: "Access denied. You are not enrolled in this course." });
+      return res.status(403).json({
+        error: "Access denied. You are not enrolled in this course.",
+      });
     }
 
+    // ✅ Use separate query to correctly apply ordering to lessons
     const course = await Course.findByPk(courseId, {
       include: [
         {
           model: Lesson,
           as: "lessons",
+          separate: true,
+          order: [["orderIndex", "ASC"]],
           attributes: [
             "id",
             "title",
@@ -116,7 +119,6 @@ exports.getLessonsByCourse = async (req, res) => {
             "isUnitHeader",
             "isPreview",
           ],
-          order: [["orderIndex", "ASC"]],
         },
       ],
     });
@@ -128,39 +130,56 @@ exports.getLessonsByCourse = async (req, res) => {
     res.json({ success: true, lessons: course.lessons });
   } catch (error) {
     console.error("🔥 Error fetching lessons:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", details: error.message });
+    res.status(500).json({
+      error: "Internal server error",
+      details: error.message,
+    });
   }
 };
 
-// ✅ POST /api/v1/lessons/:courseId
+// ✅ POST /api/v1/courses/:courseId/lessons
+// Inside lessonController.js
+
 exports.createLesson = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, content, contentType, orderIndex, isUnitHeader, isPreview } =
-      req.body;
+    const {
+      title,
+      content,
+      contentType = "text",
+      contentUrl,
+      videoUrl,
+      orderIndex = 0,
+      isUnitHeader = false,
+      isPreview = false,
+      unitId,
+    } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: "Title is required" });
     }
 
     const newLesson = await Lesson.create({
-      courseId,
+      courseId: parseInt(courseId),
       title,
       content,
       contentType,
+      contentUrl,
+      videoUrl,
       orderIndex,
       isUnitHeader,
       isPreview,
-      // Optional: add contentUrl/videoUrl if supported
+      unitId: unitId || null,
+      userId: req.user.id,
     });
 
     res.status(201).json({ success: true, lesson: newLesson });
   } catch (error) {
     console.error("🔥 Error creating lesson:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", details: error.message });
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details: error.message,
+    });
   }
 };
