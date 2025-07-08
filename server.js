@@ -39,11 +39,6 @@ const allowedOrigins = [
   "https://math-class-platform.netlify.app",
 ];
 
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://math-class-platform.netlify.app",
-];
-
 app.use(
   cors({
     origin: allowedOrigins,
