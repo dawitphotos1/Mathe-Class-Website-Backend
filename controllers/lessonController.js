@@ -89,18 +89,22 @@ exports.getLessonsByCourse = async (req, res) => {
     const { courseId } = req.params;
     const userId = req.user.id;
 
-    // 🔐 Ensure student is approved for this course
+    console.log(
+      "🔍 Fetching lessons for courseId:",
+      courseId,
+      "userId:",
+      userId
+    );
+
     const enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId, approved: true },
     });
 
     if (!enrollment) {
-      return res.status(403).json({
-        error: "Access denied. You are not enrolled in this course.",
-      });
+      console.warn("⛔ Not enrolled");
+      return res.status(403).json({ error: "Access denied" });
     }
 
-    // ✅ Use separate query to correctly apply ordering to lessons
     const course = await Course.findByPk(courseId, {
       include: [
         {
@@ -108,34 +112,25 @@ exports.getLessonsByCourse = async (req, res) => {
           as: "lessons",
           separate: true,
           order: [["orderIndex", "ASC"]],
-          attributes: [
-            "id",
-            "title",
-            "content",
-            "contentType",
-            "contentUrl",
-            "videoUrl",
-            "orderIndex",
-            "isUnitHeader",
-            "isPreview",
-          ],
         },
       ],
     });
 
     if (!course) {
+      console.warn("❌ Course not found in DB");
       return res.status(404).json({ error: "Course not found" });
     }
 
+    console.log("✅ Lessons loaded:", course.lessons.length);
     res.json({ success: true, lessons: course.lessons });
   } catch (error) {
-    console.error("🔥 Error fetching lessons:", error);
-    res.status(500).json({
-      error: "Internal server error",
-      details: error.message,
-    });
+    console.error("🔥 Internal server error:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error", details: error.message });
   }
 };
+
 
 // ✅ POST /api/v1/courses/:courseId/lessons
 // Inside lessonController.js
