@@ -87,7 +87,7 @@ const { Lesson, Course, UserCourseAccess } = require("../models");
 exports.getLessonsByCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
     console.log(
       "🔍 Fetching lessons for courseId:",
@@ -101,8 +101,8 @@ exports.getLessonsByCourse = async (req, res) => {
     });
 
     if (!enrollment) {
-      console.warn("⛔ Not enrolled");
-      return res.status(403).json({ error: "Access denied" });
+      console.warn("⛔ User is not enrolled or not approved for this course");
+      return res.status(403).json({ error: "Not enrolled or access denied" });
     }
 
     const course = await Course.findByPk(courseId, {
@@ -121,15 +121,16 @@ exports.getLessonsByCourse = async (req, res) => {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    console.log("✅ Lessons loaded:", course.lessons.length);
+    console.log("✅ Lessons fetched:", course.lessons.length);
     res.json({ success: true, lessons: course.lessons });
   } catch (error) {
-    console.error("🔥 Internal server error:", error);
+    console.error("🔥 LESSON FETCH ERROR:", error); // <-- we need this printed
     res
       .status(500)
       .json({ error: "Internal server error", details: error.message });
   }
 };
+
 
 
 // ✅ POST /api/v1/courses/:courseId/lessons
