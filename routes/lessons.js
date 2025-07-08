@@ -79,5 +79,19 @@ router.post(
   checkTeacherOrAdmin,
   lessonController.createLesson
 );
+router.put(
+  "/:lessonId",
+  authMiddleware,
+  checkTeacherOrAdmin,
+  lessonController.updateLesson
+);
+
+router.delete(
+  "/:lessonId",
+  authMiddleware,
+  checkTeacherOrAdmin,
+  lessonController.deleteLesson
+);
+
 
 module.exports = router;

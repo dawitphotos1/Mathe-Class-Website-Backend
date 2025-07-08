@@ -172,6 +172,38 @@ exports.createLesson = async (req, res) => {
       unitId: unitId || null,
       userId: req.user.id,
     });
+    
+    exports.updateLesson = async (req, res) => {
+      try {
+        const { lessonId } = req.params;
+        const lesson = await Lesson.findByPk(lessonId);
+
+        if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+
+        await lesson.update(req.body);
+        res.json({ success: true, lesson });
+      } catch (error) {
+        console.error("❌ Update error:", error);
+        res.status(500).json({ error: "Failed to update lesson" });
+      }
+    };
+
+    exports.deleteLesson = async (req, res) => {
+      try {
+        const { lessonId } = req.params;
+        const lesson = await Lesson.findByPk(lessonId);
+
+        if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+
+        await lesson.destroy();
+        res.json({ success: true, message: "Lesson deleted" });
+      } catch (error) {
+        console.error("❌ Delete error:", error);
+        res.status(500).json({ error: "Failed to delete lesson" });
+      }
+    };
+    
+
 
     res.status(201).json({ success: true, lesson: newLesson });
   } catch (error) {

@@ -39,22 +39,18 @@ const allowedOrigins = [
   "https://math-class-platform.netlify.app",
 ];
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
-    else callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-};
-
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 
 // 🔍 Logging
 app.use((req, res, next) => {
