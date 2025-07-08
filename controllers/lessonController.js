@@ -89,19 +89,14 @@ exports.getLessonsByCourse = async (req, res) => {
     const { courseId } = req.params;
     const userId = req.user?.id;
 
-    console.log(
-      "🔍 Fetching lessons for courseId:",
-      courseId,
-      "userId:",
-      userId
-    );
+    console.log("🔍 courseId:", courseId, "userId:", userId); // required debug
 
     const enrollment = await UserCourseAccess.findOne({
       where: { userId, courseId, approved: true },
     });
 
     if (!enrollment) {
-      console.warn("⛔ User is not enrolled or not approved for this course");
+      console.warn("⛔ Not enrolled/approved");
       return res.status(403).json({ error: "Not enrolled or access denied" });
     }
 
@@ -117,19 +112,20 @@ exports.getLessonsByCourse = async (req, res) => {
     });
 
     if (!course) {
-      console.warn("❌ Course not found in DB");
+      console.warn("❌ Course not found");
       return res.status(404).json({ error: "Course not found" });
     }
 
-    console.log("✅ Lessons fetched:", course.lessons.length);
+    console.log("✅ Lessons:", course.lessons?.length);
     res.json({ success: true, lessons: course.lessons });
   } catch (error) {
-    console.error("🔥 LESSON FETCH ERROR:", error); // <-- we need this printed
+    console.error("🔥 LESSON FETCH ERROR:", error);
     res
       .status(500)
       .json({ error: "Internal server error", details: error.message });
   }
 };
+
 
 
 
