@@ -7,7 +7,10 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const { toggleLessonPreview } = require("../controllers/lessonController");
 
+
+router.patch("/:lessonId/toggle-preview", authenticate, toggleLessonPreview);
 // Configure Multer for file uploads (disk storage for consistency with courses.js)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
