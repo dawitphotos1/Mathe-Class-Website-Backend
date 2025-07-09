@@ -164,27 +164,30 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
-const { Course, Lesson } = require("../models");
-const authMiddleware = require("../middleware/authMiddleware"); // Make sure this is correct
-const roleMiddleware = require("../middleware/roleMiddleware");
-const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { toggleLessonPreview } = require("../controllers/lessonController");
+const multer = require("multer");
 
-// Replace 'authenticate' with 'authMiddleware'
-router.patch("/:lessonId/toggle-preview", authMiddleware, toggleLessonPreview); // Corrected here
+const { Course, Lesson } = require("../models");
+const authMiddleware = require("../middleware/authMiddleware");
+const roleMiddleware = require("../middleware/roleMiddleware");
+const lessonController = require("../controllers/lessonController");
 
-// Configure Multer for file uploads (disk storage for consistency with courses.js)
+// ✅ PATCH: Toggle lesson preview
+router.patch(
+  "/:lessonId/toggle-preview",
+  authMiddleware,
+  lessonController.toggleLessonPreview
+);
+
+// ✅ Configure Multer for uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, "..", "uploads");
-    if (!fs.existsSync(uploadPath)) {
+    if (!fs.existsSync(uploadPath))
       fs.mkdirSync(uploadPath, { recursive: true });
-    }
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
@@ -193,9 +196,12 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max
+});
 
-// Logger
+// ✅ Logger
 const appendToLogFile = (message) => {
   const logDir = path.join(__dirname, "..", "logs");
   const logFile = path.join(logDir, "lessons.log");
@@ -207,12 +213,10 @@ const appendToLogFile = (message) => {
   }
 };
 
-// GET /:courseId/lessons - Get lessons by course
+// ✅ GET: Lessons by courseId (grouped by unitName)
 router.get("/:courseId/lessons", authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.courseId;
-
-    // Verify course exists
     const course = await Course.findByPk(courseId);
     if (!course) {
       appendToLogFile(`❌ Course not found for ID: ${courseId}`);
@@ -221,32 +225,24 @@ router.get("/:courseId/lessons", authMiddleware, async (req, res) => {
         .json({ success: false, error: "Course not found" });
     }
 
-    // Fetch lessons
     const lessons = await Lesson.findAll({
       where: { courseId },
       order: [["orderIndex", "ASC"]],
     });
 
-    // Group lessons by unit for the frontend
     const unitMap = {};
     lessons.forEach((lesson) => {
-      const unitName = lesson.unitName || "General";
-      if (!unitMap[unitName]) {
-        unitMap[unitName] = { unitName, lessons: [] };
-      }
-      unitMap[unitName].lessons.push(lesson);
+      const unit = lesson.unitName || "General";
+      if (!unitMap[unit]) unitMap[unit] = { unitName: unit, lessons: [] };
+      unitMap[unit].lessons.push(lesson);
     });
-    const units = Object.values(unitMap);
 
     appendToLogFile(
       `✅ Fetched ${lessons.length} lessons for course ID: ${courseId}`
     );
-    res.json({ success: true, units });
+    res.json({ success: true, units: Object.values(unitMap) });
   } catch (error) {
-    console.error("❌ Fetch lessons error:", error.message);
-    appendToLogFile(
-      `❌ Fetch lessons error for course ID ${req.params.courseId}: ${error.message}`
-    );
+    appendToLogFile(`❌ Fetch lessons error: ${error.message}`);
     res.status(500).json({
       success: false,
       error: "Failed to fetch lessons",
@@ -255,7 +251,7 @@ router.get("/:courseId/lessons", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /:courseId/lessons - Create a lesson (restricted to teacher/admin roles)
+// ✅ POST: Create a lesson (teacher or admin only)
 router.post(
   "/:courseId/lessons",
   authMiddleware,
@@ -270,53 +266,41 @@ router.post(
       const { title, unitName, content, order } = req.body;
 
       if (!title || !unitName) {
-        return res.status(400).json({
-          success: false,
-          error: "Missing required fields: title, unitName",
-        });
+        return res
+          .status(400)
+          .json({ success: false, error: "Missing title or unitName" });
       }
 
-      // Verify course exists and user has permission
       const course = await Course.findByPk(courseId);
       if (!course) {
-        appendToLogFile(`❌ Course not found for ID: ${courseId}`);
+        appendToLogFile(`❌ Course not found: ${courseId}`);
         return res
           .status(404)
           .json({ success: false, error: "Course not found" });
       }
+
       if (course.teacherId !== req.user.id && req.user.role !== "admin") {
-        return res.status(403).json({
-          success: false,
-          error: "Unauthorized to create lessons for this course",
-        });
+        return res.status(403).json({ error: "Unauthorized to create lesson" });
       }
 
-      // Handle file uploads
       const contentFile = req.files?.contentFile?.[0];
       const videoFile = req.files?.videoFile?.[0];
-      const contentUrl = contentFile
-        ? `/uploads/${contentFile.filename}`
-        : null;
-      const videoUrl = videoFile ? `/uploads/${videoFile.filename}` : null;
 
-      // Create lesson
       const lesson = await Lesson.create({
         title,
         unitName,
         content,
-        order: parseInt(order) || 0,
+        orderIndex: parseInt(order) || 0,
         courseId,
-        contentUrl,
-        videoUrl,
+        contentUrl: contentFile ? `/uploads/${contentFile.filename}` : null,
+        videoUrl: videoFile ? `/uploads/${videoFile.filename}` : null,
+        userId: req.user.id,
       });
 
-      appendToLogFile(`✅ Lesson created: ${title} for course ID: ${courseId}`);
+      appendToLogFile(`✅ Lesson created: ${title} for course ${courseId}`);
       res.status(201).json({ success: true, lesson });
     } catch (error) {
-      console.error("❌ Create lesson error:", error.message);
-      appendToLogFile(
-        `❌ Create lesson error for course ID ${req.params.courseId}: ${error.message}`
-      );
+      appendToLogFile(`❌ Create lesson error: ${error.message}`);
       res.status(500).json({
         success: false,
         error: "Failed to create lesson",
