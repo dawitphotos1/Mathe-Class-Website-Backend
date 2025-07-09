@@ -375,8 +375,6 @@
 // })();
 
 
-
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -384,29 +382,11 @@ const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
 const { sequelize, Sequelize, User } = require("./models");
-const authMiddleware = require("./middleware/authMiddleware"); // Ensure this import
+const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.options("*", cors()); // 🔁 Enable preflight CORS
 
-// ✅ Create upload and image folders if they don't exist
-const uploadsPath = path.join(__dirname, "Uploads");
-if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
-
-const imagesPath = path.join(__dirname, "images");
-if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
-
-// ✅ Handle unhandled promise rejections and exceptions
-process.on("unhandledRejection", (err) => {
-  console.error("💥 UNHANDLED REJECTION:", err);
-  process.exit(1);
-});
-process.on("uncaughtException", (err) => {
-  console.error("💥 UNCAUGHT EXCEPTION:", err);
-  process.exit(1);
-});
-
-// ✅ CORS: Allow frontend from localhost and Netlify
+// ✅ CORS: Dynamic handling for credentials
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -415,36 +395,41 @@ const allowedOrigins = [
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header(
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
       "Access-Control-Allow-Headers",
       "Origin, X-Requested-With, Content-Type, Accept, Authorization"
     );
-    res.header(
+    res.setHeader(
       "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS"
     );
   }
   if (req.method === "OPTIONS") {
-    return res.sendStatus(200); // Preflight response
+    return res.sendStatus(200);
   }
   next();
 });
 
-
-
-// ✅ Trust proxy for Heroku/Render
+// ✅ Trust proxy for Render/Heroku
 app.set("trust proxy", 1);
 
-// ✅ Body parser and static files
+// ✅ Create folders if needed
+const uploadsPath = path.join(__dirname, "Uploads");
+if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
+
+const imagesPath = path.join(__dirname, "images");
+if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
+
+// ✅ Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("Uploads"));
 app.use("/images", express.static("images"));
 app.use(express.static("public"));
 
-// ✅ Request logger
+// ✅ Logging
 app.use((req, res, next) => {
   console.log(
     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -452,7 +437,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Rate limiting for APIs
+// ✅ Rate limiting
 app.use(
   "/api/v1/",
   rateLimit({
@@ -462,7 +447,7 @@ app.use(
   })
 );
 
-// ✅ Import and mount routes
+// ✅ Load routes
 const routeModules = [
   "lessonRoutes",
   "stripeWebhook",
@@ -477,6 +462,7 @@ const routeModules = [
   "upload",
   "files",
 ];
+
 const routes = {};
 for (const name of routeModules) {
   try {
@@ -492,7 +478,7 @@ if (process.env.NODE_ENV !== "production") {
   } catch {}
 }
 
-// ✅ Mount all routes
+// ✅ Mount routes
 app.use("/api/v1/lessons", routes.lessonRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
@@ -501,13 +487,13 @@ app.use("/api/v1/courses", routes.courses);
 app.use("/api/v1/payments", routes.payments);
 app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
-app.use("/api/v1/admin", require("./routes/admin")); // or auditLogs
+app.use("/api/v1/admin", routes.admin);
 app.use("/api/v1/progress", routes.progress);
 app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// ✅ Route to get logged-in user info
+// ✅ Authenticated user profile
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
@@ -524,12 +510,12 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// ✅ 404 handler
+// ✅ 404 fallback
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// ✅ Global error handler
+// ✅ Error handler
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
   res
@@ -537,19 +523,20 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-// ✅ Start the server
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 const { QueryTypes } = Sequelize;
+
 (async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // ✅ Ensure 'attachmentUrls' column exists
     const colCheck = await sequelize.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'Courses' AND column_name = 'attachmentUrls';`,
       { type: QueryTypes.SELECT }
     );
+
     if (colCheck.length === 0) {
       await sequelize.query(
         `ALTER TABLE "Courses" ADD COLUMN "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];`
