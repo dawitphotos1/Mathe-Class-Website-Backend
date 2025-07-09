@@ -107,17 +107,26 @@ router.post(
 );
 
 // ✅ GET /api/v1/courses
-router.get("/", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   try {
+    const user = req.user;
+    const filter = {};
+
+    // ✅ Only fetch teacher's courses if user is a teacher
+    if (user.role === "teacher") {
+      filter.teacherId = user.id;
+    }
+
     const courses = await Course.findAll({
+      where: filter,
       include: [
         { model: User, as: "teacher", attributes: ["id", "name", "email"] },
       ],
     });
-    res.status(200).json({ course });
+
+    res.status(200).json(courses);
   } catch (err) {
     console.error("❌ Fetch courses error:", err.message);
-    appendToLogFile(`❌ Fetch courses error: ${err.message}`);
     res.status(500).json({ error: "Failed to load courses" });
   }
 });
