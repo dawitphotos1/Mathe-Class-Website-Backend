@@ -5,6 +5,8 @@ const rateLimit = require("express-rate-limit");
 const fs = require("fs");
 const path = require("path");
 const { sequelize, Sequelize } = require("./models");
+const authMiddleware = require("./middleware/authMiddleware");
+const { User } = require("./models");
 
 const app = express();
 
@@ -111,7 +113,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // ---------- Mount Routes ----------
-app.use("/api/v1/courses", routes.lessonRoutes);
+app.use("/api/v1/lessons", routes.lessonRoutes); // ✅ Correct base path for lessonRoutes
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
@@ -126,17 +128,18 @@ app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
 // Mock user route for frontend testing (remove in production)
-app.get("/api/v1/users/me", (req, res) => {
-  res.json({
-    success: true,
-    user: {
-      id: 2,
-      role: "student",
-      name: "Test Student",
-      email: "student@example.com",
-    },
-  });
+// ✅ Secure route: Get logged-in user's actual info
+app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["id", "name", "email", "role"],
+    });
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
 });
+
 
 // ✅ Health check
 app.get("/health", (req, res) => {
