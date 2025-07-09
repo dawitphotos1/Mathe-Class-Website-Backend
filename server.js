@@ -407,15 +407,24 @@ process.on("uncaughtException", (err) => {
 });
 
 // ✅ CORS: Allow frontend from localhost and Netlify
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://math-class-platform.netlify.app",
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://math-class-platform.netlify.app",
-    ],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin); // ✅ send back the actual origin
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
+
 
 // ✅ Trust proxy for Heroku/Render
 app.set("trust proxy", 1);
