@@ -114,7 +114,7 @@ router.get("/", async (req, res) => {
         { model: User, as: "teacher", attributes: ["id", "name", "email"] },
       ],
     });
-    res.status(200).json(courses);
+    res.status(200).json({ course });
   } catch (err) {
     console.error("❌ Fetch courses error:", err.message);
     appendToLogFile(`❌ Fetch courses error: ${err.message}`);
