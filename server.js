@@ -207,6 +207,7 @@ const { sequelize, Sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
+app.options("*", cors()); // 🔁 Enable preflight CORS
 
 // ✅ Create upload and image folders if they don't exist
 const uploadsPath = path.join(__dirname, "Uploads");
