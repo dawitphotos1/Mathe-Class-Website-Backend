@@ -1,22 +1,3 @@
-// const fs = require("fs");
-// const path = require("path");
-
-// const logLessonAction = (action, lesson, user) => {
-//   const log = `[${new Date().toISOString()}] ${action} by ${
-//     user?.email || "system"
-//   } on "${lesson.title}" (ID: ${lesson.id})\n`;
-//   fs.appendFile(
-//     path.join(__dirname, "../logs/lesson-actions.log"),
-//     log,
-//     (err) => {
-//       if (err) console.error("⚠️ Audit log error:", err.message);
-//     }
-//   );
-// };
-
-// module.exports = logLessonAction;
-
-
 const fs = require("fs");
 const path = require("path");
 
