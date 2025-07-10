@@ -60,6 +60,15 @@ router.get("/:courseId/lessons", authMiddleware, async (req, res) => {
         .json({ success: false, error: "Course not found" });
     }
 
+    
+    // ✅ Optional alias route to support /lessons/course/:id
+    router.get(
+      "/course/:courseId",
+      authMiddleware,
+      lessonController.getLessonsByCourse
+    );
+
+
     const lessons = await Lesson.findAll({
       where: { courseId },
       order: [["orderIndex", "ASC"]],
