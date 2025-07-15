@@ -20,6 +20,7 @@ const upload = multer({ storage });
 // Upload endpoint
 router.post("/", upload.single("file"), (req, res) => {
   if (!req.file) {
+    console.error("❌ File upload failed: No file in request");
     return res.status(400).json({ success: false, error: "No file uploaded" });
   }
 

@@ -221,7 +221,7 @@ if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 // ✅ Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static("Uploads"));
+app.use("/uploads", express.static("uploads")); // ✅ match exactly
 app.use("/images", express.static("images"));
 app.use(express.static("public"));
 
