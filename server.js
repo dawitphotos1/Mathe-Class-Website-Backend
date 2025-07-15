@@ -238,7 +238,7 @@ app.use(
   "/api/v1/",
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP
+    max: 500, // limit each IP
     message: { error: "Too many requests, try again later." },
   })
 );
