@@ -183,7 +183,6 @@
 // })();
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -198,12 +197,18 @@ const app = express();
 // ✅ CORS: Safe & official way
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://math-class-platform.netlify.app", // ✅ Your frontend URL
+  "https://math-class-platform.netlify.app",
 ];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed for this origin: " + origin));
+      }
+    },
     credentials: true,
   })
 );
@@ -221,7 +226,7 @@ if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 // ✅ Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static("uploads")); // ✅ match exactly
+app.use("/uploads", express.static("Uploads"));
 app.use("/images", express.static("images"));
 app.use(express.static("public"));
 
