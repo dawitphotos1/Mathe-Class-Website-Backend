@@ -178,7 +178,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -342,6 +341,26 @@ const { QueryTypes } = Sequelize;
       console.log("✅ 'attachmentUrls' column added.");
     } else {
       console.log("✅ 'attachmentUrls' column exists.");
+    }
+
+    // Ensure Lessons table has contentUrl and contentType
+    const lessonColCheck = await sequelize.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'Lessons';`,
+      { type: QueryTypes.SELECT }
+    );
+
+    const lessonColumns = lessonColCheck.map((col) => col.column_name);
+    if (!lessonColumns.includes("contentUrl")) {
+      await sequelize.query(
+        `ALTER TABLE "Lessons" ADD COLUMN "contentUrl" TEXT;`
+      );
+      console.log("✅ 'contentUrl' column added to Lessons.");
+    }
+    if (!lessonColumns.includes("contentType")) {
+      await sequelize.query(
+        `ALTER TABLE "Lessons" ADD COLUMN "contentType" TEXT DEFAULT 'text';`
+      );
+      console.log("✅ 'contentType' column added to Lessons.");
     }
 
     await sequelize.sync({ force: false });
