@@ -1,3 +1,204 @@
+// require("dotenv").config();
+// const express = require("express");
+// const cors = require("cors");
+// const fs = require("fs");
+// const path = require("path");
+// const rateLimit = require("express-rate-limit");
+// const { sequelize, Sequelize, User } = require("./models");
+// const authMiddleware = require("./middleware/authMiddleware");
+
+// const app = express();
+
+// // CORS: Safe & official way
+// const allowedOrigins = [
+//   "http://localhost:3000",
+//   "https://math-class-platform.netlify.app",
+// ];
+
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       if (!origin || allowedOrigins.includes(origin)) {
+//         callback(null, true);
+//       } else {
+//         callback(new Error("CORS not allowed for this origin: " + origin));
+//       }
+//     },
+//     credentials: true,
+//   })
+// );
+
+// // Trust proxy for Render/Heroku
+// app.set("trust proxy", 1);
+
+// // Create folders if they don't exist
+// const uploadsPath = path.join(__dirname, "Uploads");
+// if (!fs.existsSync(uploadsPath)) fs.mkdirSync(UploadsPath, { recursive: true });
+
+// const imagesPath = path.join(__dirname, "images");
+// if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
+
+// // Middleware
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+// app.use("/Uploads", express.static("Uploads"));
+// app.use("/images", express.static("images"));
+// app.use(express.static("public"));
+
+// // Request Logger
+// app.use((req, res, next) => {
+//   console.log(
+//     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
+//   );
+//   next();
+// });
+
+// // Rate limiting for API endpoints
+// app.use(
+//   "/api/v1/",
+//   rateLimit({
+//     windowMs: 15 * 60 * 1000, // 15 minutes
+//     max: 500, // limit each IP
+//     message: { error: "Too many requests, try again later." },
+//   })
+// );
+
+// // Load routes dynamically
+// const routeModules = [
+//   "lessonRoutes",
+//   "stripeWebhook",
+//   "auth",
+//   "users",
+//   "courses",
+//   "payments",
+//   "email",
+//   "enrollments",
+//   "admin",
+//   "progress",
+//   "upload",
+//   "files",
+// ];
+
+// const routes = {};
+// for (const name of routeModules) {
+//   try {
+//     routes[name] = require(`./routes/${name}`);
+//   } catch (err) {
+//     console.error(`❌ Failed to load ${name}:`, err.message);
+//     process.exit(1);
+//   }
+// }
+// if (process.env.NODE_ENV !== "production") {
+//   try {
+//     routes.emailPreview = require("./routes/emailPreview");
+//   } catch {}
+// }
+
+// // Mount routes
+// app.use("/api/v1/lessons", routes.lessonRoutes);
+// app.use("/api/v1/stripe", routes.stripeWebhook);
+// app.use("/api/v1/auth", routes.auth);
+// app.use("/api/v1/users", routes.users);
+// app.use("/api/v1/courses", routes.courses);
+// app.use("/api/v1/payments", routes.payments);
+// app.use("/api/v1/email", routes.email);
+// app.use("/api/v1/enrollments", routes.enrollments);
+// app.use("/api/v1/admin", routes.admin);
+// app.use("/api/v1/progress", routes.progress);
+// app.use("/api/v1/upload", routes.upload);
+// app.use("/api/v1/files", routes.files);
+// if (routes.emailPreview) app.use("/dev", routes.emailPreview);
+
+// // Authenticated user info endpoint
+// app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
+//   try {
+//     const user = await User.findByPk(req.user.id, {
+//       attributes: ["id", "name", "email", "role"],
+//     });
+//     res.json({ success: true, user });
+//   } catch (error) {
+//     res.status(500).json({ error: "Failed to fetch user" });
+//   }
+// });
+
+// // Health check
+// app.get("/health", (req, res) => {
+//   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
+// });
+
+// // 404 fallback
+// app.use((req, res) => {
+//   res.status(404).json({ error: "Not Found" });
+// });
+
+// // Global error handler
+// app.use((err, req, res, next) => {
+//   console.error("💥 Global Error:", err);
+//   res
+//     .status(500)
+//     .json({ error: "Internal server error", details: err.message });
+// });
+
+// // Start server
+// const PORT = process.env.PORT || 5000;
+// const { QueryTypes } = Sequelize;
+
+// (async () => {
+//   try {
+//     await sequelize.authenticate();
+//     console.log("✅ PostgreSQL connected");
+
+//     // Ensure `attachmentUrls` exists
+//     const colCheck = await sequelize.query(
+//       `SELECT column_name FROM information_schema.columns WHERE table_name = 'Courses' AND column_name = 'attachmentUrls';`,
+//       { type: QueryTypes.SELECT }
+//     );
+
+//     if (colCheck.length === 0) {
+//       await sequelize.query(
+//         `ALTER TABLE "Courses" ADD COLUMN "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];`
+//       );
+//       console.log("✅ 'attachmentUrls' column added.");
+//     } else {
+//       console.log("✅ 'attachmentUrls' column exists.");
+//     }
+
+//     // Ensure Lessons table has contentUrl and contentType
+//     const lessonColCheck = await sequelize.query(
+//       `SELECT column_name FROM information_schema.columns WHERE table_name = 'Lessons';`,
+//       { type: QueryTypes.SELECT }
+//     );
+
+//     const lessonColumns = lessonColCheck.map((col) => col.column_name);
+//     if (!lessonColumns.includes("contentUrl")) {
+//       await sequelize.query(
+//         `ALTER TABLE "Lessons" ADD COLUMN "contentUrl" TEXT;`
+//       );
+//       console.log("✅ 'contentUrl' column added to Lessons.");
+//     }
+//     if (!lessonColumns.includes("contentType")) {
+//       await sequelize.query(
+//         `ALTER TABLE "Lessons" ADD COLUMN "contentType" TEXT DEFAULT 'text';`
+//       );
+//       console.log("✅ 'contentType' column added to Lessons.");
+//     }
+
+//     await sequelize.sync({ force: false });
+//     console.log("✅ DB synced");
+
+//     app.listen(PORT, "0.0.0.0", () =>
+//       console.log(`🚀 Server running at http://localhost:${PORT}`)
+//     );
+//   } catch (err) {
+//     console.error("❌ Server startup error:", err);
+//     process.exit(1);
+//   }
+// })();
+
+
+
+
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -9,7 +210,7 @@ const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
 
-// CORS: Safe & official way
+// CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -24,16 +225,22 @@ app.use(
         callback(new Error("CORS not allowed for this origin: " + origin));
       }
     },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
+    optionsSuccessStatus: 204, // For preflight requests
   })
 );
 
-// Trust proxy for Render/Heroku
+// Handle CORS preflight requests explicitly
+app.options("*", cors());
+
+// Trust proxy for Render
 app.set("trust proxy", 1);
 
 // Create folders if they don't exist
 const uploadsPath = path.join(__dirname, "Uploads");
-if (!fs.existsSync(uploadsPath)) fs.mkdirSync(UploadsPath, { recursive: true });
+if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
 
 const imagesPath = path.join(__dirname, "images");
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
@@ -115,15 +322,36 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       attributes: ["id", "name", "email", "role"],
     });
+    if (!user) {
+      console.error(`User not found for ID: ${req.user.id}`);
+      return res.status(404).json({ error: "User not found" });
+    }
     res.json({ success: true, user });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch user" });
+    console.error("Failed to fetch user:", error.message);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch user", details: error.message });
   }
 });
 
 // Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
+});
+
+// Test uploads directory
+app.get("/test-uploads", (req, res) => {
+  const uploadPath = path.join(__dirname, "Uploads", "test.txt");
+  try {
+    fs.writeFileSync(uploadPath, "Test file");
+    res.json({ success: true, message: "File written to Uploads" });
+  } catch (err) {
+    console.error("Test uploads error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to write to Uploads", details: err.message });
+  }
 });
 
 // 404 fallback
@@ -148,43 +376,85 @@ const { QueryTypes } = Sequelize;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // Ensure `attachmentUrls` exists
-    const colCheck = await sequelize.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'Courses' AND column_name = 'attachmentUrls';`,
-      { type: QueryTypes.SELECT }
-    );
-
-    if (colCheck.length === 0) {
-      await sequelize.query(
-        `ALTER TABLE "Courses" ADD COLUMN "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];`
+    // Ensure Courses table exists with correct schema
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "Courses" (
+        id INTEGER PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT,
+        slug TEXT NOT NULL,
+        price INTEGER NOT NULL,
+        "teacherId" INTEGER NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL,
+        "updatedAt" TIMESTAMP NOT NULL,
+        "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[]
       );
-      console.log("✅ 'attachmentUrls' column added.");
-    } else {
-      console.log("✅ 'attachmentUrls' column exists.");
-    }
+    `);
 
-    // Ensure Lessons table has contentUrl and contentType
-    const lessonColCheck = await sequelize.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'Lessons';`,
-      { type: QueryTypes.SELECT }
-    );
+    // Ensure Lessons table exists with correct schema
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "Lessons" (
+        id SERIAL PRIMARY KEY,
+        "courseId" INTEGER NOT NULL REFERENCES "Courses"(id),
+        title TEXT NOT NULL,
+        content TEXT,
+        "contentType" TEXT DEFAULT 'text',
+        "contentUrl" TEXT,
+        "videoUrl" TEXT,
+        "orderIndex" INTEGER DEFAULT 0,
+        "isUnitHeader" BOOLEAN DEFAULT false,
+        "isPreview" BOOLEAN DEFAULT false,
+        unitId INTEGER,
+        "userId" INTEGER NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL,
+        "updatedAt" TIMESTAMP NOT NULL
+      );
+    `);
 
-    const lessonColumns = lessonColCheck.map((col) => col.column_name);
-    if (!lessonColumns.includes("contentUrl")) {
-      await sequelize.query(
-        `ALTER TABLE "Lessons" ADD COLUMN "contentUrl" TEXT;`
+    // Ensure Users table exists for authentication
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "Users" (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL,
+        "updatedAt" TIMESTAMP NOT NULL
       );
-      console.log("✅ 'contentUrl' column added to Lessons.");
-    }
-    if (!lessonColumns.includes("contentType")) {
-      await sequelize.query(
-        `ALTER TABLE "Lessons" ADD COLUMN "contentType" TEXT DEFAULT 'text';`
-      );
-      console.log("✅ 'contentType' column added to Lessons.");
-    }
+    `);
 
     await sequelize.sync({ force: false });
     console.log("✅ DB synced");
+
+    // Insert test user if not exists
+    const [user] = await sequelize.query(
+      `SELECT id FROM "Users" WHERE id = 1 AND role = 'teacher'`,
+      { type: QueryTypes.SELECT }
+    );
+    if (!user) {
+      await sequelize.query(
+        `INSERT INTO "Users" (id, name, email, role, password, "createdAt", "updatedAt")
+         VALUES (1, 'Test Teacher', 'teacher@example.com', 'teacher', 'hashed_password', NOW(), NOW())`,
+        { type: QueryTypes.INSERT }
+      );
+      console.log("✅ Test teacher inserted");
+    }
+
+    // Insert test course if not exists
+    const [course] = await sequelize.query(
+      `SELECT id FROM "Courses" WHERE id = 21`,
+      { type: QueryTypes.SELECT }
+    );
+    if (!course) {
+      await sequelize.query(
+        `INSERT INTO "Courses" (id, title, description, category, slug, price, "teacherId", "createdAt", "updatedAt")
+         VALUES (21, 'Test Course', 'Description', 'Math', 'test-course', 0, 1, NOW(), NOW())`,
+        { type: QueryTypes.INSERT }
+      );
+      console.log("✅ Test course inserted");
+    }
 
     app.listen(PORT, "0.0.0.0", () =>
       console.log(`🚀 Server running at http://localhost:${PORT}`)
