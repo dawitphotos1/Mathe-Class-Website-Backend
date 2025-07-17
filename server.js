@@ -198,7 +198,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -437,6 +436,18 @@ const { QueryTypes } = Sequelize;
         "isPreview" BOOLEAN DEFAULT false,
         unitId INTEGER,
         "userId" INTEGER NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL,
+        "updatedAt" TIMESTAMP NOT NULL
+      );
+    `);
+
+    // Ensure UserCourseAccess table exists
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "UserCourseAccess" (
+        id SERIAL PRIMARY KEY,
+        userId INTEGER NOT NULL,
+        courseId INTEGER NOT NULL REFERENCES "Courses"(id),
+        approved BOOLEAN DEFAULT false,
         "createdAt" TIMESTAMP NOT NULL,
         "updatedAt" TIMESTAMP NOT NULL
       );
