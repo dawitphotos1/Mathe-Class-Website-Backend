@@ -61,6 +61,26 @@
 //   }
 // };
 
+// // GET units for a course (teachers only)
+// exports.getUnitsByCourse = async (req, res) => {
+//   try {
+//     const { courseId } = req.params;
+//     console.log(`Fetching units for courseId: ${courseId}`);
+//     const units = await Lesson.findAll({
+//       where: { courseId, isUnitHeader: true },
+//       attributes: ["id", "title"],
+//       order: [["orderIndex", "ASC"]],
+//     });
+//     console.log(`Fetched ${units.length} units for courseId: ${courseId}`);
+//     res.json({ success: true, units });
+//   } catch (error) {
+//     console.error("❌ UNIT FETCH ERROR:", error.stack || error.message);
+//     res
+//       .status(500)
+//       .json({ error: "Failed to fetch units", details: error.message });
+//   }
+// };
+
 // // POST create lesson (teachers only)
 // exports.createLesson = async (req, res) => {
 //   try {
@@ -75,53 +95,64 @@
 //       isPreview = false,
 //       unitId,
 //     } = req.body;
+//     const userId = req.user?.id;
+//     const role = req.user?.role;
 
 //     console.log(
-//       `Creating lesson for courseId: ${courseId}, userId: ${req.user?.id}, role: ${req.user?.role}`
+//       `Creating lesson for courseId: ${courseId}, userId: ${userId}, role: ${role}`
 //     );
 //     console.log("Request body:", req.body);
 //     console.log("Uploaded file:", req.file);
 
-//     if (!req.user) {
+//     // Validate authentication
+//     if (!userId || !role) {
 //       console.error("No authenticated user");
 //       return res.status(401).json({ error: "Authentication required" });
 //     }
 
+//     // Validate role
+//     if (role !== "teacher") {
+//       console.error(`User role ${role} is not authorized to create lessons`);
+//       return res
+//         .status(403)
+//         .json({ error: "Only teachers can create lessons" });
+//     }
+
+//     // Validate title
 //     if (!title) {
 //       console.error("Title is required");
 //       return res.status(400).json({ error: "Title is required" });
 //     }
 
+//     // Validate course
 //     const course = await Course.findByPk(courseId);
 //     if (!course) {
 //       console.error(`Course not found for ID: ${courseId}`);
 //       return res.status(404).json({ error: "Course not found" });
 //     }
 
-//     if (req.user.role !== "teacher" || course.teacherId !== req.user.id) {
+//     if (course.teacherId !== userId) {
 //       console.error(
-//         `Unauthorized: userId ${req.user.id} is not the teacher (teacherId: ${course.teacherId})`
+//         `Unauthorized: userId ${userId} is not the teacher (teacherId: ${course.teacherId})`
 //       );
 //       return res
 //         .status(403)
 //         .json({ error: "Only the course teacher can add lessons" });
 //     }
 
+//     // Handle file upload
 //     let contentUrl = null;
 //     if (req.file) {
-//       const uploadPath = path.join(
-//         __dirname,
-//         "..",
-//         "Uploads",
-//         req.file.filename
-//       );
+//       const uploadDir = path.join(__dirname, "..", "Uploads");
+//       const filename = `${req.file.originalname}-${Date.now()}.pdf`;
+//       const uploadPath = path.join(uploadDir, filename);
 //       console.log(`Attempting to save file to: ${uploadPath}`);
 //       try {
-//         if (!fs.existsSync(path.dirname(uploadPath))) {
-//           fs.mkdirSync(path.dirname(uploadPath), { recursive: true });
+//         if (!fs.existsSync(uploadDir)) {
+//           fs.mkdirSync(uploadDir, { recursive: true });
 //         }
 //         fs.writeFileSync(uploadPath, req.file.buffer);
-//         contentUrl = `/Uploads/${req.file.filename}`;
+//         contentUrl = `/Uploads/${filename}`;
 //         console.log(`File saved successfully: ${contentUrl}`);
 //       } catch (fileError) {
 //         console.error(
@@ -134,22 +165,25 @@
 //       }
 //     }
 
+//     // Create lesson
 //     console.log("Creating lesson in database...");
 //     const newLesson = await Lesson.create({
 //       courseId: parseInt(courseId),
 //       title,
-//       content,
+//       content: contentType === "text" ? content : null,
 //       contentType: req.file ? "file" : contentType,
 //       contentUrl,
-//       videoUrl,
+//       videoUrl: contentType === "video" ? videoUrl : null,
 //       orderIndex: parseInt(orderIndex),
-//       isUnitHeader: isUnitHeader === "true" || isUnitHeader,
-//       isPreview: isPreview === "true" || isPreview,
-//       unitId: unitId || null,
-//       userId: req.user.id,
+//       isUnitHeader: isUnitHeader === "true" || isUnitHeader === true,
+//       isPreview: isPreview === "true" || isPreview === true,
+//       unitId: unitId ? parseInt(unitId) : null,
+//       userId,
+//       createdAt: new Date(),
+//       updatedAt: new Date(),
 //     });
 
-//     logLessonAction("CREATE", newLesson, req.user);
+//     await logLessonAction("CREATE", newLesson, req.user);
 //     console.log("✅ Lesson created:", newLesson.title);
 
 //     res.status(201).json({ success: true, lesson: newLesson });
@@ -183,7 +217,7 @@
 //     }
 
 //     await lesson.update(req.body);
-//     logLessonAction("UPDATE", lesson, req.user);
+//     await logLessonAction("UPDATE", lesson, req.user);
 //     console.log("✅ Lesson updated:", lesson.title);
 
 //     res.json({ success: true, lesson });
@@ -217,7 +251,7 @@
 //     }
 
 //     await lesson.destroy();
-//     logLessonAction("DELETE", lesson, req.user);
+//     await logLessonAction("DELETE", lesson, req.user);
 //     console.log("🗑 Lesson deleted:", lesson.title);
 
 //     res.json({ success: true, message: "Lesson deleted" });
@@ -253,7 +287,7 @@
 //     lesson.isPreview = !lesson.isPreview;
 //     await lesson.save();
 
-//     logLessonAction("TOGGLE_PREVIEW", lesson, req.user);
+//     await logLessonAction("TOGGLE_PREVIEW", lesson, req.user);
 //     console.log(
 //       `🔁 Lesson preview toggled: ${lesson.title} → ${lesson.isPreview}`
 //     );
@@ -266,6 +300,8 @@
 //       .json({ error: "Failed to toggle preview", details: error.message });
 //   }
 // };
+
+
 
 
 
@@ -423,7 +459,7 @@ exports.createLesson = async (req, res) => {
           fs.mkdirSync(uploadDir, { recursive: true });
         }
         fs.writeFileSync(uploadPath, req.file.buffer);
-        contentUrl = `/Uploads/${filename}`;
+        contentUrl = `${req.protocol}://${req.get("host")}/Uploads/${filename}`;
         console.log(`File saved successfully: ${contentUrl}`);
       } catch (fileError) {
         console.error(
@@ -487,7 +523,35 @@ exports.updateLesson = async (req, res) => {
         .json({ error: "Unauthorized to update this lesson" });
     }
 
-    await lesson.update(req.body);
+    // Handle file update
+    let contentUrl = lesson.contentUrl;
+    if (req.file) {
+      const uploadDir = path.join(__dirname, "..", "Uploads");
+      const filename = `${req.file.originalname}-${Date.now()}.pdf`;
+      const uploadPath = path.join(uploadDir, filename);
+      console.log(`Attempting to save updated file to: ${uploadPath}`);
+      try {
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        fs.writeFileSync(uploadPath, req.file.buffer);
+        contentUrl = `${req.protocol}://${req.get("host")}/Uploads/${filename}`;
+        console.log(`Updated file saved: ${contentUrl}`);
+      } catch (fileError) {
+        console.error(
+          "File write error:",
+          fileError.stack || fileError.message
+        );
+        return res
+          .status(500)
+          .json({
+            error: "Failed to save updated file",
+            details: fileError.message,
+          });
+      }
+    }
+
+    await lesson.update({ ...req.body, contentUrl });
     await logLessonAction("UPDATE", lesson, req.user);
     console.log("✅ Lesson updated:", lesson.title);
 
@@ -521,6 +585,26 @@ exports.deleteLesson = async (req, res) => {
         .json({ error: "Unauthorized to delete this lesson" });
     }
 
+    // Delete file if exists
+    if (lesson.contentUrl) {
+      const filePath = path.join(
+        __dirname,
+        "..",
+        lesson.contentUrl.replace(`${req.protocol}://${req.get("host")}`, "")
+      );
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`Deleted file: ${filePath}`);
+        }
+      } catch (fileError) {
+        console.error(
+          "File deletion error:",
+          fileError.stack || fileError.message
+        );
+      }
+    }
+
     await lesson.destroy();
     await logLessonAction("DELETE", lesson, req.user);
     console.log("🗑 Lesson deleted:", lesson.title);
@@ -538,7 +622,11 @@ exports.deleteLesson = async (req, res) => {
 exports.toggleLessonPreview = async (req, res) => {
   try {
     const { lessonId } = req.params;
-    console.log(`Toggling preview for lessonId: ${lessonId}`);
+    const userId = req.user?.id;
+    console.log(
+      `Toggling preview for lessonId: ${lessonId}, userId: ${userId}`
+    );
+
     const lesson = await Lesson.findByPk(lessonId);
     if (!lesson) {
       console.error(`Lesson not found for ID: ${lessonId}`);
@@ -546,9 +634,9 @@ exports.toggleLessonPreview = async (req, res) => {
     }
 
     const course = await Course.findByPk(lesson.courseId);
-    if (!course || course.teacherId !== req.user.id) {
+    if (!course || course.teacherId !== userId) {
       console.error(
-        `Unauthorized: userId ${req.user.id} cannot toggle preview for lessonId: ${lessonId}`
+        `Unauthorized: userId ${userId} cannot toggle preview for lessonId: ${lessonId}`
       );
       return res
         .status(403)
@@ -560,7 +648,7 @@ exports.toggleLessonPreview = async (req, res) => {
 
     await logLessonAction("TOGGLE_PREVIEW", lesson, req.user);
     console.log(
-      `🔁 Lesson preview toggled: ${lesson.title} → ${lesson.isPreview}`
+      `🔁 Lesson preview toggled: ${lesson.title} → isPreview: ${lesson.isPreview}`
     );
 
     res.json({ success: true, isPreview: lesson.isPreview });
