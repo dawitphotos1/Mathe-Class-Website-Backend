@@ -269,7 +269,6 @@
 
 
 
-
 const { Lesson, Course, UserCourseAccess } = require("../models");
 const path = require("path");
 const fs = require("fs");
@@ -382,7 +381,7 @@ exports.createLesson = async (req, res) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    // Validate role and course ownership
+    // Validate role
     if (role !== "teacher") {
       console.error(`User role ${role} is not authorized to create lessons`);
       return res

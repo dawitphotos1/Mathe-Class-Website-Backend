@@ -197,7 +197,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -252,7 +251,7 @@ app.set("trust proxy", 1);
 
 // Create folders if they don't exist
 const uploadsPath = path.join(__dirname, "Uploads");
-if (!fs.existsSync(uploadsPath)) fs.mkdirSync(UploadsPath, { recursive: true });
+if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
 
 const imagesPath = path.join(__dirname, "images");
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
