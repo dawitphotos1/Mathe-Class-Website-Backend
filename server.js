@@ -198,6 +198,7 @@
 
 
 
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -220,13 +221,13 @@ app.use(
     origin: function (origin, callback) {
       console.log(`CORS check for origin: ${origin}`);
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
+        callback(null, origin || "*");
       } else {
         callback(new Error(`CORS not allowed for origin: ${origin}`));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
     credentials: true,
     optionsSuccessStatus: 204,
   })
@@ -234,10 +235,14 @@ app.use(
 
 // Explicitly handle preflight requests
 app.options("*", (req, res) => {
+  const origin = req.get("origin") || "*";
+  console.log(`Handling OPTIONS request for origin: ${origin}`);
   res.set({
-    "Access-Control-Allow-Origin": req.get("origin") || "*",
+    "Access-Control-Allow-Origin": allowedOrigins.includes(origin)
+      ? origin
+      : "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,Accept",
     "Access-Control-Allow-Credentials": "true",
   });
   res.status(204).send();
@@ -327,6 +332,10 @@ if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 // Authenticated user info endpoint
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
+    if (!req.user || !req.user.id) {
+      console.error("No user ID in request");
+      return res.status(401).json({ error: "Invalid token" });
+    }
     const user = await User.findByPk(req.user.id, {
       attributes: ["id", "name", "email", "role"],
     });
