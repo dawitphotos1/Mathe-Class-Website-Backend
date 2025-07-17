@@ -112,15 +112,14 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
 const lessonController = require("../controllers/lessonController");
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
-const upload = require("../routes/upload"); // Use upload.js middleware
+const upload = require("../middleware/uploadMiddleware"); // Use new middleware
 
-// GET: Lessons by courseId (grouped by unitName)
+// GET: Lessons by courseId
 router.get(
   "/:courseId/lessons",
   authMiddleware,

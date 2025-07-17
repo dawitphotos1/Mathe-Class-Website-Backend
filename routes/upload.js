@@ -32,27 +32,11 @@
 
 
 
-
 const express = require("express");
-const multer = require("multer");
 const router = express.Router();
+const upload = require("../middleware/uploadMiddleware");
 
-// Set up storage in memory to avoid Render filesystem issues
-const storage = multer.memoryStorage();
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf") {
-      cb(null, true);
-    } else {
-      cb(new Error("Only PDF files are allowed"), false);
-    }
-  },
-});
-
-// Upload endpoint
+// Upload endpoint for testing
 router.post("/", upload.single("file"), (req, res) => {
   if (!req.file) {
     console.error("❌ File upload failed: No file in request");
