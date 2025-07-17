@@ -118,7 +118,7 @@ const router = express.Router();
 const lessonController = require("../controllers/lessonController");
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
-const upload = require("../upload"); // Use upload.js middleware
+const upload = require("../routes/upload"); // Use upload.js middleware
 
 // GET: Lessons by courseId (grouped by unitName)
 router.get(
