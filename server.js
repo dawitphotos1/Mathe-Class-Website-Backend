@@ -198,7 +198,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -219,28 +218,37 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
+      console.log(`CORS check for origin: ${origin}`);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("CORS not allowed for this origin: " + origin));
+        callback(new Error(`CORS not allowed for origin: ${origin}`));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-    optionsSuccessStatus: 204, // For preflight requests
+    optionsSuccessStatus: 204,
   })
 );
 
-// Handle CORS preflight requests explicitly
-app.options("*", cors());
+// Explicitly handle preflight requests
+app.options("*", (req, res) => {
+  res.set({
+    "Access-Control-Allow-Origin": req.get("origin") || "*",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Credentials": "true",
+  });
+  res.status(204).send();
+});
 
 // Trust proxy for Render
 app.set("trust proxy", 1);
 
 // Create folders if they don't exist
 const uploadsPath = path.join(__dirname, "Uploads");
-if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
+if (!fs.existsSync(uploadsPath)) fs.mkdirSync(UploadsPath, { recursive: true });
 
 const imagesPath = path.join(__dirname, "images");
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
@@ -265,7 +273,7 @@ app.use(
   "/api/v1/",
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 500, // limit each IP
+    max: 500,
     message: { error: "Too many requests, try again later." },
   })
 );
@@ -376,7 +384,20 @@ const { QueryTypes } = Sequelize;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // Ensure Courses table exists with correct schema
+    // Ensure Users table exists
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "Users" (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL,
+        "updatedAt" TIMESTAMP NOT NULL
+      );
+    `);
+
+    // Ensure Courses table exists
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Courses" (
         id INTEGER PRIMARY KEY,
@@ -392,7 +413,7 @@ const { QueryTypes } = Sequelize;
       );
     `);
 
-    // Ensure Lessons table exists with correct schema
+    // Ensure Lessons table exists
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Lessons" (
         id SERIAL PRIMARY KEY,
@@ -407,19 +428,6 @@ const { QueryTypes } = Sequelize;
         "isPreview" BOOLEAN DEFAULT false,
         unitId INTEGER,
         "userId" INTEGER NOT NULL,
-        "createdAt" TIMESTAMP NOT NULL,
-        "updatedAt" TIMESTAMP NOT NULL
-      );
-    `);
-
-    // Ensure Users table exists for authentication
-    await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS "Users" (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL,
         "createdAt" TIMESTAMP NOT NULL,
         "updatedAt" TIMESTAMP NOT NULL
       );
