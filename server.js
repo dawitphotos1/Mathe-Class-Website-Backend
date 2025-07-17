@@ -320,6 +320,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, origin || "*");
       } else {
+        console.error(`CORS not allowed for origin: ${origin}`);
         callback(new Error(`CORS not allowed for origin: ${origin}`));
       }
     },
@@ -331,37 +332,18 @@ app.use(
 );
 
 // Explicitly handle preflight requests
-app.options("*", (req, res) => {
-  const origin = req.get("origin") || "*";
-  console.log(`Handling OPTIONS request for origin: ${origin}`);
-  res.set({
-    "Access-Control-Allow-Origin": allowedOrigins.includes(origin)
-      ? origin
-      : "*",
-    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,Accept",
-    "Access-Control-Allow-Credentials": "true",
-  });
-  res.status(204).send();
-});
+app.options("*", cors());
 
 // Trust proxy for Render
 app.set("trust proxy", 1);
 
-// Create folders if they don't exist
-const uploadsPath = path.join(__dirname, "Uploads");
-if (!fs.existsSync(uploadsPath)) fs.mkdirSync(UploadsPath, { recursive: true });
-
+// Create images folder if it doesn't exist (Uploads moved to S3)
 const imagesPath = path.join(__dirname, "images");
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/Uploads", (req, res, next) => {
-  console.log(`Serving static file: ${req.originalUrl}`);
-  express.static("Uploads")(req, res, next);
-});
 app.use("/images", express.static("images"));
 app.use(express.static("public"));
 
@@ -378,8 +360,8 @@ app.use(
   "/api/v1/",
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 500,
-    message: { error: "Too many requests, try again later." },
+    max: 2000, // Increased to 2000 to reduce 429 errors
+    message: { error: "Too many requests, please try again later." },
   })
 );
 
@@ -457,20 +439,6 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Test uploads directory
-app.get("/test-uploads", (req, res) => {
-  const uploadPath = path.join(__dirname, "Uploads", "test.txt");
-  try {
-    fs.writeFileSync(uploadPath, "Test file");
-    res.json({ success: true, message: "File written to Uploads" });
-  } catch (err) {
-    console.error("Test uploads error:", err);
-    res
-      .status(500)
-      .json({ error: "Failed to write to Uploads", details: err.message });
-  }
-});
-
 // 404 fallback
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
@@ -478,7 +446,7 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error("💥 Global Error:", err);
+  console.error("💥 Global Error:", err.stack || err.message);
   res
     .status(500)
     .json({ error: "Internal server error", details: err.message });
