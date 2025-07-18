@@ -295,14 +295,13 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
+const helmet = require("helmet");
+const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
-const { sequelize, Sequelize, User } = require("./models");
+const { sequelize, Sequelize, User, Course, Lesson } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
@@ -315,8 +314,7 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      console.log(`CORS check for origin: ${origin}`);
+    origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, origin || "*");
       } else {
@@ -325,26 +323,23 @@ app.use(
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
     optionsSuccessStatus: 204,
   })
 );
 
-// Explicitly handle preflight requests
+// Handle preflight requests
 app.options("*", cors());
 
 // Trust proxy for Render
 app.set("trust proxy", 1);
 
-// Create images folder if it doesn't exist (Uploads moved to S3)
-const imagesPath = path.join(__dirname, "images");
-if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
-
 // Middleware
+app.use(helmet());
+app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/images", express.static("images"));
 app.use(express.static("public"));
 
 // Request Logger
@@ -360,7 +355,7 @@ app.use(
   "/api/v1/",
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 2000, // Increased to 2000 to reduce 429 errors
+    max: 500, // Reduced to prevent abuse
     message: { error: "Too many requests, please try again later." },
   })
 );
@@ -393,7 +388,9 @@ for (const name of routeModules) {
 if (process.env.NODE_ENV !== "production") {
   try {
     routes.emailPreview = require("./routes/emailPreview");
-  } catch {}
+  } catch (err) {
+    console.warn("⚠️ emailPreview route not loaded in production");
+  }
 }
 
 // Mount routes
@@ -419,13 +416,13 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
       return res.status(401).json({ error: "Invalid token" });
     }
     const user = await User.findByPk(req.user.id, {
-      attributes: ["id", "name", "email", "role"],
+      attributes: ["id", "name", "email", "role", "subject"],
     });
     if (!user) {
       console.error(`User not found for ID: ${req.user.id}`);
       return res.status(404).json({ error: "User not found" });
     }
-    res.json({ success: true, user });
+    res.json(user);
   } catch (error) {
     console.error("Failed to fetch user:", error.message);
     res
@@ -461,7 +458,7 @@ const { QueryTypes } = Sequelize;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // Ensure Users table exists
+    // Ensure Users table
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Users" (
         id SERIAL PRIMARY KEY,
@@ -469,28 +466,29 @@ const { QueryTypes } = Sequelize;
         email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         role TEXT NOT NULL,
+        subject TEXT,
         "createdAt" TIMESTAMP NOT NULL,
         "updatedAt" TIMESTAMP NOT NULL
       );
     `);
 
-    // Ensure Courses table exists
+    // Ensure Courses table
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Courses" (
-        id INTEGER PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         description TEXT,
         category TEXT,
-        slug TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
         price INTEGER NOT NULL,
-        "teacherId" INTEGER NOT NULL,
+        "teacherId" INTEGER NOT NULL REFERENCES "Users"(id),
         "createdAt" TIMESTAMP NOT NULL,
         "updatedAt" TIMESTAMP NOT NULL,
         "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[]
       );
     `);
 
-    // Ensure Lessons table exists
+    // Ensure Lessons table
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Lessons" (
         id SERIAL PRIMARY KEY,
@@ -504,17 +502,17 @@ const { QueryTypes } = Sequelize;
         "isUnitHeader" BOOLEAN DEFAULT false,
         "isPreview" BOOLEAN DEFAULT false,
         unitId INTEGER,
-        "userId" INTEGER NOT NULL,
+        "userId" INTEGER NOT NULL REFERENCES "Users"(id),
         "createdAt" TIMESTAMP NOT NULL,
         "updatedAt" TIMESTAMP NOT NULL
       );
     `);
 
-    // Ensure UserCourseAccess table exists
+    // Ensure UserCourseAccess table
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "UserCourseAccess" (
         id SERIAL PRIMARY KEY,
-        userId INTEGER NOT NULL,
+        userId INTEGER NOT NULL REFERENCES "Users"(id),
         courseId INTEGER NOT NULL REFERENCES "Courses"(id),
         approved BOOLEAN DEFAULT false,
         "createdAt" TIMESTAMP NOT NULL,
@@ -531,10 +529,12 @@ const { QueryTypes } = Sequelize;
       { type: QueryTypes.SELECT }
     );
     if (!user) {
+      const bcrypt = require("bcrypt");
+      const hashedPassword = await bcrypt.hash("password123", 10);
       await sequelize.query(
-        `INSERT INTO "Users" (id, name, email, role, password, "createdAt", "updatedAt")
-         VALUES (1, 'Test Teacher', 'teacher@example.com', 'teacher', 'hashed_password', NOW(), NOW())`,
-        { type: QueryTypes.INSERT }
+        `INSERT INTO "Users" (id, name, email, role, password, subject, "createdAt", "updatedAt")
+         VALUES (1, 'Test Teacher', 'teacher@example.com', 'teacher', :password, 'Algebra', NOW(), NOW())`,
+        { replacements: { password: hashedPassword }, type: QueryTypes.INSERT }
       );
       console.log("✅ Test teacher inserted");
     }
@@ -547,7 +547,7 @@ const { QueryTypes } = Sequelize;
     if (!course) {
       await sequelize.query(
         `INSERT INTO "Courses" (id, title, description, category, slug, price, "teacherId", "createdAt", "updatedAt")
-         VALUES (21, 'Test Course', 'Description', 'Math', 'test-course', 0, 1, NOW(), NOW())`,
+         VALUES (21, 'Test Course', 'A test course for algebra', 'Math', 'test-course', 0, 1, NOW(), NOW())`,
         { type: QueryTypes.INSERT }
       );
       console.log("✅ Test course inserted");
