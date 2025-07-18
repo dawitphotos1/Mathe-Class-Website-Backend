@@ -294,23 +294,25 @@
 // })();
 
 
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
-const { sequelize, Sequelize, User, Course, Lesson } = require("./models");
+const { sequelize, Sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
+const PORT = process.env.PORT || 5000;
+const { QueryTypes } = Sequelize;
 
 // CORS configuration
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
 ];
-
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -327,21 +329,17 @@ app.use(
     optionsSuccessStatus: 204,
   })
 );
-
-// Handle preflight requests
 app.options("*", cors());
 
-// Trust proxy for Render
-app.set("trust proxy", 1);
-
 // Middleware
+app.set("trust proxy", 1);
 app.use(helmet());
 app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// Request Logger
+// Request logger
 app.use((req, res, next) => {
   console.log(
     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -349,17 +347,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiting for API endpoints
+// Rate limiting
 app.use(
   "/api/v1/",
   rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 500, // Reduced to prevent abuse
+    windowMs: 15 * 60 * 1000,
+    max: 500,
     message: { error: "Too many requests, please try again later." },
   })
 );
 
-// Load routes dynamically
+// Load routes
 const routeModules = [
   "lessonRoutes",
   "stripeWebhook",
@@ -384,10 +382,11 @@ for (const name of routeModules) {
     process.exit(1);
   }
 }
+
 if (process.env.NODE_ENV !== "production") {
   try {
     routes.emailPreview = require("./routes/emailPreview");
-  } catch (err) {
+  } catch {
     console.warn("⚠️ emailPreview route not loaded in production");
   }
 }
@@ -407,20 +406,17 @@ app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// Authenticated user info endpoint
+// Authenticated user info
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
-      console.error("No user ID in request");
-      return res.status(401).json({ error: "Invalid token" });
-    }
+    if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
+
     const user = await User.findByPk(req.user.id, {
       attributes: ["id", "name", "email", "role", "subject"],
     });
-    if (!user) {
-      console.error(`User not found for ID: ${req.user.id}`);
-      return res.status(404).json({ error: "User not found" });
-    }
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
     res.json(user);
   } catch (error) {
     console.error("Failed to fetch user:", error.message);
@@ -433,6 +429,15 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
 // Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
+});
+
+// Root welcome route
+app.get("/", (req, res) => {
+  res.json({
+    message: "🎓 Welcome to the Math Class API",
+    documentation: "/api/v1/",
+    health: "/health",
+  });
 });
 
 // 404 fallback
@@ -448,16 +453,13 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
-const { QueryTypes } = Sequelize;
-
+// Start server & database initialization
 (async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // Ensure Users table
+    // Create tables manually
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Users" (
         id SERIAL PRIMARY KEY,
@@ -471,7 +473,6 @@ const { QueryTypes } = Sequelize;
       );
     `);
 
-    // Ensure Courses table
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Courses" (
         id SERIAL PRIMARY KEY,
@@ -487,7 +488,6 @@ const { QueryTypes } = Sequelize;
       );
     `);
 
-    // Ensure Lessons table
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Lessons" (
         id SERIAL PRIMARY KEY,
@@ -507,7 +507,6 @@ const { QueryTypes } = Sequelize;
       );
     `);
 
-    // Ensure UserCourseAccess table
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "UserCourseAccess" (
         id SERIAL PRIMARY KEY,
@@ -522,7 +521,7 @@ const { QueryTypes } = Sequelize;
     await sequelize.sync({ force: false });
     console.log("✅ DB synced");
 
-    // Insert test user if not exists
+    // Insert test teacher if not present
     const [user] = await sequelize.query(
       `SELECT id FROM "Users" WHERE id = 1 AND role = 'teacher'`,
       { type: QueryTypes.SELECT }
@@ -538,7 +537,7 @@ const { QueryTypes } = Sequelize;
       console.log("✅ Test teacher inserted");
     }
 
-    // Insert test course if not exists
+    // Insert test course if not present
     const [course] = await sequelize.query(
       `SELECT id FROM "Courses" WHERE id = 21`,
       { type: QueryTypes.SELECT }
