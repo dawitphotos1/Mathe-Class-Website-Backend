@@ -1,4 +1,3 @@
-
 const { UserCourseAccess, Course, User } = require("../models");
 const sendEmail = require("../utils/sendEmail");
 const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
