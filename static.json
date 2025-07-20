@@ -1,0 +1,6 @@
+{
+  "root": "Uploads",
+  "routes": {
+    "/Uploads/*": "Uploads/:splat"
+  }
+}
