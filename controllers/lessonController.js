@@ -305,7 +305,7 @@
 
 
 
-const { Lesson, Course, UserCourseAccess } = require("../models");
+const { Lesson, Course, UserCourseAccess, LessonView } = require("../models");
 const path = require("path");
 const fs = require("fs");
 const logLessonAction = require("../utils/logLessonAction");
@@ -609,7 +609,7 @@ exports.trackLessonView = async (req, res) => {
     console.log(`📊 User ${userId} viewed lesson ${lessonId}`);
 
     // Optionally log to database
-    // await LessonView.create({ userId, lessonId, viewedAt: new Date() });
+    await LessonView.create({ userId, lessonId, viewedAt: new Date() });
 
     return res.status(200).json({ success: true, message: "View tracked" });
   } catch (error) {
