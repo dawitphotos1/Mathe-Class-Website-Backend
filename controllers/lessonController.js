@@ -303,176 +303,69 @@
 
 
 
+const { Lesson, Course, UserCourseAccess } = require("../models");
+const path = require("path");
+const fs = require("fs");
+const logLessonAction = require("../utils/logLessonAction");
 
-const { Lesson, Course } = require("../models");
-
-// 📘 Get lessons by course
-exports.getLessonsByCourse = async (req, res) => {
-  try {
-    const lessons = await Lesson.findAll({
-      where: { courseId: req.params.courseId },
-      order: [["orderIndex", "ASC"]],
-    });
-    res.json(lessons);
-  } catch (err) {
-    console.error("❌ Error fetching lessons:", err.message);
-    res.status(500).json({ error: "Failed to fetch lessons" });
-  }
-};
-
-// 📘 Create a new lesson
 exports.createLesson = async (req, res) => {
-  try {
-    const {
-      title,
-      content,
-      contentType,
-      contentUrl,
-      videoUrl,
-      linkUrl,
-      quizTitle,
-      embedUrl,
-    } = req.body;
+  // ...previous validation...
 
-    let filePath = null;
-    let fileSize = null;
+  let contentUrl = null;
+  if (req.file) {
+    const uploadDir = path.join(__dirname, "../Uploads");
+    const ext = path.extname(req.file.originalname) || ".pdf";
+    const filename = `${path.basename(req.file.originalname, ext).replace(/\s+/g,"_")}-${Date.now()}${ext}`;
+    const uploadPath = path.join(uploadDir, filename);
 
-    if (req.file) {
-      filePath = "/Uploads/" + req.file.filename;
-      fileSize = req.file.size;
+    try {
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      fs.writeFileSync(uploadPath, req.file.buffer);
+      contentUrl = `/Uploads/${filename}`;
+      console.log("File saved:", uploadPath);
+    } catch (fileError) {
+      console.error("File save error:", fileError);
+      return res.status(500).json({ error: "Failed to save file" });
     }
-
-    const lesson = await Lesson.create({
-      courseId: req.params.courseId,
-      title,
-      content,
-      contentType: contentType || (filePath ? "file" : "text"),
-      contentUrl: contentUrl || filePath,
-      videoUrl,
-      linkUrl,
-      quizTitle,
-      embedUrl,
-      fileSize,
-      userId: req.user.id,
-      orderIndex: 0,
-    });
-
-    res.status(201).json(lesson);
-  } catch (err) {
-    console.error("❌ Error creating lesson:", err.message);
-    res.status(500).json({ error: "Failed to create lesson" });
   }
+
+  // Save lesson
+  const lesson = await Lesson.create({
+    // ...fields...
+    contentUrl,
+  });
+  await logLessonAction("CREATE", lesson, req.user);
+  return res.status(201).json({ success: true, lesson });
 };
 
-// 🗑️ DELETE lesson
 exports.deleteLesson = async (req, res) => {
-  const { lessonId } = req.params;
-  const userId = req.user?.id;
-
-  console.log("🔥 DELETE lesson request received");
-  console.log("Lesson ID:", lessonId);
-  console.log("User ID:", userId);
+  const lessonId = req.params.lessonId;
+  console.log("Request to delete lesson", lessonId, "by user", req.user?.id);
 
   try {
     const lesson = await Lesson.findByPk(lessonId);
-    if (!lesson) {
-      console.error("❌ Lesson not found");
-      return res.status(404).json({ error: "Lesson not found" });
-    }
+    if (!lesson) return res.status(404).json({ error: "Lesson not found" });
 
     const course = await Course.findByPk(lesson.courseId);
-    if (!course) {
-      console.error("❌ Course not found for the lesson");
-      return res.status(404).json({ error: "Course not found" });
-    }
+    if (!course) return res.status(404).json({ error: "Course not found" });
+    if (course.teacherId !== req.user.id) return res.status(403).json({ error: "Not authorized" });
 
-    if (course.teacherId !== userId) {
-      console.error("❌ User not authorized to delete this lesson");
-      return res.status(403).json({ error: "Unauthorized" });
+    // Delete file on disk if exists
+    if (lesson.contentUrl) {
+      const filepath = path.join(__dirname, "..", lesson.contentUrl);
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+        console.log("Deleted file from disk:", filepath);
+      }
     }
 
     await lesson.destroy();
-    console.log("✅ Lesson deleted successfully");
-
-    res.json({ success: true, message: "Lesson deleted" });
+    await logLessonAction("DELETE", lesson, req.user);
+    return res.json({ success: true, message: "Lesson deleted" });
   } catch (err) {
-    console.error("❌ Server error while deleting lesson:", err.stack);
-    res.status(500).json({
-      error: "Server error while deleting lesson",
-      details: err.message,
-    });
+    console.error("deleteLesson error:", err.stack || err);
+    return res.status(500).json({ error: "Internal Server Error", details: err.message });
   }
 };
 
-// ✅ Track lesson view
-exports.trackLessonView = async (req, res) => {
-  const { lessonId } = req.params;
-  const userId = req.user?.id;
-
-  console.log("📊 Tracking lesson view", { lessonId, userId });
-
-  if (!lessonId || !userId) {
-    return res.status(400).json({ error: "Invalid tracking data" });
-  }
-
-  try {
-    const lesson = await Lesson.findByPk(lessonId);
-    if (!lesson) {
-      console.warn("⚠️ Lesson not found for view tracking");
-      return res.status(404).json({ error: "Lesson not found" });
-    }
-
-    // Optional: Save to tracking table (future feature)
-    // await LessonView.create({ lessonId, userId });
-
-    res.status(200).json({ success: true, message: "View tracked" });
-  } catch (err) {
-    console.error("❌ Error tracking lesson view:", err.message);
-    res.status(500).json({ error: "Failed to track view" });
-  }
-};
-
-// 🟡 Toggle preview
-exports.toggleLessonPreview = async (req, res) => {
-  const { lessonId } = req.params;
-
-  try {
-    const lesson = await Lesson.findByPk(lessonId);
-    if (!lesson) {
-      return res.status(404).json({ error: "Lesson not found" });
-    }
-
-    lesson.isPreview = !lesson.isPreview;
-    await lesson.save();
-
-    res.json({ success: true, isPreview: lesson.isPreview });
-  } catch (err) {
-    console.error("❌ Error toggling preview:", err.message);
-    res.status(500).json({ error: "Failed to toggle preview" });
-  }
-};
-
-// 🔄 Update lesson
-exports.updateLesson = async (req, res) => {
-  const { lessonId } = req.params;
-  const updates = req.body;
-
-  try {
-    const lesson = await Lesson.findByPk(lessonId);
-    if (!lesson) {
-      return res.status(404).json({ error: "Lesson not found" });
-    }
-
-    await lesson.update(updates);
-    res.json({ success: true, lesson });
-  } catch (err) {
-    console.error("❌ Error updating lesson:", err.message);
-    res.status(500).json({ error: "Failed to update lesson" });
-  }
-};
-
-// 📘 Get units (optional)
-exports.getUnitsByCourse = async (req, res) => {
-  // implement if needed
-  res.status(200).json({ message: "Units endpoint not implemented yet." });
-};
+// trackLessonView...
