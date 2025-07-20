@@ -294,7 +294,6 @@
 // })();
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -305,53 +304,62 @@ const { sequelize, Sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
+app.set("trust proxy", 1); // Required for Render!
 
-// ===== 1. FIXED CORS Middleware (Put this BEFORE routes or body parsers) =====
+// === 1. CORS (CORRECT + SAFE) ===
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
 ];
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-  res.header(
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin);
+      } else {
+        console.warn("❌ Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  })
+);
+
+// ✅ Explicit OPTIONS handler (important on Render)
+app.options("*", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.setHeader(
     "Access-Control-Allow-Methods",
     "GET,POST,PUT,DELETE,PATCH,OPTIONS"
   );
-  res.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // Handle preflight requests
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Accept"
+  );
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(204);
 });
 
-// ===== 2. Trust proxy for Render =====
-app.set("trust proxy", 1);
-
-// ===== 3. Ensure Upload Folders Exist =====
+// === 2. Ensure Upload Folders Exist ===
 const uploadsDir = path.join(__dirname, "Uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-const imagesPath = path.join(__dirname, "images");
-if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
+const imagesDir = path.join(__dirname, "images");
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 
-// ===== 4. Middleware Setup =====
+// === 3. Middleware ===
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Serve static folders (for file downloads/previews)
+// === 4. Static file serving ===
 app.use("/Uploads", express.static(uploadsDir));
-app.use("/images", express.static(imagesPath));
+app.use("/images", express.static(imagesDir));
 app.use(express.static("public"));
 
-// ===== 5. Request Logger =====
+// === 5. Logger ===
 app.use((req, res, next) => {
   console.log(
     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -359,7 +367,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===== 6. Rate Limiting =====
+// === 6. Rate Limiting ===
 app.use(
   "/api/v1/",
   rateLimit({
@@ -369,7 +377,7 @@ app.use(
   })
 );
 
-// ===== 7. Load Routes Dynamically =====
+// === 7. Load Routes ===
 const routeModules = [
   "lessonRoutes",
   "stripeWebhook",
@@ -400,7 +408,7 @@ if (process.env.NODE_ENV !== "production") {
   } catch {}
 }
 
-// ===== 8. Mount API Routes =====
+// === 8. Mount Routes ===
 app.use("/api/v1/lessons", routes.lessonRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
@@ -415,16 +423,17 @@ app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// ===== 9. Authenticated User Info =====
+// === 9. Authenticated User Info ===
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
-    if (!req.user?.id) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
+    if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
+
     const user = await User.findByPk(req.user.id, {
       attributes: ["id", "name", "email", "role"],
     });
+
     if (!user) return res.status(404).json({ error: "User not found" });
+
     res.json({ success: true, user });
   } catch (error) {
     res
@@ -433,25 +442,25 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   }
 });
 
-// ===== 10. Health Check =====
+// === 10. Health Check ===
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// ===== 11. Upload Test Endpoint =====
+// === 11. Upload Test ===
 app.get("/test-uploads", (req, res) => {
-  const uploadPath = path.join(__dirname, "Uploads", "test.txt");
+  const testPath = path.join(uploadsDir, "test.txt");
   try {
-    fs.writeFileSync(uploadPath, "Test file");
-    res.json({ success: true, message: "File written to Uploads" });
+    fs.writeFileSync(testPath, "Test file created!");
+    res.json({ success: true, message: "Upload folder works!" });
   } catch (err) {
     res
       .status(500)
-      .json({ error: "Failed to write file", details: err.message });
+      .json({ error: "Failed to write test file", details: err.message });
   }
 });
 
-// ===== 12. 404 and Error Handlers =====
+// === 12. 404 & Global Error Handler ===
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
@@ -463,7 +472,7 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-// ===== 13. Start Server + Setup Tables If Needed =====
+// === 13. Start Server + Sync DB ===
 const PORT = process.env.PORT || 5000;
 const { QueryTypes } = Sequelize;
 
@@ -472,32 +481,34 @@ const { QueryTypes } = Sequelize;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // Create required tables (bootstrap schema)
-    await sequelize.query(`CREATE TABLE IF NOT EXISTS "Lessons" (
-      id SERIAL PRIMARY KEY,
-      "courseId" INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      content TEXT,
-      "contentType" TEXT,
-      "contentUrl" TEXT,
-      "videoUrl" TEXT,
-      "orderIndex" INTEGER,
-      "isUnitHeader" BOOLEAN,
-      "isPreview" BOOLEAN,
-      unitId INTEGER,
-      "userId" INTEGER NOT NULL,
-      "createdAt" TIMESTAMP NOT NULL,
-      "updatedAt" TIMESTAMP NOT NULL
-    );`);
+    // Create Lessons table if not exists
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS "Lessons" (
+        id SERIAL PRIMARY KEY,
+        "courseId" INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT,
+        "contentType" TEXT,
+        "contentUrl" TEXT,
+        "videoUrl" TEXT,
+        "orderIndex" INTEGER,
+        "isUnitHeader" BOOLEAN,
+        "isPreview" BOOLEAN,
+        unitId INTEGER,
+        "userId" INTEGER NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL,
+        "updatedAt" TIMESTAMP NOT NULL
+      );
+    `);
 
     await sequelize.sync({ force: false });
-    console.log("✅ Database synced");
+    console.log("✅ DB Synced");
 
     app.listen(PORT, "0.0.0.0", () =>
-      console.log(`🚀 Server running at http://localhost:${PORT}`)
+      console.log(`🚀 Server running on http://localhost:${PORT}`)
     );
   } catch (err) {
-    console.error("❌ Startup error:", err);
+    console.error("❌ Startup error:", err.message);
     process.exit(1);
   }
 })();
