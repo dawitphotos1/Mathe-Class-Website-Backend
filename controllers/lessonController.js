@@ -302,70 +302,115 @@
 // };
 
 
-
 const { Lesson, Course, UserCourseAccess } = require("../models");
 const path = require("path");
 const fs = require("fs");
-const logLessonAction = require("../utils/logLessonAction");
+
+exports.getLessonsByCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const lessons = await Lesson.findAll({ where: { courseId } });
+    res.json({ success: true, lessons });
+  } catch (error) {
+    console.error("❌ getLessonsByCourse error:", error);
+    res.status(500).json({ error: "Failed to fetch lessons" });
+  }
+};
+
+exports.getUnitsByCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const units = await Lesson.findAll({
+      where: { courseId, isUnitHeader: true },
+      attributes: ["id", "title"],
+    });
+    res.json({ success: true, units });
+  } catch (error) {
+    console.error("❌ getUnitsByCourse error:", error);
+    res.status(500).json({ error: "Failed to fetch units" });
+  }
+};
 
 exports.createLesson = async (req, res) => {
-  // ...previous validation...
+  try {
+    const { courseId } = req.params;
+    const { title, contentType = "text" } = req.body;
 
-  let contentUrl = null;
-  if (req.file) {
-    const uploadDir = path.join(__dirname, "../Uploads");
-    const ext = path.extname(req.file.originalname) || ".pdf";
-    const filename = `${path.basename(req.file.originalname, ext).replace(/\s+/g,"_")}-${Date.now()}${ext}`;
-    const uploadPath = path.join(uploadDir, filename);
-
-    try {
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    let contentUrl = null;
+    if (req.file) {
+      const filename = `${Date.now()}-${req.file.originalname}`;
+      const uploadPath = path.join(__dirname, "..", "Uploads", filename);
       fs.writeFileSync(uploadPath, req.file.buffer);
       contentUrl = `/Uploads/${filename}`;
-      console.log("File saved:", uploadPath);
-    } catch (fileError) {
-      console.error("File save error:", fileError);
-      return res.status(500).json({ error: "Failed to save file" });
     }
-  }
 
-  // Save lesson
-  const lesson = await Lesson.create({
-    // ...fields...
-    contentUrl,
-  });
-  await logLessonAction("CREATE", lesson, req.user);
-  return res.status(201).json({ success: true, lesson });
+    const newLesson = await Lesson.create({
+      courseId,
+      title,
+      contentType,
+      contentUrl,
+      userId: req.user.id,
+    });
+
+    res.status(201).json({ success: true, lesson: newLesson });
+  } catch (error) {
+    console.error("❌ createLesson error:", error);
+    res.status(500).json({ error: "Failed to create lesson" });
+  }
+};
+
+exports.updateLesson = async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const lesson = await Lesson.findByPk(lessonId);
+
+    if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+
+    await lesson.update(req.body);
+    res.json({ success: true, lesson });
+  } catch (error) {
+    console.error("❌ updateLesson error:", error);
+    res.status(500).json({ error: "Failed to update lesson" });
+  }
 };
 
 exports.deleteLesson = async (req, res) => {
-  const lessonId = req.params.lessonId;
-  console.log("Request to delete lesson", lessonId, "by user", req.user?.id);
-
   try {
+    const { lessonId } = req.params;
     const lesson = await Lesson.findByPk(lessonId);
+
     if (!lesson) return res.status(404).json({ error: "Lesson not found" });
 
-    const course = await Course.findByPk(lesson.courseId);
-    if (!course) return res.status(404).json({ error: "Course not found" });
-    if (course.teacherId !== req.user.id) return res.status(403).json({ error: "Not authorized" });
-
-    // Delete file on disk if exists
-    if (lesson.contentUrl) {
-      const filepath = path.join(__dirname, "..", lesson.contentUrl);
-      if (fs.existsSync(filepath)) {
-        fs.unlinkSync(filepath);
-        console.log("Deleted file from disk:", filepath);
-      }
-    }
-
     await lesson.destroy();
-    await logLessonAction("DELETE", lesson, req.user);
-    return res.json({ success: true, message: "Lesson deleted" });
-  } catch (err) {
-    console.error("deleteLesson error:", err.stack || err);
-    return res.status(500).json({ error: "Internal Server Error", details: err.message });
+    res.json({ success: true, message: "Lesson deleted" });
+  } catch (error) {
+    console.error("❌ deleteLesson error:", error);
+    res.status(500).json({ error: "Failed to delete lesson" });
   }
 };
 
-// trackLessonView...
+exports.toggleLessonPreview = async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const lesson = await Lesson.findByPk(lessonId);
+
+    if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+
+    lesson.isPreview = !lesson.isPreview;
+    await lesson.save();
+    res.json({ success: true, isPreview: lesson.isPreview });
+  } catch (error) {
+    console.error("❌ toggleLessonPreview error:", error);
+    res.status(500).json({ error: "Failed to toggle preview" });
+  }
+};
+
+exports.trackLessonView = async (req, res) => {
+  try {
+    console.log(`📊 Tracking view for lesson ${req.params.lessonId}`);
+    res.json({ success: true, message: "View tracked" });
+  } catch (error) {
+    console.error("❌ trackLessonView error:", error);
+    res.status(500).json({ error: "Failed to track view" });
+  }
+};

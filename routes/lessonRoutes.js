@@ -64,7 +64,6 @@
 // module.exports = router;
 
 
-
 const express = require("express");
 const router = express.Router();
 const lessonController = require("../controllers/lessonController");
@@ -72,14 +71,22 @@ const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 
-// GET lessons by courseId
+// GET: Lessons by courseId
 router.get(
   "/:courseId/lessons",
   authMiddleware,
   lessonController.getLessonsByCourse
 );
 
-// POST (teacher) create lesson with optional file
+// GET: Units
+router.get(
+  "/:courseId/units",
+  authMiddleware,
+  roleMiddleware(["teacher", "admin"]),
+  lessonController.getUnitsByCourse
+);
+
+// POST: Create lesson
 router.post(
   "/:courseId/lessons",
   authMiddleware,
@@ -88,7 +95,15 @@ router.post(
   lessonController.createLesson
 );
 
-// DELETE lesson (teacher only)
+// PUT: Update lesson
+router.put(
+  "/:lessonId",
+  authMiddleware,
+  roleMiddleware(["teacher", "admin"]),
+  lessonController.updateLesson
+);
+
+// DELETE: Delete lesson
 router.delete(
   "/:lessonId",
   authMiddleware,
@@ -96,7 +111,15 @@ router.delete(
   lessonController.deleteLesson
 );
 
-// POST lesson view tracking
+// PATCH: Toggle lesson preview
+router.patch(
+  "/:lessonId/toggle-preview",
+  authMiddleware,
+  roleMiddleware(["teacher", "admin"]),
+  lessonController.toggleLessonPreview
+);
+
+// POST: Track view
 router.post(
   "/:lessonId/track-view",
   authMiddleware,
