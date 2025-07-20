@@ -297,8 +297,6 @@
 
 
 
-
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -315,22 +313,51 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
 ];
-
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, origin || "*");
+        callback(null, origin);
       } else {
-        callback(new Error(`CORS not allowed for origin: ${origin}`));
+        console.warn("❌ Blocked CORS for origin:", origin);
+        callback(new Error("Not allowed by CORS"));
       }
     },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept"],
-    credentials: true,
-    optionsSuccessStatus: 204,
   })
 );
+
+// ✅ 1.1 Handle CORS Preflight Requests (OPTIONS)
+app.options("*", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Authorization,Accept"
+  );
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(204);
+});
+
+// ✅ 1.2 Fallback CORS Headers Middleware
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Authorization,Accept"
+  );
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  next();
+});
 
 // ===== 2. Trust proxy for Render =====
 app.set("trust proxy", 1);
@@ -346,14 +373,16 @@ if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Serve static folders (for previews/downloads in frontend)
-app.use("/Uploads", express.static(uploadsDir));  // <- For lesson files
-app.use("/images", express.static(imagesPath));   // <- For profile pics etc
+// ✅ Serve static folders
+app.use("/Uploads", express.static(uploadsDir));
+app.use("/images", express.static(imagesPath));
 app.use(express.static("public"));
 
 // ===== 5. Request Logger =====
 app.use((req, res, next) => {
-  console.log(`[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`);
+  console.log(
+    `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
+  );
   next();
 });
 
@@ -369,9 +398,18 @@ app.use(
 
 // ===== 7. Load Routes Dynamically =====
 const routeModules = [
-  "lessonRoutes", "stripeWebhook", "auth", "users", "courses",
-  "payments", "email", "enrollments", "admin", "progress",
-  "upload", "files"
+  "lessonRoutes",
+  "stripeWebhook",
+  "auth",
+  "users",
+  "courses",
+  "payments",
+  "email",
+  "enrollments",
+  "admin",
+  "progress",
+  "upload",
+  "files",
 ];
 
 const routes = {};
@@ -389,7 +427,7 @@ if (process.env.NODE_ENV !== "production") {
   } catch {}
 }
 
-// ===== 8. Mount API Routes =====
+// ===== 8. Mount Routes =====
 app.use("/api/v1/lessons", routes.lessonRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
@@ -416,7 +454,9 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({ success: true, user });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch user", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch user", details: error.message });
   }
 });
 
@@ -432,7 +472,9 @@ app.get("/test-uploads", (req, res) => {
     fs.writeFileSync(uploadPath, "Test file");
     res.json({ success: true, message: "File written to Uploads" });
   } catch (err) {
-    res.status(500).json({ error: "Failed to write file", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to write file", details: err.message });
   }
 });
 
@@ -443,10 +485,12 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
-  res.status(500).json({ error: "Internal server error", details: err.message });
+  res
+    .status(500)
+    .json({ error: "Internal server error", details: err.message });
 });
 
-// ===== 13. Start Server + Setup Tables If Needed =====
+// ===== 13. Start Server + Create Tables if Needed =====
 const PORT = process.env.PORT || 5000;
 const { QueryTypes } = Sequelize;
 
@@ -455,7 +499,6 @@ const { QueryTypes } = Sequelize;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // Create required tables (lightweight schema bootstrapping)
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Lessons" (
         id SERIAL PRIMARY KEY,

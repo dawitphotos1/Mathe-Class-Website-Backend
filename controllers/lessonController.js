@@ -395,14 +395,14 @@ exports.deleteLesson = async (req, res) => {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    // if (course.teacherId !== userId) {
-    //   console.error(
-    //     `Unauthorized delete: user ${userId} is not teacher of course ${course.id}`
-    //   );
-    //   return res
-    //     .status(403)
-    //     .json({ error: "Not authorized to delete this lesson" });
-    // }
+    if (course.teacherId !== userId) {
+      console.error(
+        `Unauthorized delete: user ${userId} is not teacher of course ${course.id}`
+      );
+      return res
+        .status(403)
+        .json({ error: "Not authorized to delete this lesson" });
+    }
 
     await lesson.destroy();
     console.log(
