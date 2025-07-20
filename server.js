@@ -60,6 +60,7 @@ if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// ✅ Make 'Uploads' folder publicly accessible
 app.use("/Uploads", express.static(path.join(__dirname, "Uploads")));
 app.use("/images", express.static("images"));
 app.use(express.static("public"));
