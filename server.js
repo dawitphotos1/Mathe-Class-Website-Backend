@@ -325,7 +325,7 @@ app.use(
         callback(new Error(`CORS not allowed for origin: ${origin}`));
       }
     },
-    methods: ["GET", POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept"],
     credentials: true,
     optionsSuccessStatus: 204,
