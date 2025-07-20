@@ -74,14 +74,14 @@ app.use((req, res, next) => {
 });
 
 // Rate limiting for API endpoints
-app.use(
-  "/api/v1/",
-  rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5000,
-    message: { error: "Too many requests, try again later." },
-  })
-);
+// app.use(
+//   "/api/v1/",
+//   rateLimit({
+//     windowMs: 15 * 60 * 1000, // 15 minutes
+//     max: 5000,
+//     message: { error: "Too many requests, try again later." },
+//   })
+// );
 
 // Load routes dynamically
 const routeModules = [
