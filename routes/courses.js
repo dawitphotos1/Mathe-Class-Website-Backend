@@ -195,6 +195,7 @@ router.get("/:courseId/lessons", auth, async (req, res) => {
 });
 
 // ✅ DELETE /api/v1/courses/:courseId
+// ✅ DELETE /api/v1/courses/:courseId
 router.delete(
   "/:courseId",
   auth,
@@ -202,6 +203,7 @@ router.delete(
   async (req, res) => {
     try {
       const { courseId } = req.params;
+
       const course = await Course.findByPk(courseId);
 
       if (!course) {
@@ -212,14 +214,23 @@ router.delete(
         return res.status(403).json({ error: "Unauthorized" });
       }
 
+      // 🔥 Delete related lessons first to avoid foreign key constraint issues
+      await Lesson.destroy({ where: { courseId } });
+
+      // Then delete the course itself
       await course.destroy();
+
       appendToLogFile(
         `🗑 Course deleted: ${course.title} by user ${req.user.id}`
       );
+
       res.json({ success: true, message: "Course deleted successfully" });
     } catch (err) {
-      console.error("❌ Delete course error:", err.message);
-      res.status(500).json({ error: "Failed to delete course" });
+      console.error("❌ Delete course error:", err);
+      res.status(500).json({
+        error: "Failed to delete course",
+        details: err.message,
+      });
     }
   }
 );
