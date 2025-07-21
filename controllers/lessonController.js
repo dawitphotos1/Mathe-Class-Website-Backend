@@ -302,7 +302,8 @@
 // };
 
 
-const { Lesson, Course, UserCourseAccess } = require("../models");
+// controllers/lessonController.js
+const { Lesson, Course } = require("../models");
 const path = require("path");
 const fs = require("fs");
 
@@ -377,46 +378,25 @@ exports.updateLesson = async (req, res) => {
 exports.deleteLesson = async (req, res) => {
   try {
     const { lessonId } = req.params;
-    const userId = req.user?.id;
-
-    console.log(
-      `Attempting to delete lessonId: ${lessonId}, by user: ${userId}`
-    );
 
     const lesson = await Lesson.findByPk(lessonId);
     if (!lesson) {
-      console.error(`Lesson not found for ID: ${lessonId}`);
       return res.status(404).json({ error: "Lesson not found" });
     }
 
+    // Optionally verify user owns the course
     const course = await Course.findByPk(lesson.courseId);
-    if (!course) {
-      console.error(`Course not found for ID: ${lesson.courseId}`);
-      return res.status(404).json({ error: "Course not found" });
-    }
-
-    if (course.teacherId !== userId) {
-      console.error(
-        `Unauthorized delete: user ${userId} is not teacher of course ${course.id}`
-      );
-      return res
-        .status(403)
-        .json({ error: "Not authorized to delete this lesson" });
+    if (!course || course.teacherId !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized" });
     }
 
     await lesson.destroy();
-    console.log(
-      `✅ Lesson deleted successfully: ${lesson.title} (ID: ${lesson.id})`
-    );
-    res.json({ success: true, message: "Lesson deleted" });
+    res.json({ success: true, message: "Lesson deleted successfully" });
   } catch (error) {
-    console.error("❌ DELETE ERROR:", error.stack || error.message);
-    res
-      .status(500)
-      .json({ error: "Failed to delete lesson", details: error.message });
+    console.error("❌ deleteLesson error:", error.message);
+    res.status(500).json({ error: "Failed to delete lesson" });
   }
 };
-
 exports.toggleLessonPreview = async (req, res) => {
   try {
     const { lessonId } = req.params;
