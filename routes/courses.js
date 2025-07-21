@@ -241,17 +241,17 @@
 
 
 
-
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
-const { Course, Lesson, User, sequelize } = require("../models"); // ⬅ Add `sequelize` for transaction
+const { Course, Lesson, User, sequelize } = require("../models");
 const auth = require("../middleware/auth");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
+// === Utility: Slug Generator ===
 const slugify = (text) => text.toLowerCase().replace(/\s+/g, "-").slice(0, 100);
 
 const generateUniqueSlug = async (title) => {
@@ -264,7 +264,7 @@ const generateUniqueSlug = async (title) => {
   return slug;
 };
 
-// File Upload Config
+// === Multer Upload Config ===
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, "..", "uploads");
@@ -280,6 +280,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 
+// === Logger ===
 const appendToLogFile = (message) => {
   const logDir = path.join(__dirname, "..", "logs");
   const logFile = path.join(logDir, "courses.log");
@@ -291,7 +292,7 @@ const appendToLogFile = (message) => {
   }
 };
 
-// ✅ POST /api/v1/courses
+// === POST /api/v1/courses ===
 router.post(
   "/",
   auth,
@@ -337,32 +338,28 @@ router.post(
       appendToLogFile(`✅ Course created: ${title} by user ${teacherId}`);
       res.status(201).json({ success: true, course: newCourse });
     } catch (err) {
-      console.error("❌ Create course error:", err);
+      console.error("❌ Create course error:", err.stack || err.message);
       appendToLogFile(`❌ Create course error: ${err.message}`);
-      res
-        .status(500)
-        .json({
-          success: false,
-          error: "Failed to create course",
-          details: err.message,
-        });
+      res.status(500).json({
+        success: false,
+        error: "Failed to create course",
+        details: err.message,
+      });
     }
   }
 );
 
-// ✅ GET /api/v1/courses
+// === GET /api/v1/courses ===
 router.get("/", auth, async (req, res) => {
   try {
     const filter =
       req.user.role === "teacher" ? { teacherId: req.user.id } : {};
-
     const courses = await Course.findAll({
       where: filter,
       include: [
         { model: User, as: "teacher", attributes: ["id", "name", "email"] },
       ],
     });
-
     res.status(200).json(courses);
   } catch (err) {
     console.error("❌ Fetch courses error:", err.message);
@@ -370,11 +367,10 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// ✅ GET /api/v1/courses/slug/:slug
+// === GET /api/v1/courses/slug/:slug ===
 router.get("/slug/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-
     const course = await Course.findOne({
       where: { slug },
       include: [
@@ -398,22 +394,24 @@ router.get("/slug/:slug", async (req, res) => {
     appendToLogFile(`✅ Fetched course: ${course.title} (slug: ${slug})`);
     res.status(200).json(course);
   } catch (error) {
-    console.error("❌ Fetch course by slug error:", error.message);
-    appendToLogFile(`❌ Fetch course by slug error: ${error.message}`);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: "Failed to fetch course",
-        details: error.message,
-      });
+    console.error(
+      "❌ Fetch course by slug error:",
+      error.stack || error.message
+    );
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch course",
+      details: error.message,
+    });
   }
 });
 
-// ✅ GET /api/v1/courses/:courseId/lessons
+// === GET /api/v1/courses/:courseId/lessons ===
 router.get("/:courseId/lessons", auth, async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
+    if (isNaN(courseId))
+      return res.status(400).json({ error: "Invalid course ID" });
 
     const lessons = await Lesson.findAll({
       where: { courseId },
@@ -428,20 +426,24 @@ router.get("/:courseId/lessons", auth, async (req, res) => {
 
     res.status(200).json({ lessons });
   } catch (error) {
-    console.error("❌ Error fetching lessons:", error);
+    console.error("❌ Error fetching lessons:", error.stack || error.message);
     res.status(500).json({ error: "Failed to load lessons" });
   }
 });
 
-// ✅ DELETE /api/v1/courses/:courseId
+// === DELETE /api/v1/courses/:courseId ===
 router.delete(
   "/:courseId",
   auth,
   roleMiddleware(["teacher"]),
   async (req, res) => {
-    const transaction = await sequelize.transaction(); // Begin transaction
+    const transaction = await sequelize.transaction();
     try {
-      const { courseId } = req.params;
+      const courseId = parseInt(req.params.courseId);
+      if (isNaN(courseId)) {
+        await transaction.rollback();
+        return res.status(400).json({ error: "Invalid course ID" });
+      }
 
       const course = await Course.findByPk(courseId, { transaction });
 
@@ -455,6 +457,7 @@ router.delete(
         return res.status(403).json({ error: "Unauthorized" });
       }
 
+      // Cascade delete handled via onDelete: "CASCADE", but still run this explicitly
       const deletedLessons = await Lesson.destroy({
         where: { courseId },
         transaction,
@@ -467,17 +470,16 @@ router.delete(
       appendToLogFile(
         `🗑 Course deleted: ${course.title} by user ${req.user.id} (deleted ${deletedLessons} lessons)`
       );
-
       res.json({
         success: true,
         message: "Course and its lessons deleted successfully",
       });
     } catch (err) {
       await transaction.rollback();
-      console.error("❌ Delete course error:", err);
+      console.error("❌ Delete course error:", err.stack || err.message);
       res.status(500).json({
         error: "Failed to delete course",
-        details: err.message,
+        details: err.message || "Unknown error",
       });
     }
   }
