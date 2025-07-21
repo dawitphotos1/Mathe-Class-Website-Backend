@@ -295,6 +295,7 @@
 
 
 
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -307,7 +308,7 @@ const authMiddleware = require("./middleware/authMiddleware");
 const app = express();
 app.set("trust proxy", 1); // Required for Render
 
-// === 1. CORS (FIXED & RENDER-SAFE) ===
+// === 1. CORS (FIXED & SAFE) ===
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -329,12 +330,12 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// ✅ Render requires this to manually respond to preflight
+// ✅ Manually handle CORS preflight requests (Render compatibility)
 app.options("*", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
-    "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
@@ -470,10 +471,9 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
-  res.status(500).json({
-    error: "Internal server error",
-    details: err.message,
-  });
+  res
+    .status(500)
+    .json({ error: "Internal server error", details: err.message });
 });
 
 // === 13. Start Server + Sync DB ===
@@ -485,6 +485,7 @@ const { QueryTypes } = Sequelize;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
+    // Create Lessons table if not exists
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Lessons" (
         id SERIAL PRIMARY KEY,
