@@ -47,6 +47,7 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "courseId",
       as: "lessons",
       onDelete: "CASCADE",
+      hooks: true, // 👈 Required for Sequelize CASCADE to work in some cases
     });
 
     Course.hasMany(models.UserCourseAccess, {

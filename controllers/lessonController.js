@@ -304,7 +304,8 @@
 
 
 
-// controllers/lessonController.js
+
+
 const { Lesson, Course } = require("../models");
 const path = require("path");
 const fs = require("fs");
@@ -341,7 +342,10 @@ exports.createLesson = async (req, res) => {
 
     let contentUrl = null;
     if (req.file) {
-      const filename = `${Date.now()}-${req.file.originalname.replace(/\s+/g, "_")}`;
+      const filename = `${Date.now()}-${req.file.originalname.replace(
+        /\s+/g,
+        "_"
+      )}`;
       const uploadPath = path.join(__dirname, "..", "Uploads", filename);
       fs.writeFileSync(uploadPath, req.file.buffer);
       contentUrl = `/Uploads/${filename}`;
@@ -358,7 +362,9 @@ exports.createLesson = async (req, res) => {
     res.status(201).json({ success: true, lesson: newLesson });
   } catch (error) {
     console.error("❌ createLesson error:", error);
-    res.status(500).json({ error: "Failed to create lesson", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Failed to create lesson", details: error.message });
   }
 };
 
@@ -399,7 +405,9 @@ exports.deleteLesson = async (req, res) => {
     res.json({ success: true, message: "Lesson deleted successfully" });
   } catch (error) {
     console.error("❌ deleteLesson error:", error);
-    res.status(500).json({ error: "Failed to delete lesson", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Failed to delete lesson", details: error.message });
   }
 };
 
