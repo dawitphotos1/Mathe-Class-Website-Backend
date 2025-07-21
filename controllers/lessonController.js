@@ -302,6 +302,8 @@
 // };
 
 
+
+
 // controllers/lessonController.js
 const { Lesson, Course } = require("../models");
 const path = require("path");
@@ -339,7 +341,7 @@ exports.createLesson = async (req, res) => {
 
     let contentUrl = null;
     if (req.file) {
-      const filename = `${Date.now()}-${req.file.originalname}`;
+      const filename = `${Date.now()}-${req.file.originalname.replace(/\s+/g, "_")}`;
       const uploadPath = path.join(__dirname, "..", "Uploads", filename);
       fs.writeFileSync(uploadPath, req.file.buffer);
       contentUrl = `/Uploads/${filename}`;
@@ -356,7 +358,7 @@ exports.createLesson = async (req, res) => {
     res.status(201).json({ success: true, lesson: newLesson });
   } catch (error) {
     console.error("❌ createLesson error:", error);
-    res.status(500).json({ error: "Failed to create lesson" });
+    res.status(500).json({ error: "Failed to create lesson", details: error.message });
   }
 };
 
@@ -384,19 +386,23 @@ exports.deleteLesson = async (req, res) => {
       return res.status(404).json({ error: "Lesson not found" });
     }
 
-    // Optionally verify user owns the course
     const course = await Course.findByPk(lesson.courseId);
-    if (!course || course.teacherId !== req.user.id) {
+    if (!course) {
+      return res.status(404).json({ error: "Related course not found" });
+    }
+
+    if (course.teacherId !== req.user.id) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
     await lesson.destroy();
     res.json({ success: true, message: "Lesson deleted successfully" });
   } catch (error) {
-    console.error("❌ deleteLesson error:", error.message);
-    res.status(500).json({ error: "Failed to delete lesson" });
+    console.error("❌ deleteLesson error:", error);
+    res.status(500).json({ error: "Failed to delete lesson", details: error.message });
   }
 };
+
 exports.toggleLessonPreview = async (req, res) => {
   try {
     const { lessonId } = req.params;

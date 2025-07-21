@@ -316,9 +316,9 @@ app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, origin);
+        callback(null, true);
       } else {
-        console.warn("❌ Blocked by CORS:", origin);
+        console.warn("❌ CORS Blocked:", origin);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -328,12 +328,12 @@ app.use(
   })
 );
 
-// ✅ Explicit OPTIONS handler (important on Render)
+// ✅ Fix CORS preflight on Render
 app.options("*", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
-    "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
@@ -342,7 +342,6 @@ app.options("*", (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.sendStatus(204);
 });
-
 // === 2. Ensure Upload Folders Exist ===
 const uploadsDir = path.join(__dirname, "Uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
