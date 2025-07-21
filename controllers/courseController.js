@@ -141,7 +141,9 @@ exports.createCourse = async (req, res) => {
 exports.deleteCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
-
+    console.log("🗑️ Attempting to delete course ID:", courseId);
+    console.log("🔐 Authenticated user:", req.user);
+    
     const course = await Course.findByPk(courseId);
     if (!course) {
       return res.status(404).json({ error: "Course not found" });
