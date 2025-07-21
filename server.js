@@ -294,6 +294,8 @@
 // })();
 
 
+
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -304,44 +306,31 @@ const { sequelize, Sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.set("trust proxy", 1); // Required for Render!
+app.set("trust proxy", 1); // Required for Render
 
-// === 1. CORS (CORRECT + SAFE) ===
+// === 1. CORS (FIXED & SAFE) ===
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn("❌ CORS Blocked:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
-  })
-);
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn("❌ Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+};
 
-// ✅ Fix CORS preflight on Render
-app.options("*", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Accept"
-  );
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.sendStatus(204);
-});
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // Handle preflight
+
 // === 2. Ensure Upload Folders Exist ===
 const uploadsDir = path.join(__dirname, "Uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -435,9 +424,10 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
 
     res.json({ success: true, user });
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Failed to fetch user", details: error.message });
+    res.status(500).json({
+      error: "Failed to fetch user",
+      details: error.message,
+    });
   }
 });
 
@@ -453,9 +443,10 @@ app.get("/test-uploads", (req, res) => {
     fs.writeFileSync(testPath, "Test file created!");
     res.json({ success: true, message: "Upload folder works!" });
   } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Failed to write test file", details: err.message });
+    res.status(500).json({
+      error: "Failed to write test file",
+      details: err.message,
+    });
   }
 });
 
