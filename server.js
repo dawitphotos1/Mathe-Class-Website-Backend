@@ -1,3 +1,4 @@
+
 // require("dotenv").config();
 // const express = require("express");
 // const cors = require("cors");
@@ -8,63 +9,62 @@
 // const authMiddleware = require("./middleware/authMiddleware");
 
 // const app = express();
+// app.set("trust proxy", 1); // Required for Render
 
-// // CORS configuration
+// // === 1. CORS (FIXED & SAFE) ===
 // const allowedOrigins = [
 //   "http://localhost:3000",
 //   "https://math-class-platform.netlify.app",
 // ];
 
-// app.use(
-//   cors({
-//     origin: function (origin, callback) {
-//       console.log(`CORS check for origin: ${origin}`);
-//       if (!origin || allowedOrigins.includes(origin)) {
-//         callback(null, origin || "*");
-//       } else {
-//         callback(new Error(`CORS not allowed for origin: ${origin}`));
-//       }
-//     },
-//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization", "Accept"],
-//     credentials: true,
-//     optionsSuccessStatus: 204,
-//   })
-// );
+// const corsOptions = {
+//   origin: function (origin, callback) {
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       callback(null, true);
+//     } else {
+//       console.warn("❌ Blocked by CORS:", origin);
+//       callback(new Error("Not allowed by CORS"));
+//     }
+//   },
+//   credentials: true,
+//   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+// };
 
-// // Explicitly handle preflight requests
+// app.use(cors(corsOptions));
+
+// // ✅ Manually handle CORS preflight requests (Render compatibility)
 // app.options("*", (req, res) => {
-//   const origin = req.get("origin") || "*";
-//   console.log(`Handling OPTIONS request for origin: ${origin}`);
-//   res.set({
-//     "Access-Control-Allow-Origin": allowedOrigins.includes(origin)
-//       ? origin
-//       : "*",
-//     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
-//     "Access-Control-Allow-Headers": "Content-Type,Authorization,Accept",
-//     "Access-Control-Allow-Credentials": "true",
-//   });
-//   res.status(204).send();
+//   res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+//   res.setHeader(
+//     "Access-Control-Allow-Methods",
+//     "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+//   );
+//   res.setHeader(
+//     "Access-Control-Allow-Headers",
+//     "Content-Type, Authorization, Accept"
+//   );
+//   res.setHeader("Access-Control-Allow-Credentials", "true");
+//   res.sendStatus(204);
 // });
 
-// // Trust proxy for Render
-// app.set("trust proxy", 1);
-
-// // Create folders if they don't exist
+// // === 2. Ensure Upload Folders Exist ===
 // const uploadsDir = path.join(__dirname, "Uploads");
 // if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-// const imagesPath = path.join(__dirname, "images");
-// if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 
-// // Middleware
+// const imagesDir = path.join(__dirname, "images");
+// if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+// // === 3. Middleware ===
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
-// // ✅ Make 'Uploads' folder publicly accessible
-// app.use("/Uploads", express.static(path.join(__dirname, "Uploads")));
-// app.use("/images", express.static("images"));
+
+// // === 4. Static file serving ===
+// app.use("/Uploads", express.static(uploadsDir));
+// app.use("/images", express.static(imagesDir));
 // app.use(express.static("public"));
 
-// // Request Logger
+// // === 5. Logger ===
 // app.use((req, res, next) => {
 //   console.log(
 //     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -72,17 +72,17 @@
 //   next();
 // });
 
-// // Rate limiting for API endpoints
+// // === 6. Rate Limiting ===
 // app.use(
 //   "/api/v1/",
 //   rateLimit({
-//     windowMs: 15 * 60 * 1000, // 15 minutes
+//     windowMs: 15 * 60 * 1000,
 //     max: 5000,
 //     message: { error: "Too many requests, try again later." },
 //   })
 // );
 
-// // Load routes dynamically
+// // === 7. Load Routes ===
 // const routeModules = [
 //   "lessonRoutes",
 //   "stripeWebhook",
@@ -113,7 +113,7 @@
 //   } catch {}
 // }
 
-// // Mount routes
+// // === 8. Mount Routes ===
 // app.use("/api/v1/lessons", routes.lessonRoutes);
 // app.use("/api/v1/stripe", routes.stripeWebhook);
 // app.use("/api/v1/auth", routes.auth);
@@ -128,54 +128,50 @@
 // app.use("/api/v1/files", routes.files);
 // if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// // Authenticated user info endpoint
+// // === 9. Authenticated User Info ===
 // app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
 //   try {
-//     if (!req.user || !req.user.id) {
-//       console.error("No user ID in request");
-//       return res.status(401).json({ error: "Invalid token" });
-//     }
+//     if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
+
 //     const user = await User.findByPk(req.user.id, {
 //       attributes: ["id", "name", "email", "role"],
 //     });
-//     if (!user) {
-//       console.error(`User not found for ID: ${req.user.id}`);
-//       return res.status(404).json({ error: "User not found" });
-//     }
+
+//     if (!user) return res.status(404).json({ error: "User not found" });
+
 //     res.json({ success: true, user });
 //   } catch (error) {
-//     console.error("Failed to fetch user:", error.message);
-//     res
-//       .status(500)
-//       .json({ error: "Failed to fetch user", details: error.message });
+//     res.status(500).json({
+//       error: "Failed to fetch user",
+//       details: error.message,
+//     });
 //   }
 // });
 
-// // Health check
+// // === 10. Health Check ===
 // app.get("/health", (req, res) => {
 //   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 // });
 
-// // Test uploads directory
+// // === 11. Upload Test ===
 // app.get("/test-uploads", (req, res) => {
-//   const uploadPath = path.join(__dirname, "Uploads", "test.txt");
+//   const testPath = path.join(uploadsDir, "test.txt");
 //   try {
-//     fs.writeFileSync(uploadPath, "Test file");
-//     res.json({ success: true, message: "File written to Uploads" });
+//     fs.writeFileSync(testPath, "Test file created!");
+//     res.json({ success: true, message: "Upload folder works!" });
 //   } catch (err) {
-//     console.error("Test uploads error:", err);
-//     res
-//       .status(500)
-//       .json({ error: "Failed to write to Uploads", details: err.message });
+//     res.status(500).json({
+//       error: "Failed to write test file",
+//       details: err.message,
+//     });
 //   }
 // });
 
-// // 404 fallback
+// // === 12. 404 & Global Error Handler ===
 // app.use((req, res) => {
 //   res.status(404).json({ error: "Not Found" });
 // });
 
-// // Global error handler
 // app.use((err, req, res, next) => {
 //   console.error("💥 Global Error:", err);
 //   res
@@ -183,7 +179,7 @@
 //     .json({ error: "Internal server error", details: err.message });
 // });
 
-// // Start server
+// // === 13. Start Server + Sync DB ===
 // const PORT = process.env.PORT || 5000;
 // const { QueryTypes } = Sequelize;
 
@@ -192,48 +188,19 @@
 //     await sequelize.authenticate();
 //     console.log("✅ PostgreSQL connected");
 
-//     // Ensure Users table exists
-//     await sequelize.query(`
-//       CREATE TABLE IF NOT EXISTS "Users" (
-//         id SERIAL PRIMARY KEY,
-//         name TEXT NOT NULL,
-//         email TEXT NOT NULL UNIQUE,
-//         password TEXT NOT NULL,
-//         role TEXT NOT NULL,
-//         "createdAt" TIMESTAMP NOT NULL,
-//         "updatedAt" TIMESTAMP NOT NULL
-//       );
-//     `);
-
-//     // Ensure Courses table exists
-//     await sequelize.query(`
-//       CREATE TABLE IF NOT EXISTS "Courses" (
-//         id INTEGER PRIMARY KEY,
-//         title TEXT NOT NULL,
-//         description TEXT,
-//         category TEXT,
-//         slug TEXT NOT NULL,
-//         price INTEGER NOT NULL,
-//         "teacherId" INTEGER NOT NULL,
-//         "createdAt" TIMESTAMP NOT NULL,
-//         "updatedAt" TIMESTAMP NOT NULL,
-//         "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[]
-//       );
-//     `);
-
-//     // Ensure Lessons table exists
+//     // Create Lessons table if not exists
 //     await sequelize.query(`
 //       CREATE TABLE IF NOT EXISTS "Lessons" (
 //         id SERIAL PRIMARY KEY,
-//         "courseId" INTEGER NOT NULL REFERENCES "Courses"(id),
+//         "courseId" INTEGER NOT NULL,
 //         title TEXT NOT NULL,
 //         content TEXT,
-//         "contentType" TEXT DEFAULT 'text',
+//         "contentType" TEXT,
 //         "contentUrl" TEXT,
 //         "videoUrl" TEXT,
-//         "orderIndex" INTEGER DEFAULT 0,
-//         "isUnitHeader" BOOLEAN DEFAULT false,
-//         "isPreview" BOOLEAN DEFAULT false,
+//         "orderIndex" INTEGER,
+//         "isUnitHeader" BOOLEAN,
+//         "isPreview" BOOLEAN,
 //         unitId INTEGER,
 //         "userId" INTEGER NOT NULL,
 //         "createdAt" TIMESTAMP NOT NULL,
@@ -241,57 +208,18 @@
 //       );
 //     `);
 
-//     // Ensure UserCourseAccess table exists
-//     await sequelize.query(`
-//       CREATE TABLE IF NOT EXISTS "UserCourseAccess" (
-//         id SERIAL PRIMARY KEY,
-//         userId INTEGER NOT NULL,
-//         courseId INTEGER NOT NULL REFERENCES "Courses"(id),
-//         approved BOOLEAN DEFAULT false,
-//         "createdAt" TIMESTAMP NOT NULL,
-//         "updatedAt" TIMESTAMP NOT NULL
-//       );
-//     `);
-
 //     await sequelize.sync({ force: false });
-//     console.log("✅ DB synced");
-
-//     // Insert test user if not exists
-//     const [user] = await sequelize.query(
-//       `SELECT id FROM "Users" WHERE id = 1 AND role = 'teacher'`,
-//       { type: QueryTypes.SELECT }
-//     );
-//     if (!user) {
-//       await sequelize.query(
-//         `INSERT INTO "Users" (id, name, email, role, password, "createdAt", "updatedAt")
-//          VALUES (1, 'Test Teacher', 'teacher@example.com', 'teacher', 'hashed_password', NOW(), NOW())`,
-//         { type: QueryTypes.INSERT }
-//       );
-//       console.log("✅ Test teacher inserted");
-//     }
-
-//     // Insert test course if not exists
-//     const [course] = await sequelize.query(
-//       `SELECT id FROM "Courses" WHERE id = 21`,
-//       { type: QueryTypes.SELECT }
-//     );
-//     if (!course) {
-//       await sequelize.query(
-//         `INSERT INTO "Courses" (id, title, description, category, slug, price, "teacherId", "createdAt", "updatedAt")
-//          VALUES (21, 'Test Course', 'Description', 'Math', 'test-course', 0, 1, NOW(), NOW())`,
-//         { type: QueryTypes.INSERT }
-//       );
-//       console.log("✅ Test course inserted");
-//     }
+//     console.log("✅ DB Synced");
 
 //     app.listen(PORT, "0.0.0.0", () =>
-//       console.log(`🚀 Server running at http://localhost:${PORT}`)
+//       console.log(`🚀 Server running on http://localhost:${PORT}`)
 //     );
 //   } catch (err) {
-//     console.error("❌ Server startup error:", err);
+//     console.error("❌ Startup error:", err.message);
 //     process.exit(1);
 //   }
 // })();
+
 
 
 
@@ -329,21 +257,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// ✅ Manually handle CORS preflight requests (Render compatibility)
-app.options("*", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Accept"
-  );
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.sendStatus(204);
-});
+app.options("*", cors(corsOptions)); // ✅ Preflight handler
 
 // === 2. Ensure Upload Folders Exist ===
 const uploadsDir = path.join(__dirname, "Uploads");
@@ -485,7 +399,6 @@ const { QueryTypes } = Sequelize;
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    // Create Lessons table if not exists
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS "Lessons" (
         id SERIAL PRIMARY KEY,
