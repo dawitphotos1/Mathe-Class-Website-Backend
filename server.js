@@ -432,58 +432,42 @@
 
 
 
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
-const { sequelize, Sequelize, User } = require("./models");
+const { sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.set("trust proxy", 1); // Required for Render
+app.set("trust proxy", 1); // For Render
 
-// === 1. CORS ===
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://math-class-platform.netlify.app",
-];
-
+// === 1. CORS (Safe & Static) ===
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn("❌ Blocked by CORS:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: ["http://localhost:3000", "https://math-class-platform.netlify.app"],
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
 };
-
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // Preflight handler
+app.use(cors(corsOptions)); // ✅ Keep this only!
 
 // === 2. Ensure Upload Folders Exist ===
-const uploadsDir = path.join(__dirname, "uploads"); // ✅ lowercase path
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
+const uploadsDir = path.join(__dirname, "uploads");
 const imagesDir = path.join(__dirname, "images");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 
 // === 3. Middleware ===
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// === 4. Static File Serving (PDFs, Videos, etc.) ===
-app.use("/uploads", express.static(uploadsDir)); // ✅ lowercase
+// === 4. Static File Serving ===
+app.use("/uploads", express.static(uploadsDir)); // ✅ PDFs, etc.
 app.use("/images", express.static(imagesDir));
 app.use(express.static("public"));
 
-// === 5. Logging ===
+// === 5. Logger ===
 app.use((req, res, next) => {
   console.log(
     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -501,7 +485,7 @@ app.use(
   })
 );
 
-// === 7. Load Routes ===
+// === 7. Routes ===
 const routeModules = [
   "lessonRoutes",
   "stripeWebhook",
@@ -522,7 +506,7 @@ for (const name of routeModules) {
   try {
     routes[name] = require(`./routes/${name}`);
   } catch (err) {
-    console.error(`❌ Failed to load ${name}:`, err.message);
+    console.error(`❌ Failed to load route: ${name}`, err.message);
     process.exit(1);
   }
 }
@@ -547,7 +531,7 @@ app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// === 9. Authenticated User Info ===
+// === 9. User Profile ===
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
@@ -555,7 +539,6 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       attributes: ["id", "name", "email", "role"],
     });
-
     if (!user) return res.status(404).json({ error: "User not found" });
 
     res.json({ success: true, user });
@@ -571,7 +554,7 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// === 11. Upload Folder Test ===
+// === 11. Upload Test ===
 app.get("/test-uploads", (req, res) => {
   const testPath = path.join(uploadsDir, "test.txt");
   try {
@@ -584,11 +567,10 @@ app.get("/test-uploads", (req, res) => {
   }
 });
 
-// === 12. 404 & Global Error Handler ===
+// === 12. 404 & Global Error ===
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
-
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
   res
@@ -598,7 +580,6 @@ app.use((err, req, res, next) => {
 
 // === 13. Start Server ===
 const PORT = process.env.PORT || 5000;
-
 (async () => {
   try {
     await sequelize.authenticate();
@@ -615,3 +596,5 @@ const PORT = process.env.PORT || 5000;
     process.exit(1);
   }
 })();
+
+
