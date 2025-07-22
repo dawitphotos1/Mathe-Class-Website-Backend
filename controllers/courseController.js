@@ -160,12 +160,14 @@ exports.deleteCourse = async (req, res) => {
 
     res.json({ success: true, message: "Course deleted successfully" });
   } catch (error) {
-    console.error("❌ deleteCourse error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to delete course", details: error.message });
-  }
-};
+    console.error("❌ deleteCourse error stack:", error.stack);
+    return res.status(500).json({
+      error: "Failed to delete course",
+      details: error.message || "Unknown error",
+      stack: error.stack,
+    });
+  };
+  
 
 exports.getCourseBySlug = async (req, res) => {
   try {
