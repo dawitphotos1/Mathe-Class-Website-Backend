@@ -322,7 +322,7 @@ router.delete("/:id", auth, roleMiddleware(["teacher", "admin"]), async (req, re
     }
 
     const deletedLessons = await Lesson.destroy({ where: { courseId } });
-    console.log("📕 Deleted lessons:", deletedLessons);
+    console.log("📕 Deleted lessons count:", deletedLessons);
 
     await course.destroy();
     console.log("✅ Course deleted:", course.title);

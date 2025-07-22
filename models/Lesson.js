@@ -206,7 +206,9 @@ module.exports = (sequelize, DataTypes) => {
     Lesson.belongsTo(models.Lesson, {
       foreignKey: "unitId",
       as: "unitHeader",
+      onDelete: "CASCADE", // ✅ ADD THIS
     });
+    
 
     Lesson.hasMany(models.Lesson, {
       foreignKey: "unitId",
