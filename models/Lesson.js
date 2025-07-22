@@ -195,7 +195,7 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "courseId",
       as: "course",
       onDelete: "CASCADE",
-      hooks: true, // ✅ Enables Sequelize to cascade delete lessons when Course is deleted
+      // hooks: true, // ✅ Enables Sequelize to cascade delete lessons when Course is deleted
     });
 
     Lesson.belongsTo(models.User, {
