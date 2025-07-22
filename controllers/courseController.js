@@ -95,11 +95,11 @@
 
 
 
-
 const path = require("path");
 const fs = require("fs");
 const { Course, Lesson, User } = require("../models");
 
+// CREATE COURSE
 exports.createCourse = async (req, res) => {
   try {
     if (!req.user || req.user.role !== "teacher") {
@@ -145,19 +145,24 @@ exports.createCourse = async (req, res) => {
   }
 };
 
+// DELETE COURSE
 exports.deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log("🔍 Deleting course ID:", id);
+
     const course = await Course.findByPk(id);
     if (!course) return res.status(404).json({ error: "Course not found" });
 
+    console.log("👤 Authenticated user:", req.user);
     if (course.teacherId !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    await Lesson.destroy({ where: { courseId: id } });
+    const deletedLessons = await Lesson.destroy({ where: { courseId: id } });
     await course.destroy();
 
+    console.log(`✅ Deleted course ${id} and ${deletedLessons} lessons`);
     res.json({ success: true, message: "Course deleted successfully" });
   } catch (error) {
     console.error("❌ deleteCourse error stack:", error.stack);
@@ -166,9 +171,10 @@ exports.deleteCourse = async (req, res) => {
       details: error.message || "Unknown error",
       stack: error.stack,
     });
-  };
-  
+  }
+};
 
+// GET COURSE BY SLUG
 exports.getCourseBySlug = async (req, res) => {
   try {
     const course = await Course.findOne({
@@ -189,6 +195,7 @@ exports.getCourseBySlug = async (req, res) => {
   }
 };
 
+// GET LESSONS BY COURSE
 exports.getLessonsByCourse = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
@@ -199,6 +206,7 @@ exports.getLessonsByCourse = async (req, res) => {
       where: { courseId },
       order: [["orderIndex", "ASC"]],
     });
+
     res.json({ success: true, lessons });
   } catch (err) {
     res
