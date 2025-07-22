@@ -94,12 +94,11 @@
 // };
 
 
-
 const path = require("path");
 const fs = require("fs");
 const { Course, Lesson, User } = require("../models");
 
-// CREATE COURSE
+// 🔹 Create course
 exports.createCourse = async (req, res) => {
   try {
     if (!req.user || req.user.role !== "teacher") {
@@ -145,36 +144,33 @@ exports.createCourse = async (req, res) => {
   }
 };
 
-// DELETE COURSE
+// 🔹 Delete course with cascade (no manual lesson deletion)
 exports.deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("🔍 Deleting course ID:", id);
+    console.log("🗑️ Attempting to delete course ID:", id);
+    console.log("🔐 Authenticated user:", req.user);
 
     const course = await Course.findByPk(id);
     if (!course) return res.status(404).json({ error: "Course not found" });
 
-    console.log("👤 Authenticated user:", req.user);
     if (course.teacherId !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    const deletedLessons = await Lesson.destroy({ where: { courseId: id } });
-    await course.destroy();
+    await course.destroy(); // let onDelete: "CASCADE" handle dependent lessons
 
-    console.log(`✅ Deleted course ${id} and ${deletedLessons} lessons`);
-    res.json({ success: true, message: "Course deleted successfully" });
+    return res.json({ success: true, message: "Course deleted successfully" });
   } catch (error) {
     console.error("❌ deleteCourse error stack:", error.stack);
     return res.status(500).json({
       error: "Failed to delete course",
       details: error.message || "Unknown error",
-      stack: error.stack,
     });
   }
 };
 
-// GET COURSE BY SLUG
+// 🔹 Get course by slug
 exports.getCourseBySlug = async (req, res) => {
   try {
     const course = await Course.findOne({
@@ -195,7 +191,7 @@ exports.getCourseBySlug = async (req, res) => {
   }
 };
 
-// GET LESSONS BY COURSE
+// 🔹 Get lessons by course
 exports.getLessonsByCourse = async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
@@ -206,7 +202,6 @@ exports.getLessonsByCourse = async (req, res) => {
       where: { courseId },
       order: [["orderIndex", "ASC"]],
     });
-
     res.json({ success: true, lessons });
   } catch (err) {
     res
