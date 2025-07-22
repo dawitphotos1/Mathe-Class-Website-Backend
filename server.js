@@ -432,7 +432,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -443,14 +442,18 @@ const { sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.set("trust proxy", 1); // For Render
+app.set("trust proxy", 1); // For Render to support secure cookies
 
-// === 1. CORS (Safe & Static) ===
+// === 1. CORS ===
 const corsOptions = {
-  origin: ["http://localhost:3000", "https://math-class-platform.netlify.app"],
+  origin: true, // Reflect request origin (useful for credentials)
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
 };
-app.use(cors(corsOptions)); // ✅ Keep this only!
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // Preflight handling
 
 // === 2. Ensure Upload Folders Exist ===
 const uploadsDir = path.join(__dirname, "uploads");
@@ -462,8 +465,8 @@ if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// === 4. Static File Serving ===
-app.use("/uploads", express.static(uploadsDir)); // ✅ PDFs, etc.
+// === 4. Static Files (PDFs, images, etc.) ===
+app.use("/uploads", express.static(uploadsDir)); // Serve files at /uploads
 app.use("/images", express.static(imagesDir));
 app.use(express.static("public"));
 
@@ -485,7 +488,7 @@ app.use(
   })
 );
 
-// === 7. Routes ===
+// === 7. Load Routes ===
 const routeModules = [
   "lessonRoutes",
   "stripeWebhook",
@@ -531,7 +534,7 @@ app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// === 9. User Profile ===
+// === 9. Authenticated User Info ===
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
@@ -539,13 +542,15 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       attributes: ["id", "name", "email", "role"],
     });
+
     if (!user) return res.status(404).json({ error: "User not found" });
 
     res.json({ success: true, user });
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Failed to fetch user", details: error.message });
+    res.status(500).json({
+      error: "Failed to fetch user",
+      details: error.message,
+    });
   }
 });
 
@@ -554,23 +559,26 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// === 11. Upload Test ===
+// === 11. Upload Test Endpoint ===
 app.get("/test-uploads", (req, res) => {
   const testPath = path.join(uploadsDir, "test.txt");
   try {
     fs.writeFileSync(testPath, "Test file created!");
     res.json({ success: true, message: "Upload folder works!" });
   } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Failed to write test file", details: err.message });
+    res.status(500).json({
+      error: "Failed to write test file",
+      details: err.message,
+    });
   }
 });
 
-// === 12. 404 & Global Error ===
+// === 12. 404 Handler ===
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
+
+// === 13. Global Error Handler ===
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
   res
@@ -578,14 +586,14 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-// === 13. Start Server ===
+// === 14. Start Server ===
 const PORT = process.env.PORT || 5000;
 (async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ PostgreSQL connected");
 
-    await sequelize.sync({ force: false });
+    await sequelize.sync({ force: false }); // No destructive reset
     console.log("✅ DB Synced");
 
     app.listen(PORT, "0.0.0.0", () =>
@@ -596,5 +604,3 @@ const PORT = process.env.PORT || 5000;
     process.exit(1);
   }
 })();
-
-
