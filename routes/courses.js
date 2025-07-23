@@ -1,3 +1,146 @@
+// const express = require("express");
+// const fs = require("fs");
+// const path = require("path");
+// const multer = require("multer");
+// const router = express.Router();
+// const authenticateToken = require("../middleware/authenticateToken");
+// const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
+// const auth = require("../middleware/auth");
+// const roleMiddleware = require("../middleware/roleMiddleware");
+// const courseController = require("../controllers/courseController");
+// const { Lesson, Course, User } = require("../models");
+
+// // === Multer Setup ===
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const uploadPath = path.join(__dirname, "..", "uploads");
+//     if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+//     cb(null, uploadPath);
+//   },
+//   filename: (req, file, cb) => {
+//     const unique = `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+//     cb(null, unique);
+//   },
+// });
+// const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+
+// // === Routes ===
+
+// // Create course
+// router.post(
+//   "/",
+//   auth,
+//   roleMiddleware(["teacher"]),
+//   upload.fields([
+//     { name: "thumbnail", maxCount: 1 },
+//     { name: "introVideo", maxCount: 1 },
+//     { name: "attachments", maxCount: 10 },
+//   ]),
+//   courseController.createCourse
+// );
+
+// // Fetch all courses (admin, teacher-specific, etc.)
+// router.get("/", auth, async (req, res) => {
+//   try {
+//     const filter = req.user.role === "teacher" ? { teacherId: req.user.id } : {};
+//     const courses = await Course.findAll({
+//       where: filter,
+//       include: [{ model: User, as: "teacher", attributes: ["id", "name", "email"] }],
+//     });
+//     res.json(courses);
+//   } catch (err) {
+//     res.status(500).json({ error: "Failed to load courses", details: err.message });
+//   }
+// });
+
+// // Public fetch by slug
+// router.get("/slug/:slug", courseController.getCourseBySlug);
+
+// // Lessons by course (auth required)
+// router.get("/:courseId/lessons", auth, courseController.getLessonsByCourse);
+
+// // Delete course (with logging)
+// router.delete("/:id", auth, roleMiddleware(["teacher", "admin"]), async (req, res) => {
+//   try {
+//     const courseId = parseInt(req.params.id);
+//     console.log("🗑️ Attempting to delete course ID:", courseId);
+//     console.log("🔐 Authenticated user:", req.user);
+
+//     const course = await Course.findByPk(courseId);
+//     if (!course) {
+//       return res.status(404).json({ error: "Course not found" });
+//     }
+
+//     if (course.teacherId !== req.user.id && req.user.role !== "admin") {
+//       return res.status(403).json({ error: "Unauthorized" });
+//     }
+
+//     const deletedLessons = await Lesson.destroy({ where: { courseId } });
+//     console.log("📕 Deleted lessons count:", deletedLessons);
+
+//     await course.destroy();
+//     console.log("✅ Course deleted:", course.title);
+
+//     res.json({ success: true, message: "Course and its lessons deleted successfully" });
+//   } catch (err) {
+//     console.error("❌ Delete course error:", err.stack || err.message);
+//     res.status(500).json({ error: "Failed to delete course", details: err.message });
+//   }
+// });
+
+// // Rename attachment by index
+// router.patch(
+//   "/:courseId/attachments/:index/rename",
+//   authenticateToken,
+//   checkTeacherOrAdmin,
+//   async (req, res) => {
+//     const { courseId, index } = req.params;
+//     const { newName } = req.body;
+
+//     if (!newName || typeof newName !== "string") {
+//       return res.status(400).json({ error: "New name is required." });
+//     }
+
+//     try {
+//       const course = await Course.findByPk(courseId);
+//       if (!course) return res.status(404).json({ error: "Course not found." });
+
+//       // Only the course owner (teacher) or admin can rename
+//       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
+//         return res.status(403).json({ error: "Unauthorized" });
+//       }
+
+//       const attachments = course.attachmentUrls || [];
+//       const fileUrl = attachments[+index];
+//       if (!fileUrl) return res.status(404).json({ error: "Attachment not found." });
+
+//       const oldPath = path.join(__dirname, "../", fileUrl);
+//       const ext = path.extname(oldPath);
+//       const newFileName = `${Date.now()}-${newName}${ext}`;
+//       const newRelativeUrl = `/uploads/${newFileName}`;
+//       const newPath = path.join(__dirname, "../uploads", newFileName);
+
+//       // Rename on filesystem
+//       fs.renameSync(oldPath, newPath);
+
+//       // Update attachmentUrls
+//       attachments[+index] = newRelativeUrl;
+//       course.attachmentUrls = attachments;
+//       await course.save();
+
+//       res.json({ success: true, updatedUrl: newRelativeUrl });
+//     } catch (err) {
+//       console.error("Rename error:", err.message);
+//       res.status(500).json({ error: "Failed to rename attachment" });
+//     }
+//   }
+// );
+
+
+// module.exports = router;
+
+
+
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -5,6 +148,8 @@ const multer = require("multer");
 const router = express.Router();
 const auth = require("../middleware/auth");
 const roleMiddleware = require("../middleware/roleMiddleware");
+const authenticateToken = require("../middleware/authenticateToken");
+const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
 const courseController = require("../controllers/courseController");
 const { Lesson, Course, User } = require("../models");
 
@@ -12,7 +157,8 @@ const { Lesson, Course, User } = require("../models");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, "..", "uploads");
-    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+    if (!fs.existsSync(uploadPath))
+      fs.mkdirSync(uploadPath, { recursive: true });
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
@@ -37,17 +183,22 @@ router.post(
   courseController.createCourse
 );
 
-// Fetch all courses (admin, teacher-specific, etc.)
+// Fetch all courses
 router.get("/", auth, async (req, res) => {
   try {
-    const filter = req.user.role === "teacher" ? { teacherId: req.user.id } : {};
+    const filter =
+      req.user.role === "teacher" ? { teacherId: req.user.id } : {};
     const courses = await Course.findAll({
       where: filter,
-      include: [{ model: User, as: "teacher", attributes: ["id", "name", "email"] }],
+      include: [
+        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
+      ],
     });
     res.json(courses);
   } catch (err) {
-    res.status(500).json({ error: "Failed to load courses", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to load courses", details: err.message });
   }
 });
 
@@ -57,33 +208,102 @@ router.get("/slug/:slug", courseController.getCourseBySlug);
 // Lessons by course (auth required)
 router.get("/:courseId/lessons", auth, courseController.getLessonsByCourse);
 
-// Delete course (with logging)
-router.delete("/:id", auth, roleMiddleware(["teacher", "admin"]), async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.id);
-    console.log("🗑️ Attempting to delete course ID:", courseId);
-    console.log("🔐 Authenticated user:", req.user);
-
-    const course = await Course.findByPk(courseId);
-    if (!course) {
-      return res.status(404).json({ error: "Course not found" });
+// Delete course
+router.delete(
+  "/:id",
+  auth,
+  roleMiddleware(["teacher", "admin"]),
+  async (req, res) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      const course = await Course.findByPk(courseId);
+      if (!course) return res.status(404).json({ error: "Course not found" });
+      if (course.teacherId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+      await Lesson.destroy({ where: { courseId } });
+      await course.destroy();
+      res.json({ success: true, message: "Course and its lessons deleted" });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ error: "Failed to delete course", details: err.message });
     }
-
-    if (course.teacherId !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
-
-    const deletedLessons = await Lesson.destroy({ where: { courseId } });
-    console.log("📕 Deleted lessons count:", deletedLessons);
-
-    await course.destroy();
-    console.log("✅ Course deleted:", course.title);
-
-    res.json({ success: true, message: "Course and its lessons deleted successfully" });
-  } catch (err) {
-    console.error("❌ Delete course error:", err.stack || err.message);
-    res.status(500).json({ error: "Failed to delete course", details: err.message });
   }
-});
+);
+
+// Rename attachment
+router.patch(
+  "/:courseId/attachments/:index/rename",
+  authenticateToken,
+  checkTeacherOrAdmin,
+  async (req, res) => {
+    const { courseId, index } = req.params;
+    const { newName } = req.body;
+    if (!newName)
+      return res.status(400).json({ error: "New name is required" });
+
+    try {
+      const course = await Course.findByPk(courseId);
+      if (!course) return res.status(404).json({ error: "Course not found" });
+      if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const attachments = course.attachmentUrls || [];
+      const oldUrl = attachments[+index];
+      if (!oldUrl)
+        return res.status(404).json({ error: "Attachment not found" });
+
+      const oldPath = path.join(__dirname, "../", oldUrl);
+      const ext = path.extname(oldPath);
+      const newFileName = `${Date.now()}-${newName}${ext}`;
+      const newPath = path.join(__dirname, "../uploads", newFileName);
+      const newUrl = `/uploads/${newFileName}`;
+
+      fs.renameSync(oldPath, newPath);
+      attachments[+index] = newUrl;
+      course.attachmentUrls = attachments;
+      await course.save();
+
+      res.json({ success: true, updatedUrl: newUrl });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to rename attachment" });
+    }
+  }
+);
+
+// Delete attachment
+router.patch(
+  "/:courseId/attachments/:index/delete",
+  authenticateToken,
+  checkTeacherOrAdmin,
+  async (req, res) => {
+    const { courseId, index } = req.params;
+    try {
+      const course = await Course.findByPk(courseId);
+      if (!course) return res.status(404).json({ error: "Course not found" });
+      if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const attachments = course.attachmentUrls || [];
+      const fileUrl = attachments[+index];
+      if (!fileUrl)
+        return res.status(404).json({ error: "Attachment not found" });
+
+      const filePath = path.join(__dirname, "../", fileUrl);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+      attachments.splice(+index, 1);
+      course.attachmentUrls = attachments;
+      await course.save();
+
+      res.json({ success: true, message: "Attachment deleted" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete attachment" });
+    }
+  }
+);
 
 module.exports = router;
