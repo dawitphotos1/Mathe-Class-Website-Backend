@@ -162,5 +162,97 @@ router.patch(
     }
   }
 );
+// Get course by ID
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.id);
+    const course = await Course.findByPk(courseId);
+
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Optional: restrict access to course owner or admin
+    if (
+      req.user.role !== "admin" &&
+      course.teacherId !== req.user.id
+    ) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    res.json(course);
+  } catch (err) {
+    console.error("Get course by ID error:", err.message);
+    res.status(500).json({ error: "Failed to fetch course" });
+  }
+});
+
+// Update course (title, description, etc.)
+router.patch(
+  "/:id",
+  auth,
+  roleMiddleware(["teacher", "admin"]),
+  upload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "introVideo", maxCount: 1 },
+    { name: "attachments", maxCount: 10 },
+  ]),
+  async (req, res) => {
+    try {
+      const courseId = parseInt(req.params.id);
+      if (isNaN(courseId)) {
+        return res.status(400).json({ error: "Invalid course ID" });
+      }
+
+      const course = await Course.findByPk(courseId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+
+      // Only owner or admin can update
+      if (
+        req.user.role !== "admin" &&
+        req.user.id !== course.teacherId
+      ) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Extract fields
+      const {
+        title,
+        description,
+        category,
+        difficulty,
+        tags,
+      } = req.body;
+
+      // Update basic fields
+      if (title) course.title = title;
+      if (description) course.description = description;
+      if (category) course.category = category;
+      if (difficulty) course.difficulty = difficulty;
+      if (tags) course.tags = Array.isArray(tags) ? tags : tags.split(",");
+
+      // Handle files
+      const files = req.files || {};
+      if (files.thumbnail?.[0]) {
+        course.thumbnailUrl = `/uploads/${files.thumbnail[0].filename}`;
+      }
+      if (files.introVideo?.[0]) {
+        course.introVideoUrl = `/uploads/${files.introVideo[0].filename}`;
+      }
+      if (files.attachments?.length > 0) {
+        const uploaded = files.attachments.map((f) => `/uploads/${f.filename}`);
+        course.attachmentUrls = [...(course.attachmentUrls || []), ...uploaded];
+      }
+
+      await course.save();
+      res.json({ success: true, course });
+    } catch (err) {
+      console.error("Course update error:", err.message);
+      res.status(500).json({ error: "Failed to update course" });
+    }
+  }
+);
 
 module.exports = router;
