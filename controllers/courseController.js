@@ -36,7 +36,7 @@ exports.createCourse = async (req, res) => {
       slug: uniqueSlug,
       teacherId: req.user.id,
       attachmentUrls,
-      thumbnail: thumbnailUrl,
+      thumbnailUrl,
       introVideoUrl,
     });
 
