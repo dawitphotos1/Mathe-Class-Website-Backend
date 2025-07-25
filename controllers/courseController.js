@@ -24,9 +24,10 @@ exports.createCourse = async (req, res) => {
     const thumbnail = req.files?.thumbnail?.[0];
     const introVideo = req.files?.introVideo?.[0];
 
-    const attachmentUrls = attachments.map((f) => `/uploads/${f.filename}`);
-    const thumbnailUrl = thumbnail ? `/uploads/${thumbnail.filename}` : null;
-    const introVideoUrl = introVideo ? `/uploads/${introVideo.filename}` : null;
+    const attachmentUrls = attachments.map((f) => `/Uploads/${f.filename}`);
+    const thumbnailUrl = thumbnail ? `/Uploads/${thumbnail.filename}` : null;
+    const introVideoUrl = introVideo ? `/Uploads/${introVideo.filename}` : null;
+
 
     const course = await Course.create({
       title,
