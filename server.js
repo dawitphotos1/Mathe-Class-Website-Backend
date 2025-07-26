@@ -215,6 +215,8 @@
 
 
 
+
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -291,7 +293,7 @@ const routeModules = [
   "stripeWebhook",
   "auth",
   "users",
-  "courses",
+  "courseRoutes", // ✅ updated from "courses"
   "payments",
   "email",
   "enrollments",
@@ -322,7 +324,7 @@ app.use("/api/v1/lessons", routes.lessonRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
-app.use("/api/v1/courses", routes.courses);
+app.use("/api/v1/courses", routes.courseRoutes); // ✅ Correct route
 app.use("/api/v1/payments", routes.payments);
 app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
@@ -367,7 +369,7 @@ app.get("/debug/uploads", (req, res) => {
   }
 });
 
-// === 11. Secure File Download Endpoint (Optional) ===
+// === 11. Secure File Download ===
 app.get("/api/v1/files/download/:filename", authMiddleware, (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(uploadsDir, filename);
@@ -383,12 +385,34 @@ app.get("/api/v1/files/download/:filename", authMiddleware, (req, res) => {
   });
 });
 
-// === 12. 404 Fallback ===
+// === 12. Secure File Preview (Optional) ===
+app.get("/api/v1/files/preview/:filename", (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(uploadsDir, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+  };
+
+  const mimeType = mimeTypes[ext] || "application/octet-stream";
+  res.setHeader("Content-Type", mimeType);
+  res.sendFile(filePath);
+});
+
+// === 13. 404 Fallback ===
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// === 13. Global Error Handler ===
+// === 14. Global Error Handler ===
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
   res
@@ -396,7 +420,7 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-// === 14. Start Server ===
+// === 15. Start Server ===
 const PORT = process.env.PORT || 5000;
 (async () => {
   try {
