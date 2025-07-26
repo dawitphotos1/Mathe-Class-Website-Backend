@@ -171,19 +171,20 @@
 
 
 
+
 const { Lesson, Course } = require("../models");
 const path = require("path");
 const fs = require("fs");
 
-// ✅ Use consistent Uploads directory
+// ✅ Ensure Uploads directory exists
 const uploadsDir = path.join(__dirname, "..", "Uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
   console.log("📁 Uploads directory created");
 }
 
-// ✅ Get lessons by course
-exports.getLessonsByCourse = async (req, res) => {
+// ✅ Get lessons by courseId
+const getLessonsByCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
     const lessons = await Lesson.findAll({ where: { courseId } });
@@ -193,8 +194,8 @@ exports.getLessonsByCourse = async (req, res) => {
   }
 };
 
-// ✅ Get units by course
-exports.getUnitsByCourse = async (req, res) => {
+// ✅ Get units by courseId
+const getUnitsByCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
     const units = await Lesson.findAll({
@@ -207,8 +208,8 @@ exports.getUnitsByCourse = async (req, res) => {
   }
 };
 
-// ✅ Create lesson with optional file upload
-exports.createLesson = async (req, res) => {
+// ✅ Create lesson (supports file upload)
+const createLesson = async (req, res) => {
   try {
     const { courseId } = req.params;
     const {
@@ -258,7 +259,7 @@ exports.createLesson = async (req, res) => {
 };
 
 // ✅ Update lesson
-exports.updateLesson = async (req, res) => {
+const updateLesson = async (req, res) => {
   try {
     const { lessonId } = req.params;
     const lesson = await Lesson.findByPk(lessonId);
@@ -272,7 +273,7 @@ exports.updateLesson = async (req, res) => {
 };
 
 // ✅ Delete lesson
-exports.deleteLesson = async (req, res) => {
+const deleteLesson = async (req, res) => {
   try {
     const { lessonId } = req.params;
     const lesson = await Lesson.findByPk(lessonId);
@@ -292,7 +293,7 @@ exports.deleteLesson = async (req, res) => {
 };
 
 // ✅ Toggle preview
-exports.toggleLessonPreview = async (req, res) => {
+const toggleLessonPreview = async (req, res) => {
   try {
     const { lessonId } = req.params;
     const lesson = await Lesson.findByPk(lessonId);
@@ -304,4 +305,25 @@ exports.toggleLessonPreview = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to toggle preview" });
   }
+};
+
+// ✅ Track lesson view
+const trackLessonView = async (req, res) => {
+  try {
+    console.log(`📊 Tracking view for lesson ${req.params.lessonId}`);
+    res.json({ success: true, message: "View tracked" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to track view" });
+  }
+};
+
+// ✅ Export all controllers
+module.exports = {
+  getLessonsByCourse,
+  getUnitsByCourse,
+  createLesson,
+  updateLesson,
+  deleteLesson,
+  toggleLessonPreview,
+  trackLessonView,
 };
