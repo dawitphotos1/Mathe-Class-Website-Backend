@@ -227,7 +227,7 @@ const { sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.set("trust proxy", 1); // For reverse proxies like Render
+app.set("trust proxy", 1);
 
 // === 1. CORS Setup ===
 const allowedOrigins = [
@@ -250,7 +250,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // Preflight
+app.options("*", cors(corsOptions));
 
 // === 2. Ensure Upload Directories Exist ===
 const uploadsDir = path.join(__dirname, "Uploads");
@@ -261,9 +261,9 @@ const imagesDir = path.join(__dirname, "images");
 });
 
 // === 3. Static File Serving ===
-app.use("/Uploads", express.static(uploadsDir)); // Matches course/lesson URLs
+app.use("/Uploads", express.static(uploadsDir));
 app.use("/images", express.static(imagesDir));
-app.use(express.static("public")); // Optional fallback for frontend
+app.use(express.static("public"));
 
 // === 4. Body Parsing ===
 app.use(express.json());
@@ -293,7 +293,7 @@ const routeModules = [
   "stripeWebhook",
   "auth",
   "users",
-  "courseRoutes", // ✅ updated from "courses"
+  "courseRoutes",
   "payments",
   "email",
   "enrollments",
@@ -324,7 +324,7 @@ app.use("/api/v1/lessons", routes.lessonRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
-app.use("/api/v1/courses", routes.courseRoutes); // ✅ Correct route
+app.use("/api/v1/courses", routes.courseRoutes); // ✅ /create inside this!
 app.use("/api/v1/payments", routes.payments);
 app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
@@ -334,7 +334,7 @@ app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// === 9. Authenticated Profile Route ===
+// === 9. Profile Route ===
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
@@ -369,50 +369,38 @@ app.get("/debug/uploads", (req, res) => {
   }
 });
 
-// === 11. Secure File Download ===
+// === 11. File Download ===
 app.get("/api/v1/files/download/:filename", authMiddleware, (req, res) => {
-  const { filename } = req.params;
-  const filePath = path.join(uploadsDir, filename);
-
+  const filePath = path.join(uploadsDir, req.params.filename);
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: "File not found" });
   }
-
-  res.download(filePath, filename, (err) => {
-    if (err) {
-      res.status(500).json({ error: "Download failed", details: err.message });
-    }
-  });
+  res.download(filePath);
 });
 
-// === 12. Secure File Preview (Optional) ===
+// === 12. File Preview ===
 app.get("/api/v1/files/preview/:filename", (req, res) => {
-  const { filename } = req.params;
-  const filePath = path.join(uploadsDir, filename);
-
+  const filePath = path.join(uploadsDir, req.params.filename);
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: "File not found" });
   }
-
-  const ext = path.extname(filename).toLowerCase();
+  const ext = path.extname(req.params.filename).toLowerCase();
   const mimeTypes = {
     ".pdf": "application/pdf",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".png": "image/png",
   };
-
-  const mimeType = mimeTypes[ext] || "application/octet-stream";
-  res.setHeader("Content-Type", mimeType);
+  res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
   res.sendFile(filePath);
 });
 
-// === 13. 404 Fallback ===
+// === 13. Fallback
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// === 14. Global Error Handler ===
+// === 14. Global Error Handler
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
   res
@@ -420,7 +408,7 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-// === 15. Start Server ===
+// === 15. Start Server
 const PORT = process.env.PORT || 5000;
 (async () => {
   try {
