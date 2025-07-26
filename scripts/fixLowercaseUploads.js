@@ -42,80 +42,37 @@
 
 // fixUploadsCasing();
 
+// scripts/fixLowercaseUploads.js
 
+const { sequelize, Course } = require("../models");
 
-const { sequelize, Lesson, Course } = require("../models");
-const { Op } = require("sequelize");
-
-async function fixUploadsCasing() {
+(async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ DB connected");
 
-    // === LESSONS ===
-    const lessons = await Lesson.findAll({
-      where: {
-        contentUrl: {
-          [Op.iLike]: "%/uploads/%",
-        },
-      },
-    });
-
-    for (const lesson of lessons) {
-      const fixedUrl = lesson.contentUrl.replace(/^\/uploads/i, "/Uploads");
-      if (fixedUrl !== lesson.contentUrl) {
-        console.log(
-          `📘 Lesson ${lesson.id}: ${lesson.contentUrl} → ${fixedUrl}`
-        );
-        lesson.contentUrl = fixedUrl;
-        await lesson.save();
-      }
-    }
-
-    // === COURSES ===
-    const courses = await Course.findAll({
-      where: {
-        [Op.or]: [
-          { attachmentUrls: { [Op.ne]: null } },
-          { thumbnailUrl: { [Op.iLike]: "%/uploads/%" } },
-        ],
-      },
-    });
-
+    const courses = await Course.findAll();
     for (const course of courses) {
       let updated = false;
 
-      // ✅ Fix attachments
-      if (Array.isArray(course.attachmentUrls)) {
-        const fixedAttachments = course.attachmentUrls.map((url) => {
-          const fixed = url.replace(/^\/uploads/i, "/Uploads");
-          if (fixed !== url) updated = true;
-          return fixed;
-        });
-        course.attachmentUrls = fixedAttachments;
-      }
-
-      // ✅ Fix thumbnail
-      if (course.thumbnailUrl && course.thumbnailUrl.match(/^\/uploads/i)) {
-        course.thumbnailUrl = course.thumbnailUrl.replace(
-          /^\/uploads/i,
-          "/Uploads"
-        );
-        updated = true;
-      }
+      const fixedAttachments = (course.attachmentUrls || []).map((url) => {
+        if (url.startsWith("/uploads/")) {
+          updated = true;
+          return url.replace("/uploads/", "/Uploads/");
+        }
+        return url;
+      });
 
       if (updated) {
-        console.log(`📗 Course ${course.id} updated`);
-        await course.save();
+        await course.update({ attachmentUrls: fixedAttachments });
+        console.log(`✅ Updated course ID ${course.id}`);
       }
     }
 
-    console.log("✅ Fix completed for lessons and courses.");
-  } catch (error) {
-    console.error("❌ Error:", error.message);
-  } finally {
-    await sequelize.close();
+    console.log("✅ All lowercase URLs fixed.");
+    process.exit(0);
+  } catch (err) {
+    console.error("❌ Failed:", err.message);
+    process.exit(1);
   }
-}
-
-fixUploadsCasing();
+})();
