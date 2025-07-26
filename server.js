@@ -227,7 +227,7 @@ const { sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.set("trust proxy", 1);
+app.set("trust proxy", 1); // For reverse proxies like Render
 
 // === 1. CORS Setup ===
 const allowedOrigins = [
@@ -235,22 +235,25 @@ const allowedOrigins = [
   "https://math-class-platform.netlify.app",
 ];
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn("❌ Blocked by CORS:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
-};
-
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Accept"
+  );
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // === 2. Ensure Upload Directories Exist ===
 const uploadsDir = path.join(__dirname, "Uploads");
@@ -261,9 +264,9 @@ const imagesDir = path.join(__dirname, "images");
 });
 
 // === 3. Static File Serving ===
-app.use("/Uploads", express.static(uploadsDir));
+app.use("/Uploads", express.static(uploadsDir)); // Matches course/lesson URLs
 app.use("/images", express.static(imagesDir));
-app.use(express.static("public"));
+app.use(express.static("public")); // Optional fallback for frontend
 
 // === 4. Body Parsing ===
 app.use(express.json());
@@ -293,14 +296,14 @@ const routeModules = [
   "stripeWebhook",
   "auth",
   "users",
-  "courseRoutes",
+  "courseRoutes", // ✅ Updated name
   "payments",
   "email",
   "enrollments",
   "admin",
   "progress",
   "upload",
-  "files",
+  "files", // ✅ Handles preview & download now
 ];
 
 const routes = {};
@@ -324,7 +327,7 @@ app.use("/api/v1/lessons", routes.lessonRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
-app.use("/api/v1/courses", routes.courseRoutes); // ✅ /create inside this!
+app.use("/api/v1/courses", routes.courseRoutes);
 app.use("/api/v1/payments", routes.payments);
 app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
@@ -334,7 +337,7 @@ app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
 if (routes.emailPreview) app.use("/dev", routes.emailPreview);
 
-// === 9. Profile Route ===
+// === 9. Authenticated Profile Route ===
 app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
@@ -369,38 +372,12 @@ app.get("/debug/uploads", (req, res) => {
   }
 });
 
-// === 11. File Download ===
-app.get("/api/v1/files/download/:filename", authMiddleware, (req, res) => {
-  const filePath = path.join(uploadsDir, req.params.filename);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: "File not found" });
-  }
-  res.download(filePath);
-});
-
-// === 12. File Preview ===
-app.get("/api/v1/files/preview/:filename", (req, res) => {
-  const filePath = path.join(uploadsDir, req.params.filename);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: "File not found" });
-  }
-  const ext = path.extname(req.params.filename).toLowerCase();
-  const mimeTypes = {
-    ".pdf": "application/pdf",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-  };
-  res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
-  res.sendFile(filePath);
-});
-
-// === 13. Fallback
+// === 11. 404 Fallback ===
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// === 14. Global Error Handler
+// === 12. Global Error Handler ===
 app.use((err, req, res, next) => {
   console.error("💥 Global Error:", err);
   res
@@ -408,7 +385,7 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-// === 15. Start Server
+// === 13. Start Server ===
 const PORT = process.env.PORT || 5000;
 (async () => {
   try {
