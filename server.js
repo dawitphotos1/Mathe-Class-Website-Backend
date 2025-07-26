@@ -148,6 +148,39 @@ app.get("/test-uploads", (req, res) => {
   }
 });
 
+
+
+
+app.get("/debug/uploads", (req, res) => {
+  const uploadsDir = path.join(__dirname, "Uploads");
+  try {
+    const files = fs.readdirSync(uploadsDir);
+    res.json({ success: true, files });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ error: "Unable to list files", details: err.message });
+  }
+});
+
+
+
+
+
+// === Diagnostic: List all uploaded files ===
+app.get("/debug/uploads", (req, res) => {
+  const testUploadsPath = path.join(__dirname, "Uploads");
+  try {
+    const files = fs.readdirSync(testUploadsPath);
+    res.json({ success: true, files });
+  } catch (err) {
+    res.status(500).json({ error: "Unable to list files", details: err.message });
+  }
+});
+
+
+
+
 // === 11. 404 Fallback ===
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
