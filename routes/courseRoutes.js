@@ -95,5 +95,9 @@ router.get("/slug/:slug", courseController.getCourseBySlug);
 
 // ✅ Get lessons for a course
 router.get("/:courseId/lessons", courseController.getLessonsByCourse);
+router.get("/", async (req, res) => {
+  res.json({ message: "✅ Courses route working" });
+});
+
 
 module.exports = router; // ✅ Export router directly
