@@ -117,7 +117,6 @@
 
 
 
-
 const path = require("path");
 const fs = require("fs");
 const { Course, Lesson, User } = require("../models");
@@ -193,5 +192,65 @@ exports.createCourse = async (req, res) => {
     res
       .status(500)
       .json({ error: "Failed to create course", details: error.message });
+  }
+};
+
+// ✅ Delete a course by ID
+exports.deleteCourse = async (req, res) => {
+  try {
+    const courseId = req.params.id;
+
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Optional: Only allow the teacher who created it to delete
+    // if (course.teacherId !== req.user.id && req.user.role !== "admin") {
+    //   return res.status(403).json({ error: "Unauthorized to delete this course" });
+    // }
+
+    await course.destroy();
+
+    res.json({ success: true, message: "Course deleted successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "Failed to delete course", details: error.message });
+  }
+};
+
+// ✅ Get course by slug
+exports.getCourseBySlug = async (req, res) => {
+  try {
+    const course = await Course.findOne({
+      where: { slug: req.params.slug },
+      include: [{ model: User, as: "teacher", attributes: ["id", "name"] }],
+    });
+
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    res.json({ success: true, course });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "Failed to get course", details: error.message });
+  }
+};
+
+// ✅ Get lessons by course ID
+exports.getLessonsByCourse = async (req, res) => {
+  try {
+    const lessons = await Lesson.findAll({
+      where: { courseId: req.params.courseId },
+    });
+
+    res.json({ success: true, lessons });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "Failed to fetch lessons", details: error.message });
   }
 };
