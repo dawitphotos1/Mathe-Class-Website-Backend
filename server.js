@@ -219,7 +219,6 @@
 
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
@@ -227,9 +226,9 @@ const { sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.set("trust proxy", 1); // For reverse proxies like Render
+app.set("trust proxy", 1); // Required for reverse proxies like Render
 
-// === 1. CORS Setup ===
+// === 1. Strong CORS Setup ===
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -249,6 +248,7 @@ app.use((req, res, next) => {
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, Accept"
   );
+  res.header("Access-Control-Expose-Headers", "Authorization"); // Optional
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -264,11 +264,11 @@ const imagesDir = path.join(__dirname, "images");
 });
 
 // === 3. Static File Serving ===
-app.use("/Uploads", express.static(uploadsDir)); // Matches course/lesson URLs
+app.use("/Uploads", express.static(uploadsDir));
 app.use("/images", express.static(imagesDir));
-app.use(express.static("public")); // Optional fallback for frontend
+app.use(express.static("public"));
 
-// === 4. Body Parsing ===
+// === 4. JSON Body Parsing ===
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -296,14 +296,14 @@ const routeModules = [
   "stripeWebhook",
   "auth",
   "users",
-  "courseRoutes", // ✅ Updated name
+  "courseRoutes", // ✅ Must exist
   "payments",
   "email",
   "enrollments",
   "admin",
   "progress",
   "upload",
-  "files", // ✅ Handles preview & download now
+  "files",
 ];
 
 const routes = {};
@@ -356,7 +356,7 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   }
 });
 
-// === 10. Diagnostic Routes ===
+// === 10. Health Check & Debug ===
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
