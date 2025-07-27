@@ -320,29 +320,6 @@ router.get("/", auth, async (req, res) => {
       .json({ error: "Failed to load courses", details: err.message });
   }
 });
-router.get("/:id", auth, async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.id);
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res.status(404).json({ error: "Course not found" });
-    }
-
-    console.log("🔐 User:", req.user.id, req.user.role);
-    console.log("📘 Course teacherId:", course.teacherId);
-
-    // Access control
-    if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    res.json({ success: true, course });
-  } catch (err) {
-    console.error("Get course by ID error:", err.message);
-    res.status(500).json({ error: "Failed to fetch course" });
-  }
-});
 
 
 // Public fetch by slug
