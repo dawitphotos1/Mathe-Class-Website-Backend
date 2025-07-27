@@ -42,7 +42,7 @@ router.post("/register", async (req, res) => {
       role,
       subject: role !== "admin" ? subject : null,
       approvalStatus: role === "student" ? "pending" : "approved",
-    });
+    });                               
 
     console.log("User created:", {
       id: user.id,
