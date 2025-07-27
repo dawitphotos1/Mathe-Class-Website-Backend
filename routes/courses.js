@@ -259,7 +259,6 @@
 
 
 
-
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -302,7 +301,7 @@ router.post(
   courseController.createCourse
 );
 
-// Fetch all courses
+// Fetch all courses (authenticated)
 router.get("/", auth, async (req, res) => {
   try {
     const filter =
@@ -313,7 +312,7 @@ router.get("/", auth, async (req, res) => {
         { model: User, as: "teacher", attributes: ["id", "name", "email"] },
       ],
     });
-    res.json(courses);
+    res.json({ success: true, courses });
   } catch (err) {
     res
       .status(500)
@@ -337,9 +336,11 @@ router.delete(
       const courseId = parseInt(req.params.id);
       const course = await Course.findByPk(courseId);
       if (!course) return res.status(404).json({ error: "Course not found" });
+
       if (course.teacherId !== req.user.id && req.user.role !== "admin") {
         return res.status(403).json({ error: "Unauthorized" });
       }
+
       await Lesson.destroy({ where: { courseId } });
       await course.destroy();
       res.json({ success: true, message: "Course and its lessons deleted" });
@@ -359,12 +360,14 @@ router.patch(
   async (req, res) => {
     const { courseId, index } = req.params;
     const { newName } = req.body;
+
     if (!newName)
       return res.status(400).json({ error: "New name is required" });
 
     try {
       const course = await Course.findByPk(courseId);
       if (!course) return res.status(404).json({ error: "Course not found" });
+
       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
         return res.status(403).json({ error: "Unauthorized" });
       }
@@ -402,6 +405,7 @@ router.patch(
     try {
       const course = await Course.findByPk(courseId);
       if (!course) return res.status(404).json({ error: "Course not found" });
+
       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
         return res.status(403).json({ error: "Unauthorized" });
       }
@@ -425,34 +429,29 @@ router.patch(
   }
 );
 
-// ✅ Fixed: Get course by ID (for editing)
+// ✅ FIXED: Get course by ID
 router.get("/:id", auth, async (req, res) => {
   try {
     const courseId = parseInt(req.params.id);
-    console.log("🔍 Requested Course ID:", courseId);
+    if (isNaN(courseId))
+      return res.status(400).json({ error: "Invalid course ID" });
 
     const course = await Course.findByPk(courseId);
 
-    if (!course) {
-      console.log("❌ Course not found");
-      return res.status(404).json({ error: "Course not found" });
-    }
+    if (!course) return res.status(404).json({ error: "Course not found" });
 
-    // Optional: restrict access to course owner or admin
     if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
-      console.log("🚫 Forbidden - not owner or admin");
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    console.log("✅ Course found:", course.title);
-    res.json({ success: true, course }); // ✅ Consistent structure
+    res.json({ success: true, course });
   } catch (err) {
-    console.error("🔥 Get course by ID error:", err.message);
+    console.error("Get course by ID error:", err.message);
     res.status(500).json({ error: "Failed to fetch course" });
   }
 });
 
-// Update course (title, description, etc.)
+// Update course
 router.patch(
   "/:id",
   auth,
@@ -465,31 +464,24 @@ router.patch(
   async (req, res) => {
     try {
       const courseId = parseInt(req.params.id);
-      if (isNaN(courseId)) {
+      if (isNaN(courseId))
         return res.status(400).json({ error: "Invalid course ID" });
-      }
 
       const course = await Course.findByPk(courseId);
-      if (!course) {
-        return res.status(404).json({ error: "Course not found" });
-      }
+      if (!course) return res.status(404).json({ error: "Course not found" });
 
-      // Only owner or admin can update
       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Extract fields
       const { title, description, category, difficulty, tags } = req.body;
 
-      // Update basic fields
       if (title) course.title = title;
       if (description) course.description = description;
       if (category) course.category = category;
       if (difficulty) course.difficulty = difficulty;
       if (tags) course.tags = Array.isArray(tags) ? tags : tags.split(",");
 
-      // Handle files
       const files = req.files || {};
       if (files.thumbnail?.[0]) {
         course.thumbnailUrl = `/uploads/${files.thumbnail[0].filename}`;
