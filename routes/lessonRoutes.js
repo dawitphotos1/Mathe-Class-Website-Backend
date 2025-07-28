@@ -21,14 +21,15 @@ router.get(
   lessonController.getUnitsByCourse
 );
 
-// POST: Create lesson
+// ADD: Direct POST /lessons support (alternate route)
 router.post(
-  "/:courseId/lessons",
+  "/",
   authMiddleware,
   roleMiddleware(["teacher", "admin"]),
   upload.single("file"),
   lessonController.createLesson
 );
+
 
 // PUT: Update lesson
 router.put(
