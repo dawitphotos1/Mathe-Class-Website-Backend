@@ -1,4 +1,3 @@
-
 // const path = require("path");
 // const fs = require("fs");
 // const { Course, Lesson, User } = require("../models");
@@ -89,8 +88,16 @@
 //   try {
 //     const courseId = req.params.id;
 //     const course = await Course.findByPk(courseId);
+
 //     if (!course) {
 //       return res.status(404).json({ error: "Course not found" });
+//     }
+
+//     // 🔒 Only allow teacher-owner or admin to delete
+//     if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
+//       return res
+//         .status(403)
+//         .json({ error: "You are not authorized to delete this course" });
 //     }
 
 //     await course.destroy();
@@ -146,7 +153,7 @@
 // };
 
 // /**
-//  * ✅ NEW: Get Teacher's Courses
+//  * ✅ Get Teacher's Courses
 //  */
 // exports.getTeacherCourses = async (req, res) => {
 //   try {
@@ -162,6 +169,7 @@
 //     res.status(500).json({ error: "Failed to fetch courses" });
 //   }
 // };
+
 
 
 
@@ -261,7 +269,6 @@ exports.deleteCourse = async (req, res) => {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    // 🔒 Only allow teacher-owner or admin to delete
     if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
       return res
         .status(403)
@@ -321,7 +328,7 @@ exports.getLessonsByCourse = async (req, res) => {
 };
 
 /**
- * ✅ Get Teacher's Courses
+ * ✅ Get Teacher's Courses (with lessons)
  */
 exports.getTeacherCourses = async (req, res) => {
   try {
@@ -329,6 +336,13 @@ exports.getTeacherCourses = async (req, res) => {
     const courses = await Course.findAll({
       where: { teacherId },
       order: [["createdAt", "DESC"]],
+      include: [
+        {
+          model: Lesson,
+          as: "lessons",
+          order: [["orderIndex", "ASC"]],
+        },
+      ],
     });
 
     res.json({ success: true, courses });
