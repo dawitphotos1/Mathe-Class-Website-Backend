@@ -187,7 +187,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
@@ -287,11 +286,11 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // === 8. Mount Routes ===
-app.use("/api/v1/courses", routes.lessonRoutes); // ✅ Mount lesson routes under /courses
+app.use("/api/v1/lessons", routes.lessonRoutes); // ✅ lessonRoutes mounted properly
+app.use("/api/v1/courses", routes.courseRoutes); // ✅ courseRoutes
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
-app.use("/api/v1/courses", routes.courseRoutes); // ✅ Mount course routes (after lessonRoutes)
 app.use("/api/v1/payments", routes.payments);
 app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
