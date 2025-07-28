@@ -289,7 +289,7 @@ if (process.env.NODE_ENV !== "production") {
 
 // === 8. Mount Routes ===
 // ✅ Order matters! Lessons FIRST, then courses
-app.use("/api/v1/lessons", routes.lessonRoutes); // e.g. /api/v1/lessons/:courseId/lessons
+app.use("/api/v1/lessons/course", routes.lessonRoutes); // ✅ correct base
 app.use("/api/v1/courses", routes.courseRoutes); // e.g. /api/v1/courses/:id
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
