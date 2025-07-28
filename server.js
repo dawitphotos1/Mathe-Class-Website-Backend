@@ -185,7 +185,6 @@
 //   }
 // })();
 
-
 require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
@@ -196,7 +195,7 @@ const { sequelize, User } = require("./models");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
-app.set("trust proxy", 1); // Required for Render
+app.set("trust proxy", 1); // Required for Render or reverse proxy
 
 // === 1. Robust CORS Setup ===
 const allowedOrigins = [
@@ -216,8 +215,6 @@ app.use(
     credentials: true,
   })
 );
-
-// ✅ Fix preflight CORS issues (especially for PUT, PATCH, DELETE)
 app.options("*", cors());
 
 // === 2. Ensure Upload Directories Exist ===
@@ -233,11 +230,11 @@ app.use("/Uploads", express.static(uploadsDir));
 app.use("/images", express.static(imagesDir));
 app.use(express.static("public"));
 
-// === 4. JSON & URL-encoded Body Parsing ===
+// === 4. Body Parsing ===
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// === 5. Request Logger ===
+// === 5. Logging Middleware ===
 app.use((req, res, next) => {
   console.log(
     `[${req.method}] ${req.originalUrl} from ${req.get("origin") || "N/A"}`
@@ -255,7 +252,7 @@ app.use(
   })
 );
 
-// === 7. Load Route Modules ===
+// === 7. Load Routes ===
 const routeModules = [
   "lessonRoutes",
   "stripeWebhook",
@@ -287,10 +284,9 @@ if (process.env.NODE_ENV !== "production") {
   } catch {}
 }
 
-// === 8. Mount Routes ===
-// ✅ Order matters! Lessons FIRST, then courses
-app.use("/api/v1/lessons/course", routes.lessonRoutes); // ✅ correct base
-app.use("/api/v1/courses", routes.courseRoutes); // e.g. /api/v1/courses/:id
+// === 8. Mount Routes (✅ Lessons First) ===
+app.use("/api/v1/lessons/course", routes.lessonRoutes); // ✅ /course/:id/lessons
+app.use("/api/v1/courses", routes.courseRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
@@ -322,7 +318,7 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
   }
 });
 
-// === 10. Health & Upload Debug Endpoints ===
+// === 10. Debug & Health Check Endpoints ===
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
@@ -338,7 +334,7 @@ app.get("/debug/uploads", (req, res) => {
   }
 });
 
-// === 11. 404 Not Found ===
+// === 11. 404 Catch-All ===
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });

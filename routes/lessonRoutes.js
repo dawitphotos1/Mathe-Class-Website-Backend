@@ -77,88 +77,53 @@
 
 
 
-
 const express = require("express");
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 const lessonController = require("../controllers/lessonController");
 const authMiddleware = require("../middleware/authMiddleware");
-const roleMiddleware = require("../middleware/roleMiddleware");
-const upload = require("../middleware/uploadMiddleware");
+const upload = require("../middleware/uploadMiddleware"); // if using multer
 
-/**
- * ✅ Create a new lesson for a course (clean route)
- * POST /api/v1/lessons/course/:courseId
- */
-router.post(
-  "/course/:courseId",
-  authMiddleware,
-  roleMiddleware(["teacher", "admin"]),
-  upload.single("file"),
-  lessonController.createLesson
-);
-
-/**
- * ✅ Get all lessons for a course
- * GET /api/v1/lessons/course/:courseId
- */
+// Fetch all lessons for a course
 router.get(
-  "/course/:courseId",
+  "/:courseId/lessons",
   authMiddleware,
   lessonController.getLessonsByCourse
 );
 
-/**
- * ✅ Get units by course ID
- * GET /api/v1/lessons/course/:courseId/units
- */
-router.get(
-  "/course/:courseId/units",
+// Create a new lesson for a course
+router.post(
+  "/:courseId/lessons",
   authMiddleware,
-  roleMiddleware(["teacher", "admin"]),
+  upload.single("file"), // optional: for file uploads
+  lessonController.createLesson
+);
+
+// Get units for a course
+router.get(
+  "/:courseId/units",
+  authMiddleware,
   lessonController.getUnitsByCourse
 );
 
-/**
- * ✅ Update a lesson
- * PUT /api/v1/lessons/:lessonId
- */
-router.put(
-  "/:lessonId",
+// Optional: Get a specific lesson
+router.get(
+  "/:courseId/lessons/:lessonId",
   authMiddleware,
-  roleMiddleware(["teacher", "admin"]),
+  lessonController.getLessonById
+);
+
+// Optional: Update lesson
+router.patch(
+  "/:courseId/lessons/:lessonId",
+  authMiddleware,
   lessonController.updateLesson
 );
 
-/**
- * ✅ Delete a lesson
- * DELETE /api/v1/lessons/:lessonId
- */
+// Optional: Delete lesson
 router.delete(
-  "/:lessonId",
+  "/:courseId/lessons/:lessonId",
   authMiddleware,
-  roleMiddleware(["teacher", "admin"]),
   lessonController.deleteLesson
-);
-
-/**
- * ✅ Toggle lesson preview
- * PATCH /api/v1/lessons/:lessonId/toggle-preview
- */
-router.patch(
-  "/:lessonId/toggle-preview",
-  authMiddleware,
-  roleMiddleware(["teacher", "admin"]),
-  lessonController.toggleLessonPreview
-);
-
-/**
- * ✅ Track a lesson view
- * POST /api/v1/lessons/:lessonId/track-view
- */
-router.post(
-  "/:lessonId/track-view",
-  authMiddleware,
-  lessonController.trackLessonView
 );
 
 module.exports = router;
