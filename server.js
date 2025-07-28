@@ -186,7 +186,6 @@
 // })();
 
 
-
 require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
@@ -217,6 +216,9 @@ app.use(
     credentials: true,
   })
 );
+
+// ✅ Fix preflight CORS issues (especially for PUT, PATCH, DELETE)
+app.options("*", cors());
 
 // === 2. Ensure Upload Directories Exist ===
 const uploadsDir = path.join(__dirname, "Uploads");
@@ -286,8 +288,9 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // === 8. Mount Routes ===
-app.use("/api/v1/lessons", routes.lessonRoutes); // ✅ lessonRoutes mounted properly
-app.use("/api/v1/courses", routes.courseRoutes); // ✅ courseRoutes
+// ✅ Order matters! Lessons FIRST, then courses
+app.use("/api/v1/lessons", routes.lessonRoutes); // e.g. /api/v1/lessons/:courseId/lessons
+app.use("/api/v1/courses", routes.courseRoutes); // e.g. /api/v1/courses/:id
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
 app.use("/api/v1/users", routes.users);
