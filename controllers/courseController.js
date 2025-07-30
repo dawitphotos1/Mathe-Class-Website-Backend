@@ -113,23 +113,37 @@ exports.deleteCourse = async (req, res) => {
 /**
  * ✅ Get Course by Slug
  */
+// controllers/courseController.js
+
 exports.getCourseBySlug = async (req, res) => {
   try {
+    console.log("🔍 Slug requested:", req.params.slug); // Optional for debug
+
     const course = await Course.findOne({
       where: { slug: req.params.slug },
       include: [
-        { model: Lesson, as: "lessons", order: [["orderIndex", "ASC"]] },
-        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
+        {
+          model: Lesson,
+          as: "lessons",
+          order: [["orderIndex", "ASC"]],
+        },
+        {
+          model: User,
+          as: "teacher",
+          attributes: ["id", "name", "email"],
+        },
       ],
     });
 
     if (!course) return res.status(404).json({ error: "Course not found" });
+
     res.json({ success: true, course });
   } catch (error) {
     console.error("❌ Fetch course by slug error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch course", details: error.message });
+    res.status(500).json({
+      error: "Failed to fetch course",
+      details: error.message,
+    });
   }
 };
 
