@@ -200,33 +200,141 @@
 
 
 // routes/admin.js
-
 const express = require("express");
 const router = express.Router();
-const { User, Course, UserCourseAccess } = require("../models");
-const { authMiddleware, checkTeacherOrAdmin } = require("../middleware/auth");
+const { UserCourseAccess, User, Course } = require("../models");
+const authMiddleware = require("../middleware/authMiddleware");
 
-// ✅ Admin Dashboard Overview
-router.get("/dashboard", authMiddleware, checkTeacherOrAdmin, async (req, res) => {
-  try {
-    const totalUsers = await User.count();
-    const totalCourses = await Course.count();
-    const totalEnrollments = await UserCourseAccess.count();
-    const pendingEnrollments = await UserCourseAccess.count({ where: { approved: false } });
-
-    res.json({
-      success: true,
-      dashboard: {
-        totalUsers,
-        totalCourses,
-        totalEnrollments,
-        pendingEnrollments,
-      },
-    });
-  } catch (error) {
-    console.error("Admin dashboard error:", error);
-    res.status(500).json({ success: false, error: "Failed to load admin dashboard" });
+// ✅ Middleware to ensure only admin or teacher can access
+const checkTeacherOrAdmin = (req, res, next) => {
+  if (!req.user || !["admin", "teacher"].includes(req.user.role)) {
+    return res.status(403).json({ success: false, error: "Access denied" });
   }
-});
+  next();
+};
+
+// ✅ Fetch pending enrollments
+router.get(
+  "/enrollments/pending",
+  authMiddleware,
+  checkTeacherOrAdmin,
+  async (req, res) => {
+    try {
+      const enrollments = await UserCourseAccess.findAll({
+        where: { approved: false },
+        include: [
+          { model: User, attributes: ["id", "name", "email"] },
+          { model: Course, attributes: ["id", "title"] },
+        ],
+        order: [["accessGrantedAt", "DESC"]],
+      });
+      return res.json({ success: true, enrollments });
+    } catch (error) {
+      console.error("❌ Error fetching pending enrollments:", error);
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to fetch pending enrollments" });
+    }
+  }
+);
+
+// ✅ Fetch approved enrollments
+router.get(
+  "/enrollments/approved",
+  authMiddleware,
+  checkTeacherOrAdmin,
+  async (req, res) => {
+    try {
+      const enrollments = await UserCourseAccess.findAll({
+        where: { approved: true },
+        include: [
+          { model: User, attributes: ["id", "name", "email"] },
+          { model: Course, attributes: ["id", "title"] },
+        ],
+        order: [["accessGrantedAt", "DESC"]],
+      });
+      return res.json({ success: true, enrollments });
+    } catch (error) {
+      console.error("❌ Error fetching approved enrollments:", error);
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error: "Failed to fetch approved enrollments",
+        });
+    }
+  }
+);
+
+// ✅ Approve an enrollment
+router.put(
+  "/enrollments/:id/approve",
+  authMiddleware,
+  checkTeacherOrAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const enrollment = await UserCourseAccess.findByPk(id, {
+        include: [
+          { model: User, attributes: ["id", "name", "email"] },
+          { model: Course, attributes: ["id", "title"] },
+        ],
+      });
+
+      if (!enrollment) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Enrollment not found" });
+      }
+
+      enrollment.approved = true;
+      enrollment.accessGrantedAt = new Date();
+      await enrollment.save();
+
+      return res.json({
+        success: true,
+        message: "Enrollment approved",
+        enrollment,
+      });
+    } catch (error) {
+      console.error("❌ Error approving enrollment:", error);
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to approve enrollment" });
+    }
+  }
+);
+
+// ✅ Reject an enrollment
+router.delete(
+  "/enrollments/:id",
+  authMiddleware,
+  checkTeacherOrAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const enrollment = await UserCourseAccess.findByPk(id);
+      if (!enrollment) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Enrollment not found" });
+      }
+
+      await enrollment.destroy();
+
+      return res.json({
+        success: true,
+        message: "Enrollment rejected and removed",
+      });
+    } catch (error) {
+      console.error("❌ Error rejecting enrollment:", error);
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to reject enrollment" });
+    }
+  }
+);
 
 module.exports = router;
