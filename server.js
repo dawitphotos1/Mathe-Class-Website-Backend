@@ -66,6 +66,7 @@ app.use(
 );
 
 // === 7. Load Routes ===
+// === 7. Load Routes ===
 const routeModules = [
   "lessonRoutes",
   "stripeWebhook",
@@ -75,7 +76,7 @@ const routeModules = [
   "payments",
   "email",
   "enrollments",
-  "admin",
+  "admin", // ✅ now safely included
   "progress",
   "upload",
   "files",
@@ -97,8 +98,8 @@ if (process.env.NODE_ENV !== "production") {
   } catch {}
 }
 
-// === 8. Mount Routes (✅ Lessons First) ===
-app.use("/api/v1/lessons/course", routes.lessonRoutes); // ✅ /course/:id/lessons
+// === 8. Mount Routes (✅ Order matters)
+app.use("/api/v1/lessons/course", routes.lessonRoutes); // /course/:id/lessons
 app.use("/api/v1/courses", routes.courseRoutes);
 app.use("/api/v1/stripe", routes.stripeWebhook);
 app.use("/api/v1/auth", routes.auth);
@@ -106,7 +107,7 @@ app.use("/api/v1/users", routes.users);
 app.use("/api/v1/payments", routes.payments);
 app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
-// app.use("/api/v1/admin", routes.admin);
+app.use("/api/v1/admin", routes.admin); // ✅ working now
 app.use("/api/v1/progress", routes.progress);
 app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
