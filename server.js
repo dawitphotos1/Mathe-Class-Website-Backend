@@ -106,7 +106,7 @@ app.use("/api/v1/users", routes.users);
 app.use("/api/v1/payments", routes.payments);
 app.use("/api/v1/email", routes.email);
 app.use("/api/v1/enrollments", routes.enrollments);
-app.use("/api/v1/admin", routes.admin);
+// app.use("/api/v1/admin", routes.admin);
 app.use("/api/v1/progress", routes.progress);
 app.use("/api/v1/upload", routes.upload);
 app.use("/api/v1/files", routes.files);
