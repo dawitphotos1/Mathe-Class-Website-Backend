@@ -3,12 +3,11 @@ const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
 const router = express.Router();
+const { Lesson, Course, User, UserCourseAccess } = require("../models");
 const auth = require("../middleware/auth");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const authenticateToken = require("../middleware/authenticateToken");
 const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
-const courseController = require("../controllers/courseController");
-const { Lesson, Course, User } = require("../models");
 
 // === Multer Setup ===
 const storage = multer.diskStorage({
@@ -25,9 +24,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 
-// === Routes ===
-
-// Create course
+// ✅ Create course
 router.post(
   "/",
   auth,
@@ -37,10 +34,10 @@ router.post(
     { name: "introVideo", maxCount: 1 },
     { name: "attachments", maxCount: 10 },
   ]),
-  courseController.createCourse
+  require("../controllers/courseController").createCourse
 );
 
-// Fetch all courses
+// ✅ Fetch courses for logged-in user (teacher/admin)
 router.get("/", auth, async (req, res) => {
   try {
     const filter =
@@ -59,13 +56,53 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// Public fetch by slug
-router.get("/slug/:slug", courseController.getCourseBySlug);
+// ✅ Fetch full course by slug (requires enrollment)
+router.get("/slug/:slug", auth, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const userId = req.user?.id;
 
-// Lessons by course (auth required)
-router.get("/:courseId/lessons", auth, courseController.getLessonsByCourse);
+    const course = await Course.findOne({
+      where: { slug },
+      include: [
+        { model: Lesson, as: "lessons", order: [["orderIndex", "ASC"]] },
+        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
+      ],
+    });
 
-// Delete course
+    if (!course)
+      return res
+        .status(404)
+        .json({ success: false, error: "Course not found" });
+
+    const access = await UserCourseAccess.findOne({
+      where: { courseId: course.id, userId, approved: true },
+    });
+
+    if (!access) {
+      return res.status(403).json({ success: false, error: "Access denied" });
+    }
+
+    res.json({ success: true, course });
+  } catch (err) {
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: "Failed to fetch course",
+        details: err.message,
+      });
+  }
+});
+
+// ✅ Get lessons by course (auth required)
+router.get(
+  "/:courseId/lessons",
+  auth,
+  require("../controllers/courseController").getLessonsByCourse
+);
+
+// ✅ Delete course
 router.delete(
   "/:id",
   auth,
@@ -75,11 +112,14 @@ router.delete(
       const courseId = parseInt(req.params.id);
       const course = await Course.findByPk(courseId);
       if (!course) return res.status(404).json({ error: "Course not found" });
-      if (course.teacherId !== req.user.id && req.user.role !== "admin") {
+
+      if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
         return res.status(403).json({ error: "Unauthorized" });
       }
+
       await Lesson.destroy({ where: { courseId } });
       await course.destroy();
+
       res.json({ success: true, message: "Course and its lessons deleted" });
     } catch (err) {
       res
@@ -89,7 +129,7 @@ router.delete(
   }
 );
 
-// Rename attachment
+// ✅ Rename course attachment
 router.patch(
   "/:courseId/attachments/:index/rename",
   authenticateToken,
@@ -103,6 +143,7 @@ router.patch(
     try {
       const course = await Course.findByPk(courseId);
       if (!course) return res.status(404).json({ error: "Course not found" });
+
       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
         return res.status(403).json({ error: "Unauthorized" });
       }
@@ -130,16 +171,18 @@ router.patch(
   }
 );
 
-// Delete attachment
+// ✅ Delete course attachment
 router.patch(
   "/:courseId/attachments/:index/delete",
   authenticateToken,
   checkTeacherOrAdmin,
   async (req, res) => {
     const { courseId, index } = req.params;
+
     try {
       const course = await Course.findByPk(courseId);
       if (!course) return res.status(404).json({ error: "Course not found" });
+
       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
         return res.status(403).json({ error: "Unauthorized" });
       }
