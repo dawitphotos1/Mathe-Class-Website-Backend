@@ -209,7 +209,7 @@ exports.register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const approvalStatus = normalizedRole === "teacher" ? "pending" : "approved";
+    const approvalStatus = normalizedRole === "admin" ? "approved" : "pending";
 
     const user = await User.create({
       name: name.trim(),
@@ -281,11 +281,15 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    if (user.role === "teacher" && user.approvalStatus !== "approved") {
-      return res
-        .status(403)
-        .json({ error: "Your account is pending admin approval" });
-    }
+   if (
+     (user.role === "student" && user.approvalStatus !== "approved") ||
+     (user.role === "teacher" && user.approvalStatus !== "approved")
+   ) {
+     return res
+       .status(403)
+       .json({ error: "Your account is pending admin approval" });
+   }
+
 
     const token = generateToken(user);
 

@@ -1,37 +1,81 @@
+// const express = require("express");
+// const router = express.Router();
+// const adminController = require("../controllers/adminController");
+// const authMiddleware = require("../middleware/authMiddleware");
+// const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
+
+// // ✅ Fetch pending enrollments
+// router.get(
+//   "/enrollments/pending",
+//   authMiddleware,
+//   checkTeacherOrAdmin,
+//   adminController.getPendingEnrollments
+// );
+
+// // ✅ Fetch approved enrollments
+// router.get(
+//   "/enrollments/approved",
+//   authMiddleware,
+//   checkTeacherOrAdmin,
+//   adminController.getApprovedEnrollments
+// );
+
+// // ✅ Approve an enrollment
+// router.put(
+//   "/enrollments/:id/approve",
+//   authMiddleware,
+//   checkTeacherOrAdmin,
+//   adminController.approveEnrollment
+// );
+
+// // ✅ Reject an enrollment
+// router.delete(
+//   "/enrollments/:id",
+//   authMiddleware,
+//   checkTeacherOrAdmin,
+//   adminController.rejectEnrollment
+// );
+
+// module.exports = router;
+
+
+
+
+// routes/admin.js
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/adminController");
-const authMiddleware = require("../middleware/authMiddleware");
-const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
+const { authenticate } = require("../middleware/authenticate");
+const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin";
 
-// ✅ Fetch pending enrollments
+// Fetch pending enrollments
 router.get(
   "/enrollments/pending",
-  authMiddleware,
+  authenticate,
   checkTeacherOrAdmin,
   adminController.getPendingEnrollments
 );
 
-// ✅ Fetch approved enrollments
+// Fetch approved enrollments
 router.get(
   "/enrollments/approved",
-  authMiddleware,
+  authenticate,
   checkTeacherOrAdmin,
   adminController.getApprovedEnrollments
 );
 
-// ✅ Approve an enrollment
+// Approve an enrollment
 router.put(
   "/enrollments/:id/approve",
-  authMiddleware,
+  authenticate,
   checkTeacherOrAdmin,
   adminController.approveEnrollment
 );
 
-// ✅ Reject an enrollment
+// Reject an enrollment
 router.delete(
   "/enrollments/:id",
-  authMiddleware,
+  authenticate,
   checkTeacherOrAdmin,
   adminController.rejectEnrollment
 );
