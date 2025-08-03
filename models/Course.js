@@ -79,6 +79,9 @@
 
 //   return Course;
 // };
+
+
+
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define("Course", {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -88,10 +91,14 @@ module.exports = (sequelize, DataTypes) => {
     price: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     subject: { type: DataTypes.STRING, allowNull: false },
     category: { type: DataTypes.STRING, allowNull: false },
-    teacherId: { type: DataTypes.INTEGER, allowNull: false },
-    attachmentUrls: { type: DataTypes.JSON, allowNull: true },
-    thumbnailUrl: { type: DataTypes.STRING, allowNull: true },
-    introVideoUrl: { type: DataTypes.STRING, allowNull: true },
+    teacherId: { type: DataTypes.INTEGER, allowNull: true }, // Allow null
+    studentCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    thumbnail: { type: DataTypes.STRING, allowNull: true },
+    materialUrl: { type: DataTypes.STRING, allowNull: true },
     createdAt: { type: DataTypes.DATE, allowNull: false },
     updatedAt: { type: DataTypes.DATE, allowNull: false },
   });

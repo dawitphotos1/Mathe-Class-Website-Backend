@@ -186,9 +186,17 @@
 
 
 
+
+
 const path = require("path");
 const fs = require("fs");
-const { Course, Lesson, User, UserCourseAccess } = require("../models");
+const {
+  Course,
+  Lesson,
+  User,
+  UserCourseAccess,
+  sequelize,
+} = require("../models");
 
 const uploadsDir = path.join(__dirname, "..", "Uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -230,7 +238,7 @@ exports.createCourse = async (req, res) => {
         /\s+/g,
         "_"
       )}`;
-      fs.writeFileSync(path.join(UploadsDir, filename), thumbnail.buffer);
+      fs.writeFileSync(path.join(uploadsDir, filename), thumbnail.buffer);
       thumbnailUrl = `/Uploads/${filename}`;
     }
 
@@ -240,7 +248,7 @@ exports.createCourse = async (req, res) => {
         /\s+/g,
         "_"
       )}`;
-      fs.writeFileSync(path.join(UploadsDir, filename), introVideo.buffer);
+      fs.writeFileSync(path.join(uploadsDir, filename), introVideo.buffer);
       introVideoUrl = `/Uploads/${filename}`;
     }
 
@@ -318,6 +326,17 @@ exports.getCourseBySlug = async (req, res) => {
       req.user?.id || "unauthenticated"
     );
 
+    // Verify table existence
+    const tableExists = await sequelize.query(
+      "SELECT to_regclass('public.\"Courses\"')"
+    );
+    if (!tableExists[0][0].to_regclass) {
+      console.error("🔥 Courses table does not exist");
+      return res
+        .status(500)
+        .json({ error: "Database error: Courses table not found" });
+    }
+
     const course = await Course.findOne({
       where: { slug },
       include: [
@@ -326,11 +345,13 @@ exports.getCourseBySlug = async (req, res) => {
           as: "lessons",
           attributes: ["id", "title", "orderIndex"],
           order: [["orderIndex", "ASC"]],
+          required: false, // Allow courses without lessons
         },
         {
           model: User,
           as: "teacher",
           attributes: ["id", "name", "email"],
+          required: false, // Allow courses with null teacherId
         },
       ],
     });
@@ -357,6 +378,8 @@ exports.getCourseBySlug = async (req, res) => {
       userId: req.user?.id,
       errorName: error.name,
       errorCode: error.code,
+      sql: error.sql || "N/A",
+      fields: error.fields || "N/A",
     });
     if (error.name === "SequelizeDatabaseError") {
       return res
@@ -401,11 +424,13 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
           as: "lessons",
           attributes: ["id", "title", "content", "orderIndex"],
           order: [["orderIndex", "ASC"]],
+          required: false,
         },
         {
           model: User,
           as: "teacher",
           attributes: ["id", "name", "email"],
+          required: false,
         },
       ],
     });
@@ -476,7 +501,12 @@ exports.getTeacherCourses = async (req, res) => {
     const courses = await Course.findAll({
       where: filter,
       include: [
-        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
+        {
+          model: User,
+          as: "teacher",
+          attributes: ["id", "name", "email"],
+          required: false,
+        },
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -498,7 +528,12 @@ exports.getAllCourses = async (req, res) => {
   try {
     const courses = await Course.findAll({
       include: [
-        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
+        {
+          model: User,
+          as: "teacher",
+          attributes: ["id", "name", "email"],
+          required: false,
+        },
       ],
       order: [["createdAt", "DESC"]],
     });
