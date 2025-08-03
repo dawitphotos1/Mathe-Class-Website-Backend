@@ -191,7 +191,7 @@ const fs = require("fs");
 const { Course, Lesson, User, UserCourseAccess } = require("../models");
 
 const uploadsDir = path.join(__dirname, "..", "Uploads");
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(UploadsDir, { recursive: true });
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 exports.createCourse = async (req, res) => {
   try {
@@ -230,7 +230,7 @@ exports.createCourse = async (req, res) => {
         /\s+/g,
         "_"
       )}`;
-      fs.writeFileSync(path.join(uploadsDir, filename), thumbnail.buffer);
+      fs.writeFileSync(path.join(UploadsDir, filename), thumbnail.buffer);
       thumbnailUrl = `/Uploads/${filename}`;
     }
 
@@ -311,6 +311,13 @@ exports.getCourseBySlug = async (req, res) => {
       return res.status(400).json({ error: "Course slug is required" });
     }
 
+    console.log(
+      "🔍 Fetching course with slug:",
+      slug,
+      "user:",
+      req.user?.id || "unauthenticated"
+    );
+
     const course = await Course.findOne({
       where: { slug },
       include: [
@@ -329,6 +336,7 @@ exports.getCourseBySlug = async (req, res) => {
     });
 
     if (!course) {
+      console.log("🔍 Course not found for slug:", slug);
       return res.status(404).json({ error: "Course not found" });
     }
 
@@ -347,9 +355,24 @@ exports.getCourseBySlug = async (req, res) => {
       stack: error.stack,
       slug: req.params.slug,
       userId: req.user?.id,
+      errorName: error.name,
+      errorCode: error.code,
     });
     if (error.name === "SequelizeDatabaseError") {
-      return res.status(500).json({ error: "Database error fetching course" });
+      return res
+        .status(500)
+        .json({
+          error: "Database error fetching course",
+          details: error.message,
+        });
+    }
+    if (error.name === "SequelizeValidationError") {
+      return res
+        .status(400)
+        .json({
+          error: "Validation error",
+          details: error.errors.map((e) => e.message),
+        });
     }
     res
       .status(500)
@@ -364,6 +387,10 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
 
     if (!slug) {
       return res.status(400).json({ error: "Course slug is required" });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
     }
 
     const course = await Course.findOne({
@@ -404,9 +431,16 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
       stack: error.stack,
       slug: req.params.slug,
       userId: req.user?.id,
+      errorName: error.name,
+      errorCode: error.code,
     });
     if (error.name === "SequelizeDatabaseError") {
-      return res.status(500).json({ error: "Database error fetching course" });
+      return res
+        .status(500)
+        .json({
+          error: "Database error fetching course",
+          details: error.message,
+        });
     }
     res
       .status(500)
