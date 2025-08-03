@@ -132,13 +132,44 @@
 
 
 
-
 // controllers/adminController.js
 const { UserCourseAccess, User, Course } = require("../models");
 const sendEmail = require("../utils/sendEmail");
-const enrollmentApprovedEmail = require("../utils/emails/enrollmentApproved");
-const enrollmentRejectedEmail = require("../utils/emails/enrollmentRejected");
-const userApprovalEmail = require("../utils/emails/userApprovalEmail"); // if you have one
+
+// Defensive require for email templates
+let enrollmentApprovedEmail;
+let enrollmentRejectedEmail;
+let userApprovalEmail;
+
+try {
+  enrollmentApprovedEmail = require("../utils/emails/enrollmentApproved");
+} catch (e) {
+  console.warn("Warning: enrollmentApprovedEmail module not found.", e.message);
+  enrollmentApprovedEmail = (user, course) => ({
+    subject: "Enrollment Approved",
+    html: `<p>Hello ${user.name}, your enrollment in "${course.title}" has been approved.</p>`,
+  });
+}
+
+try {
+  enrollmentRejectedEmail = require("../utils/emails/enrollmentRejected");
+} catch (e) {
+  console.warn("Warning: enrollmentRejectedEmail module not found.", e.message);
+  enrollmentRejectedEmail = (user, course) => ({
+    subject: "Enrollment Rejected",
+    html: `<p>Hello ${user.name}, your enrollment in "${course.title}" was rejected.</p>`,
+  });
+}
+
+try {
+  userApprovalEmail = require("../utils/emails/userApprovalEmail");
+} catch (e) {
+  console.warn("Warning: userApprovalEmail module not found.", e.message);
+  userApprovalEmail = (user) => ({
+    subject: "Account Approved",
+    html: `<p>Hello ${user.name}, your account has been approved. You can now log in.</p>`,
+  });
+}
 
 // Fetch pending enrollments (paid but not yet approved/rejected)
 exports.getPendingEnrollments = async (req, res) => {
@@ -210,7 +241,6 @@ exports.approveEnrollment = async (req, res) => {
     enrollment.approvedAt = new Date();
     await enrollment.save();
 
-    // Notify student
     if (enrollment.User && enrollment.Course) {
       const { subject, html } = enrollmentApprovedEmail(
         enrollment.User,
@@ -250,7 +280,6 @@ exports.rejectEnrollment = async (req, res) => {
     enrollment.approvedAt = new Date();
     await enrollment.save();
 
-    // Notify student
     if (enrollment.User && enrollment.Course) {
       const { subject, html } = enrollmentRejectedEmail(
         enrollment.User,
