@@ -76,13 +76,15 @@
 
 
 
+
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 const sendEmail = require("../utils/sendEmail");
 const passwordResetEmail = require("../utils/emails/passwordReset");
 
-// ✅ Generate JWT
+// ✅ Generate JWT Token
 const generateToken = (user) => {
   return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRATION_TIME || "7d",
@@ -94,7 +96,6 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, role, subject } = req.body;
 
-    // Validate input
     if (!name || !email || !password || !role) {
       return res
         .status(400)
@@ -102,60 +103,51 @@ exports.register = async (req, res) => {
     }
 
     if (!["student", "teacher", "admin"].includes(role)) {
-      return res
-        .status(400)
-        .json({ error: "Role must be student, teacher, or admin" });
+      return res.status(400).json({ error: "Invalid role specified" });
     }
 
-    // Only require subject for student/teacher
-    if ((role === "student" || role === "teacher") && !subject) {
+    // ✅ Only require subject for TEACHER
+    if (role === "teacher" && !subject) {
       return res
         .status(400)
-        .json({ error: "Subject is required for student/teacher" });
+        .json({ error: "Subject is required for teachers" });
     }
 
-    // Check for existing user
+    // ✅ Check for existing email
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(409).json({ error: "Email already registered" });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Set approval status
+    // ✅ Approval logic
     const approvalStatus = role === "teacher" ? "pending" : "approved";
 
-    // Create user
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
       role,
-      subject: role !== "admin" ? subject : null,
+      subject: role === "teacher" ? subject : null,
       approvalStatus,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     });
 
-    // Generate token
     const token = generateToken(user);
 
-    // Send welcome email
+    // ✅ Send welcome email (optional)
     try {
       await sendEmail(
         user.email,
         "Welcome to MathClass!",
-        `<p>Hello ${
-          user.name
-        },<br>Your account has been created successfully. ${
+        `<p>Hello ${user.name}, your account has been created successfully. ${
           role === "teacher"
-            ? "Your account is pending approval."
-            : "You can now log in and start exploring."
+            ? "Your account is pending approval by admin."
+            : "You can now log in and start learning."
         }</p>`
       );
     } catch (emailError) {
-      console.warn("Failed to send welcome email:", emailError.message);
+      console.warn("Email sending failed:", emailError.message);
     }
 
     return res.status(201).json({
@@ -171,25 +163,8 @@ exports.register = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("🔥 Register error:", {
-      message: err.message,
-      stack: err.stack,
-      requestBody: req.body,
-      requestPath: req.path,
-    });
-    if (err.name === "SequelizeUniqueConstraintError") {
-      return res.status(409).json({ error: "Email already registered" });
-    }
-    if (err.name === "SequelizeValidationError") {
-      return res.status(400).json({
-        error: "Validation error",
-        details: err.errors.map((e) => e.message),
-      });
-    }
-    return res.status(500).json({
-      error: "Registration failed",
-      details: err.message,
-    });
+    console.error("🔥 Register error:", err);
+    return res.status(500).json({ error: "Registration failed" });
   }
 };
 
@@ -214,7 +189,7 @@ exports.login = async (req, res) => {
     if (user.role === "teacher" && user.approvalStatus !== "approved") {
       return res
         .status(403)
-        .json({ error: "Your account is pending approval" });
+        .json({ error: "Your account is pending admin approval" });
     }
 
     const token = generateToken(user);
@@ -231,27 +206,19 @@ exports.login = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("🔥 Login error:", {
-      message: err.message,
-      stack: err.stack,
-      requestBody: req.body,
-    });
-    return res.status(500).json({ error: "Login failed. Please try again." });
+    console.error("🔥 Login error:", err);
+    return res.status(500).json({ error: "Login failed" });
   }
 };
 
 // ✅ Forgot Password
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
-  }
+  if (!email) return res.status(400).json({ error: "Email is required" });
 
   try {
     const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     const resetToken = jwt.sign(
       { id: user.id, email: user.email },
@@ -264,11 +231,7 @@ exports.forgotPassword = async (req, res) => {
 
     return res.json({ message: "Password reset email sent" });
   } catch (err) {
-    console.error("🔥 Forgot password error:", {
-      message: err.message,
-      stack: err.stack,
-      requestBody: req.body,
-    });
+    console.error("🔥 Forgot password error:", err);
     return res.status(500).json({ error: "Failed to send reset email" });
   }
 };

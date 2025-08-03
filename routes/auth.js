@@ -110,46 +110,17 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 
-// POST /api/v1/auth/register
+// ✅ Register new user
 router.post("/register", authController.register);
 
-// POST /api/v1/auth/forgot-password
-router.post("/forgot-password", async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+// ✅ Login
+router.post("/login", authController.login);
 
-  try {
-    const { User } = require("../models");
-    const user = await User.findOne({ where: { email } });
-    if (!user)
-      return res.status(404).json({ error: "No user found with that email" });
-
-    const jwt = require("jsonwebtoken");
-    const resetToken = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    const sendEmail = require("../utils/sendEmail");
-    const passwordResetEmail = require("../utils/emails/passwordReset");
-    const { subject, html } = passwordResetEmail(user, resetToken);
-    await sendEmail(user.email, subject, html);
-
-    res.json({ message: "Password reset email sent" });
-  } catch (err) {
-    console.error("Forgot password error:", {
-      message: err.message,
-      stack: err.stack,
-      email,
-    });
-    res.status(500).json({ error: "Could not send reset email" });
-  }
-});
+// ✅ Forgot Password
+router.post("/forgot-password", authController.forgotPassword);
 
 module.exports = router;
