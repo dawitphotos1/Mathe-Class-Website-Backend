@@ -86,13 +86,12 @@
 
 
 
-// routes/enrollments.js
+
 const express = require("express");
 const router = express.Router();
 const { authenticate } = require("../middleware/authenticate");
 const enrollmentController = require("../controllers/enrollmentController");
 
-// Confirm enrollment (student pays and requests access)
 router.post("/confirm", authenticate, enrollmentController.confirmEnrollment);
 
 module.exports = router;
