@@ -85,7 +85,7 @@
 
 const express = require("express");
 const router = express.Router();
-const courseController = require("../controllers/coursesController");
+const courseController = require("../controllers/courseController");
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
