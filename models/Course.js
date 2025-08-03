@@ -80,24 +80,42 @@
 //   return Course;
 // };
 
-
-
 module.exports = (sequelize, DataTypes) => {
   const Course = sequelize.define("Course", {
-    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-    title: { type: DataTypes.STRING, allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: true },
-    price: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
-    createdBy: { type: DataTypes.INTEGER, allowNull: false }, // Teacher/Admin ID
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    slug: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+    },
+    subject: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
   });
-
-  Course.associate = (models) => {
-    // A course can have many enrollments
-    Course.hasMany(models.UserCourseAccess, { foreignKey: "courseId" });
-
-    // A course belongs to a teacher or admin
-    Course.belongsTo(models.User, { foreignKey: "createdBy", as: "creator" });
-  };
-
   return Course;
 };

@@ -23,7 +23,6 @@
 
 
 
-
 const errorHandler = (err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Error:`, {
     message: err.message,
@@ -32,6 +31,7 @@ const errorHandler = (err, req, res, next) => {
     method: req.method,
     body: req.body,
     headers: req.headers,
+    userId: req.user?.id,
   });
 
   const statusCode = err.statusCode || 500;

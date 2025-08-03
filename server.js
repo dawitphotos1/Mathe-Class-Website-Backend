@@ -205,8 +205,6 @@
 // })();
 
 
-
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -236,6 +234,7 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`, {
     body: req.body,
     headers: req.headers,
+    userId: req.user?.id,
   });
   next();
 });
