@@ -40,13 +40,12 @@
 
 
 
-
 // routes/admin.js
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/adminController");
-const { authenticate } = require("../middleware/authenticate");
-const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin";
+const { authenticate } = require("../middleware/authenticate"); // adjust if your export is named differently
+const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
 
 // Fetch pending enrollments
 router.get(
