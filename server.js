@@ -205,6 +205,7 @@
 // })();
 
 
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -224,8 +225,16 @@ const allowedOrigins = [
 ];
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin || "*");
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -279,7 +288,9 @@ app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
       stack: error.stack,
       userId: req.user?.id,
     });
-    res.status(500).json({ error: "Failed to fetch user" });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch user", details: error.message });
   }
 });
 
