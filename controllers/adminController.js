@@ -131,20 +131,19 @@
 
 
 
-
 // controllers/adminController.js
 const { UserCourseAccess, User, Course } = require("../models");
 const sendEmail = require("../utils/sendEmail");
 
-// Defensive require for email templates
-let enrollmentApprovedEmail;
-let enrollmentRejectedEmail;
-let userApprovalEmail;
+// Load email templates with fallback defaults
+let enrollmentApprovedEmail = () => ({ subject: "", html: "" });
+let enrollmentRejectedEmail = () => ({ subject: "", html: "" });
+let userApprovalEmail = () => ({ subject: "", html: "" });
 
 try {
   enrollmentApprovedEmail = require("../utils/emails/enrollmentApproved");
-} catch (e) {
-  console.warn("Warning: enrollmentApprovedEmail module not found.", e.message);
+} catch {
+  console.warn("⚠ enrollmentApprovedEmail module not found — using default.");
   enrollmentApprovedEmail = (user, course) => ({
     subject: "Enrollment Approved",
     html: `<p>Hello ${user.name}, your enrollment in "${course.title}" has been approved.</p>`,
@@ -153,8 +152,8 @@ try {
 
 try {
   enrollmentRejectedEmail = require("../utils/emails/enrollmentRejected");
-} catch (e) {
-  console.warn("Warning: enrollmentRejectedEmail module not found.", e.message);
+} catch {
+  console.warn("⚠ enrollmentRejectedEmail module not found — using default.");
   enrollmentRejectedEmail = (user, course) => ({
     subject: "Enrollment Rejected",
     html: `<p>Hello ${user.name}, your enrollment in "${course.title}" was rejected.</p>`,
@@ -163,22 +162,18 @@ try {
 
 try {
   userApprovalEmail = require("../utils/emails/userApprovalEmail");
-} catch (e) {
-  console.warn("Warning: userApprovalEmail module not found.", e.message);
+} catch {
+  console.warn("⚠ userApprovalEmail module not found — using default.");
   userApprovalEmail = (user) => ({
     subject: "Account Approved",
     html: `<p>Hello ${user.name}, your account has been approved. You can now log in.</p>`,
   });
 }
 
-// Fetch pending enrollments (paid but not yet approved/rejected)
-exports.getPendingEnrollments = async (req, res) => {
+const getPendingEnrollments = async (req, res) => {
   try {
     const pending = await UserCourseAccess.findAll({
-      where: {
-        approvalStatus: "pending",
-        paymentStatus: "paid",
-      },
+      where: { approvalStatus: "pending", paymentStatus: "paid" },
       include: [
         { model: User, as: "User" },
         { model: Course, as: "Course" },
@@ -187,19 +182,14 @@ exports.getPendingEnrollments = async (req, res) => {
     return res.json({ pending });
   } catch (err) {
     console.error("Error fetching pending enrollments:", err);
-    return res.status(500).json({
-      error: "Failed to fetch pending enrollments",
-    });
+    return res.status(500).json({ error: "Failed to fetch pending enrollments" });
   }
 };
 
-// Fetch approved enrollments
-exports.getApprovedEnrollments = async (req, res) => {
+const getApprovedEnrollments = async (req, res) => {
   try {
     const approved = await UserCourseAccess.findAll({
-      where: {
-        approvalStatus: "approved",
-      },
+      where: { approvalStatus: "approved" },
       include: [
         { model: User, as: "User" },
         { model: Course, as: "Course" },
@@ -208,59 +198,11 @@ exports.getApprovedEnrollments = async (req, res) => {
     return res.json({ approved });
   } catch (err) {
     console.error("Error fetching approved enrollments:", err);
-    return res.status(500).json({
-      error: "Failed to fetch approved enrollments",
-    });
+    return res.status(500).json({ error: "Failed to fetch approved enrollments" });
   }
 };
 
-// Approve an enrollment
-exports.approveEnrollment = async (req, res) => {
-  try {
-    const { id } = req.params; // enrollment id
-    const actor = req.user; // teacher or admin approving
-
-    const enrollment = await UserCourseAccess.findByPk(id, {
-      include: [
-        { model: User, as: "User" },
-        { model: Course, as: "Course" },
-      ],
-    });
-    if (!enrollment) {
-      return res.status(404).json({ error: "Enrollment not found" });
-    }
-
-    if (enrollment.paymentStatus !== "paid") {
-      return res.status(400).json({
-        error: "Cannot approve enrollment that has not been paid",
-      });
-    }
-
-    enrollment.approvalStatus = "approved";
-    enrollment.approvedBy = actor.id;
-    enrollment.approvedAt = new Date();
-    await enrollment.save();
-
-    if (enrollment.User && enrollment.Course) {
-      const { subject, html } = enrollmentApprovedEmail(
-        enrollment.User,
-        enrollment.Course
-      );
-      await sendEmail(enrollment.User.email, subject, html);
-    }
-
-    return res.json({
-      message: "Enrollment approved",
-      enrollment,
-    });
-  } catch (err) {
-    console.error("Error approving enrollment:", err);
-    return res.status(500).json({ error: "Failed to approve enrollment" });
-  }
-};
-
-// Reject an enrollment
-exports.rejectEnrollment = async (req, res) => {
+const approveEnrollment = async (req, res) => {
   try {
     const { id } = req.params;
     const actor = req.user;
@@ -271,9 +213,42 @@ exports.rejectEnrollment = async (req, res) => {
         { model: Course, as: "Course" },
       ],
     });
-    if (!enrollment) {
-      return res.status(404).json({ error: "Enrollment not found" });
+
+    if (!enrollment) return res.status(404).json({ error: "Enrollment not found" });
+    if (enrollment.paymentStatus !== "paid") {
+      return res.status(400).json({ error: "Cannot approve unpaid enrollment" });
     }
+
+    enrollment.approvalStatus = "approved";
+    enrollment.approvedBy = actor.id;
+    enrollment.approvedAt = new Date();
+    await enrollment.save();
+
+    if (enrollment.User && enrollment.Course) {
+      const { subject, html } = enrollmentApprovedEmail(enrollment.User, enrollment.Course);
+      await sendEmail(enrollment.User.email, subject, html);
+    }
+
+    return res.json({ message: "Enrollment approved", enrollment });
+  } catch (err) {
+    console.error("Error approving enrollment:", err);
+    return res.status(500).json({ error: "Failed to approve enrollment" });
+  }
+};
+
+const rejectEnrollment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actor = req.user;
+
+    const enrollment = await UserCourseAccess.findByPk(id, {
+      include: [
+        { model: User, as: "User" },
+        { model: Course, as: "Course" },
+      ],
+    });
+
+    if (!enrollment) return res.status(404).json({ error: "Enrollment not found" });
 
     enrollment.approvalStatus = "rejected";
     enrollment.approvedBy = actor.id;
@@ -281,19 +256,20 @@ exports.rejectEnrollment = async (req, res) => {
     await enrollment.save();
 
     if (enrollment.User && enrollment.Course) {
-      const { subject, html } = enrollmentRejectedEmail(
-        enrollment.User,
-        enrollment.Course
-      );
+      const { subject, html } = enrollmentRejectedEmail(enrollment.User, enrollment.Course);
       await sendEmail(enrollment.User.email, subject, html);
     }
 
-    return res.json({
-      message: "Enrollment rejected",
-      enrollment,
-    });
+    return res.json({ message: "Enrollment rejected", enrollment });
   } catch (err) {
     console.error("Error rejecting enrollment:", err);
     return res.status(500).json({ error: "Failed to reject enrollment" });
   }
+};
+
+module.exports = {
+  getPendingEnrollments,
+  getApprovedEnrollments,
+  approveEnrollment,
+  rejectEnrollment,
 };

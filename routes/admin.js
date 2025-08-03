@@ -39,12 +39,11 @@
 // module.exports = router;
 
 
-
 // routes/admin.js
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/adminController");
-const { authenticate } = require("../middleware/authenticate"); // adjust if your export is named differently
+const authenticate = require("../middleware/authenticate"); // ✅ correct import
 const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
 
 // Fetch pending enrollments
