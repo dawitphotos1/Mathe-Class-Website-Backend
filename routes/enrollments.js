@@ -86,11 +86,10 @@
 
 
 
-
 // routes/enrollments.js
 const express = require("express");
 const router = express.Router();
-const { authenticate } = require("../middleware/authenticate"); // your auth middleware
+const { authenticate } = require("../middleware/authenticate");
 const enrollmentController = require("../controllers/enrollmentController");
 
 // Confirm enrollment (student pays and requests access)
