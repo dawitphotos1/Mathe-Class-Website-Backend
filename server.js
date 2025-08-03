@@ -205,119 +205,61 @@
 // })();
 
 
-
-require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
-const rateLimit = require("express-rate-limit");
-const { sequelize, User } = require("./models");
-const authMiddleware = require("./middleware/authMiddleware");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+const { sequelize } = require("./models");
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const courseRoutes = require("./routes/courseRoutes");
 
 const app = express();
-app.set("trust proxy", 1);
 
-// ✅ CORS Setup
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://math-class-platform.netlify.app",
-];
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, origin || "*");
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// CORS configuration
+const corsOptions = {
+  origin: [
+    "http://localhost:3000",
+    "https://your-netlify-site.netlify.app", // Replace with your actual Netlify URL
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+};
 
-// ✅ Request Logging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`, {
-    body: req.body,
-    headers: req.headers,
-    userId: req.user?.id,
-  });
-  next();
-});
+app.use(cors(corsOptions));
 
-// ✅ Body Parsing
+// Handle preflight requests explicitly
+app.options("*", cors(corsOptions));
+
+// Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// ✅ Static Directories
-const uploadsDir = path.join(__dirname, "Uploads");
-const imagesDir = path.join(__dirname, "images");
-[uploadsDir, imagesDir].forEach((dir) => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
-app.use("/Uploads", express.static(uploadsDir));
-app.use("/images", express.static(imagesDir));
+// Routes
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/courses", courseRoutes);
 
-// ✅ Rate Limiting
-app.use("/api/v1/", rateLimit({ windowMs: 15 * 60 * 1000, max: 5000 }));
-
-// ✅ Routes
-app.use("/api/v1/auth", require("./routes/auth"));
-app.use("/api/v1/users", require("./routes/users"));
-app.use("/api/v1/courses", require("./routes/courseRoutes"));
-app.use("/api/v1/lessons/course", require("./routes/lessonRoutes"));
-app.use("/api/v1/payments", require("./routes/payments"));
-app.use("/api/v1/enrollments", require("./routes/enrollments"));
-app.use("/api/v1/admin", require("./routes/admin"));
-
-// ✅ Profile
-app.get("/api/v1/users/me", authMiddleware, async (req, res) => {
-  try {
-    if (!req.user?.id) return res.status(401).json({ error: "Invalid token" });
-    const user = await User.findByPk(req.user.id, {
-      attributes: ["id", "name", "email", "role"],
-    });
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ success: true, user });
-  } catch (error) {
-    console.error("🔥 Profile error:", {
-      message: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-    });
-    res
-      .status(500)
-      .json({ error: "Failed to fetch user", details: error.message });
-  }
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("🔥 Server error:", {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
+  res
+    .status(500)
+    .json({ error: "Internal server error", details: err.message });
 });
 
-// ✅ Health Check
-app.get("/health", (req, res) =>
-  res.json({ status: "OK", timestamp: new Date().toISOString() })
-);
+// Database connection
+sequelize
+  .authenticate()
+  .then(() => console.log("Database connected"))
+  .catch((err) => console.error("Database connection error:", err));
 
-// ✅ 404 Handler
-app.use((req, res) => res.status(404).json({ error: "Not Found" }));
-
-// ✅ Error Handler
-app.use(require("./middleware/errorHandler"));
-
-// ✅ Start Server
+// Start server
 const PORT = process.env.PORT || 5000;
-(async () => {
-  try {
-    await sequelize.authenticate();
-    console.log("✅ Database connected");
-    await sequelize.sync({ force: false });
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-  } catch (err) {
-    console.error("🔥 Startup error:", {
-      message: err.message,
-      stack: err.stack,
-    });
-    process.exit(1);
-  }
-})();
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
