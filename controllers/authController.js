@@ -190,6 +190,9 @@
 // };
 
 
+
+
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
@@ -301,4 +304,12 @@ exports.login = async (req, res) => {
     console.error("Login error:", error);
     res.status(500).json({ error: "Login failed", details: error.message });
   }
+};
+
+// ✅ Forgot Password (Stub)
+exports.forgotPassword = async (req, res) => {
+  res.status(501).json({
+    success: false,
+    message: "Forgot password functionality not implemented yet",
+  });
 };
