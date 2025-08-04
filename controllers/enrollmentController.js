@@ -155,8 +155,18 @@ exports.checkEnrollmentStatus = async (req, res) => {
     const userId = req.user?.id;
     const { courseId } = req.params;
 
+    console.log(
+      "🔎 Checking enrollment for user:",
+      userId,
+      "course:",
+      courseId
+    );
+
     if (!userId || !courseId) {
-      return res.status(400).json({ success: false, error: "Missing user or courseId" });
+      console.error("❌ Missing userId or courseId");
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing user or courseId" });
     }
 
     const enrollment = await UserCourseAccess.findOne({
@@ -169,12 +179,20 @@ exports.checkEnrollmentStatus = async (req, res) => {
     });
 
     if (!enrollment) {
+      console.log("❌ Not enrolled or not approved");
       return res.status(404).json({ success: false, enrolled: false });
     }
 
+    console.log("✅ Enrolled and approved!");
     return res.json({ success: true, enrolled: true });
   } catch (error) {
     console.error("❌ Enrollment check error:", error);
-    res.status(500).json({ success: false, error: "Failed to check enrollment" });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: "Failed to check enrollment",
+        details: error.message,
+      });
   }
 };
