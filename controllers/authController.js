@@ -190,11 +190,12 @@
 // };
 
 
-
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 const sendEmail = require("../utils/sendEmail");
+
+// Load email templates
 const welcomeStudentEmail = require("../utils/emails/welcomeStudent");
 const notifyAdminOfNewStudent = require("../utils/emails/notifyAdminOfNewStudent");
 
@@ -226,15 +227,16 @@ exports.register = async (req, res) => {
     });
 
     if (role === "student") {
-      // Send email to student
-      const { subject, html } = welcomeStudentEmail(user);
+      // ✅ Send welcome email to student
+      const { subject, html } = welcomeStudentEmail(user.name);
       await sendEmail(user.email, subject, html);
 
-      // Notify admin
+      // ✅ Notify admins of new pending student
       const admins = await User.findAll({ where: { role: "admin" } });
       for (const admin of admins) {
-        const emailContent = notifyAdminOfNewStudent(user);
-        await sendEmail(admin.email, emailContent.subject, emailContent.html);
+        const { subject: adminSubject, html: adminHtml } =
+          notifyAdminOfNewStudent(user.name, user.email);
+        await sendEmail(admin.email, adminSubject, adminHtml);
       }
 
       return res.status(201).json({
