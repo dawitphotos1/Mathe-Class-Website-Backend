@@ -11,17 +11,15 @@
 
 
 
-
-// routes/enrollments.js
+// routes/enrollmentRoutes.js
 const express = require("express");
 const router = express.Router();
-const authMiddleware = require("../middleware/authMiddleware");
+const authenticateToken = require("../middleware/authenticateToken");
 const enrollmentController = require("../controllers/enrollmentController");
 
-// Confirm enrollment after payment
-router.post("/confirm", authMiddleware, enrollmentController.confirmEnrollment);
+// Check if the student is enrolled and approved
+router.get("/check/:courseId", authenticateToken, enrollmentController.checkEnrollment);
 
-// ✅ Check enrollment status
-router.get("/check/:courseId", authMiddleware, enrollmentController.checkEnrollmentStatus);
+// You can add more routes here if needed (e.g., enroll, approve, etc.)
 
 module.exports = router;

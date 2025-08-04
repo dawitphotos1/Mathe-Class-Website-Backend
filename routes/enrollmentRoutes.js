@@ -12,17 +12,19 @@
 // module.exports = router;
 
 
-
 // routes/enrollmentRoutes.js
 const express = require("express");
 const router = express.Router();
-const authenticate = require("../middleware/authenticate");
-const enrollmentController = require("../controllers/enrollmentController");
+const auth = require("../middleware/authenticateToken");
+const {
+  confirmEnrollment,
+  checkEnrollmentStatus,
+} = require("../controllers/enrollmentController");
 
-router.post("/confirm", authenticate, enrollmentController.confirmEnrollment);
-router.get("/my-courses", authenticate, enrollmentController.getMyCourses);
+// Confirm enrollment (student triggers this)
+router.post("/confirm", auth, confirmEnrollment);
 
-// ✅ Add this
-router.get("/check/:courseId", authenticate, enrollmentController.checkEnrollmentStatus);
+// Check if student is enrolled in a course (used to decide if 'Enroll Now' should be shown)
+router.get("/check/:courseId", auth, checkEnrollmentStatus);
 
 module.exports = router;

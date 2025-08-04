@@ -168,7 +168,6 @@ app.use("/api/v1/auth", require("./routes/auth"));
 app.use("/api/v1/users", require("./routes/users"));
 app.use("/api/v1/courses", require("./routes/courseRoutes"));
 app.use("/api/v1/payments", require("./routes/payments"));
-app.use("/api/v1/enrollments", require("./routes/enrollments")); // ✅ This mounts it
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/enrollments", enrollmentRoutes);
 
