@@ -4,8 +4,16 @@ module.exports = (sequelize, DataTypes) => {
     "UserCourseAccess",
     {
       id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-      userId: { type: DataTypes.INTEGER, allowNull: false },
-      courseId: { type: DataTypes.INTEGER, allowNull: false },
+      userId: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  field: 'user_id',
+},
+courseId: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  field: 'course_id',
+}
       paymentStatus: {
         type: DataTypes.ENUM("pending", "paid", "failed"),
         allowNull: false,

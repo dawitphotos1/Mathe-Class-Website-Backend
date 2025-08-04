@@ -116,6 +116,7 @@ const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
+const enrollmentRoutes = require("./routes/enrollmentRoutes");
 
 const app = express();
 
@@ -169,6 +170,7 @@ app.use("/api/v1/courses", require("./routes/courseRoutes"));
 app.use("/api/v1/payments", require("./routes/payments"));
 app.use("/api/v1/enrollments", require("./routes/enrollments")); // ✅ This mounts it
 app.use("/api/v1/admin", require("./routes/admin"));
+app.use("/api/v1/enrollments", enrollmentRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
