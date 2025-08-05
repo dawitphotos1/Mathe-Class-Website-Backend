@@ -205,7 +205,7 @@ const notifyAdminOfNewStudent = require("../utils/emails/notifyAdminOfNewStudent
 // ✅ Register User
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, subject } = req.body;
 
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: "All fields are required" });
@@ -217,9 +217,8 @@ exports.register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // ✅ Students require approval, others don't
-    const approvalStatus = role === "student" ? "pending" : "approved";
+    const approvalStatus =
+      role === "student" || role === "teacher" ? "pending" : "approved";
 
     const user = await User.create({
       name,
@@ -227,31 +226,27 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       role,
       approvalStatus,
+      subject: role === "teacher" || role === "student" ? subject : null,
     });
 
     if (role === "student") {
-      // ✅ Send welcome email to student
-      const { subject, html } = welcomeStudentEmail(user.name);
-      await sendEmail(user.email, subject, html);
+      const { subject: subjectText, html } = welcomeStudentEmail(user.name);
+      await sendEmail(user.email, subjectText, html);
 
-      // ✅ Notify admins of new pending student
       const admins = await User.findAll({ where: { role: "admin" } });
       for (const admin of admins) {
-        const { subject: adminSubject, html: adminHtml } =
-          notifyAdminOfNewStudent(user.name, user.email);
-        await sendEmail(admin.email, adminSubject, adminHtml);
+        const emailToAdmin = notifyAdminOfNewStudent(user.name, user.email);
+        await sendEmail(admin.email, emailToAdmin.subject, emailToAdmin.html);
       }
-
-      return res.status(201).json({
-        success: true,
-        message: "Registration successful! Pending for approval",
-      });
-    } else {
-      return res.status(201).json({
-        success: true,
-        message: "Registration successful! You can now login",
-      });
     }
+
+    return res.status(201).json({
+      success: true,
+      message:
+        role === "admin"
+          ? "Registration successful! You can now login"
+          : "Registration successful! Pending admin approval",
+    });
   } catch (error) {
     console.error("Registration error:", error);
     res
@@ -275,7 +270,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    if (user.role === "student" && user.approvalStatus !== "approved") {
+    if (user.approvalStatus !== "approved") {
       return res
         .status(403)
         .json({ error: "Your account is pending approval" });
