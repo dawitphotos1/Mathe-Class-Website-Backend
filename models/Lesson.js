@@ -1,12 +1,127 @@
 
-module.exports = (sequelize, DataTypes) => {
-  const Lesson = sequelize.define(
-    "Lesson",
+// module.exports = (sequelize, DataTypes) => {
+//   const Lesson = sequelize.define(
+//     "Lesson",
+//     {
+//       id: {
+//         type: DataTypes.INTEGER,
+//         primaryKey: true,
+//         autoIncrement: true,
+//         allowNull: false,
+//       },
+//       title: {
+//         type: DataTypes.STRING,
+//         allowNull: false,
+//       },
+//       content: {
+//         type: DataTypes.TEXT,
+//         allowNull: true,
+//       },
+//       contentType: {
+//         type: DataTypes.STRING,
+//         defaultValue: "text",
+//       },
+//       contentUrl: {
+//         type: DataTypes.STRING,
+//       },
+//       videoUrl: {
+//         type: DataTypes.STRING,
+//       },
+//       isPreview: {
+//         type: DataTypes.BOOLEAN,
+//         defaultValue: false,
+//       },
+//       isUnitHeader: {
+//         type: DataTypes.BOOLEAN,
+//         defaultValue: false,
+//       },
+//       orderIndex: {
+//         type: DataTypes.INTEGER,
+//         allowNull: false,
+//         defaultValue: 0,
+//       },
+//       courseId: {
+//         type: DataTypes.INTEGER,
+//         allowNull: false,
+//         references: {
+//           model: "Courses",
+//           key: "id",
+//         },
+//       },
+//       unitId: {
+//         type: DataTypes.INTEGER,
+//         allowNull: true,
+//         references: {
+//           model: "Lessons",
+//           key: "id",
+//         },
+//       },
+//       userId: {
+//         type: DataTypes.INTEGER,
+//         allowNull: false,
+//         references: {
+//           model: "Users",
+//           key: "id",
+//         },
+//       },
+//       createdAt: {
+//         type: DataTypes.DATE,
+//         allowNull: false,
+//       },
+//       updatedAt: {
+//         type: DataTypes.DATE,
+//         allowNull: false,
+//       },
+//     },
+//     {
+//       tableName: "Lessons",
+//       underscored: false,
+//     }
+//   );
+
+//   Lesson.associate = (models) => {
+//     Lesson.belongsTo(models.Course, {
+//       foreignKey: "courseId",
+//       as: "course",
+//       onDelete: "CASCADE",
+//       // hooks: true, // ✅ Enables Sequelize to cascade delete lessons when Course is deleted
+//     });
+
+//     Lesson.belongsTo(models.User, {
+//       foreignKey: "userId",
+//       as: "user",
+//     });
+
+//     Lesson.belongsTo(models.Lesson, {
+//       foreignKey: "unitId",
+//       as: "unitHeader",
+//       onDelete: "CASCADE", // ✅ ADD THIS
+//     });
+    
+
+//     Lesson.hasMany(models.Lesson, {
+//       foreignKey: "unitId",
+//       as: "subLessons",
+//     });
+//   };
+
+//   return Lesson;
+// };
+
+
+
+
+// models/Lesson.js
+
+const { Model, DataTypes } = require("sequelize");
+
+module.exports = (sequelize) => {
+  class Lesson extends Model {}
+
+  Lesson.init(
     {
-      id: {
+      courseId: {
         type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
         allowNull: false,
       },
       title: {
@@ -19,13 +134,16 @@ module.exports = (sequelize, DataTypes) => {
       },
       contentType: {
         type: DataTypes.STRING,
+        allowNull: true,
         defaultValue: "text",
       },
       contentUrl: {
         type: DataTypes.STRING,
+        allowNull: true,
       },
       videoUrl: {
         type: DataTypes.STRING,
+        allowNull: true,
       },
       isPreview: {
         type: DataTypes.BOOLEAN,
@@ -37,73 +155,24 @@ module.exports = (sequelize, DataTypes) => {
       },
       orderIndex: {
         type: DataTypes.INTEGER,
-        allowNull: false,
         defaultValue: 0,
-      },
-      courseId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-          model: "Courses",
-          key: "id",
-        },
       },
       unitId: {
         type: DataTypes.INTEGER,
         allowNull: true,
-        references: {
-          model: "Lessons",
-          key: "id",
-        },
       },
       userId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-          model: "Users",
-          key: "id",
-        },
-      },
-      createdAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
-      },
-      updatedAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
+        allowNull: true,
       },
     },
     {
+      sequelize,
+      modelName: "Lesson",
       tableName: "Lessons",
-      underscored: false,
+      timestamps: true,
     }
   );
-
-  Lesson.associate = (models) => {
-    Lesson.belongsTo(models.Course, {
-      foreignKey: "courseId",
-      as: "course",
-      onDelete: "CASCADE",
-      // hooks: true, // ✅ Enables Sequelize to cascade delete lessons when Course is deleted
-    });
-
-    Lesson.belongsTo(models.User, {
-      foreignKey: "userId",
-      as: "user",
-    });
-
-    Lesson.belongsTo(models.Lesson, {
-      foreignKey: "unitId",
-      as: "unitHeader",
-      onDelete: "CASCADE", // ✅ ADD THIS
-    });
-    
-
-    Lesson.hasMany(models.Lesson, {
-      foreignKey: "unitId",
-      as: "subLessons",
-    });
-  };
 
   return Lesson;
 };
