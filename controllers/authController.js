@@ -1,11 +1,123 @@
 
+// const bcrypt = require("bcrypt");
+// const jwt = require("jsonwebtoken");
+// const { User } = require("../models");
+
+// // ==========================
+// // Register Controller
+// // ==========================
+// exports.register = async (req, res) => {
+//   try {
+//     const { name, email, password, role, subject } = req.body;
+
+//     const existingUser = await User.findOne({ where: { email } });
+//     if (existingUser) {
+//       return res.status(409).json({ error: "Email already registered" });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const approved = role === "student" ? false : true;
+
+//     const newUser = await User.create({
+//       name,
+//       email,
+//       password: hashedPassword,
+//       role,
+//       subject: role === "teacher" ? subject : null,
+//       approved, // ✅ this must be passed
+//     });
+
+//     const token = jwt.sign(
+//       { id: newUser.id, role: newUser.role },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "7d" }
+//     );
+
+//     const userResponse = {
+//       id: newUser.id,
+//       name: newUser.name,
+//       email: newUser.email,
+//       role: newUser.role,
+//       subject: newUser.subject,
+//       approved: newUser.approved,
+//     };
+
+//     res.status(201).json({
+//       message: "Registration successful",
+//       token,
+//       user: userResponse,
+//     });
+//   } catch (error) {
+//     console.error("Registration Error:", error);
+//     res.status(500).json({ error: "Registration failed. Please try again." });
+//   }
+// };
+
+// // ==========================
+// // Login Controller
+// // ==========================
+// exports.login = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     if (!email || !password) {
+//       return res
+//         .status(400)
+//         .json({ error: "Email and password are required." });
+//     }
+
+//     const user = await User.findOne({ where: { email: email.toLowerCase() } });
+//     if (!user) {
+//       return res.status(401).json({ error: "Invalid email or password." });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) {
+//       return res.status(401).json({ error: "Invalid email or password." });
+//     }
+
+//     if (user.role === "student" && !user.approved) {
+//       return res
+//         .status(403)
+//         .json({ error: "Your account is pending approval." });
+//     }
+
+//     const token = jwt.sign(
+//       { id: user.id, role: user.role },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "7d" }
+//     );
+
+//     const userResponse = {
+//       id: user.id,
+//       name: user.name,
+//       email: user.email,
+//       role: user.role,
+//       subject: user.subject,
+//       approved: user.approved,
+//     };
+
+//     res.status(200).json({
+//       message: "Login successful",
+//       token,
+//       user: userResponse,
+//     });
+//   } catch (error) {
+//     console.error("Login Error:", error);
+//     res.status(500).json({ error: "Login failed. Please try again." });
+//   }
+// };
+
+
+
+
+
+// controllers/authController.js
+
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
-// ==========================
-// Register Controller
-// ==========================
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role, subject } = req.body;
@@ -16,6 +128,8 @@ exports.register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ✅ Approve only teachers and admins immediately
     const approved = role === "student" ? false : true;
 
     const newUser = await User.create({
@@ -48,62 +162,7 @@ exports.register = async (req, res) => {
       user: userResponse,
     });
   } catch (error) {
-    console.error("Registration Error:", error);
+    console.error("Registration error:", error);
     res.status(500).json({ error: "Registration failed. Please try again." });
-  }
-};
-
-// ==========================
-// Login Controller
-// ==========================
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res
-        .status(400)
-        .json({ error: "Email and password are required." });
-    }
-
-    const user = await User.findOne({ where: { email: email.toLowerCase() } });
-    if (!user) {
-      return res.status(401).json({ error: "Invalid email or password." });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ error: "Invalid email or password." });
-    }
-
-    if (user.role === "student" && !user.approved) {
-      return res
-        .status(403)
-        .json({ error: "Your account is pending approval." });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    const userResponse = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      subject: user.subject,
-      approved: user.approved,
-    };
-
-    res.status(200).json({
-      message: "Login successful",
-      token,
-      user: userResponse,
-    });
-  } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ error: "Login failed. Please try again." });
   }
 };
