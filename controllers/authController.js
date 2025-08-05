@@ -118,61 +118,117 @@
 
 
 // controllers/authController.js
+// controllers/authController.js
 
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
+// Register new user
 const register = async (req, res) => {
   try {
     const { name, email, password, role, subject } = req.body;
 
+    // Validate input
     if (!name || !email || !password || !role) {
-      return res.status(400).json({ message: "All required fields must be provided." });
+      return res.status(400).json({ message: "Please fill in all required fields." });
     }
 
+    // Check for existing user
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(409).json({ message: "User already exists with this email." });
+      return res.status(409).json({ message: "Email already in use." });
     }
 
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Determine approval status
+    const approvalStatus = role === "student" ? "pending" : "approved";
+
+    // Create user
     const newUser = await User.create({
       name,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
-      role,
+      role: role.toLowerCase(),
       subject: role === "teacher" ? subject : null,
-      approvalStatus: role === "student" ? "approved" : "pending",
+      approvalStatus,
     });
 
-    const token = jwt.sign({ id: newUser.id, role: newUser.role }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: newUser.id, role: newUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Registration successful",
       user: {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
+        approvalStatus: newUser.approvalStatus,
       },
       token,
     });
   } catch (error) {
     console.error("Register Error:", error);
-
-    if (error.name === "SequelizeValidationError") {
-      return res.status(400).json({
-        message: "Validation Error",
-        details: error.errors.map((e) => e.message),
-      });
-    }
-
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Server Error during registration." });
   }
 };
 
-module.exports = { register };
+// Login existing user
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required." });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    // Check approval status for students only
+    if (user.role === "student" && user.approvalStatus !== "approved") {
+      return res.status(403).json({ message: "Your account is pending approval." });
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    // Create token
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        approvalStatus: user.approvalStatus,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Server Error during login." });
+  }
+};
+
+module.exports = { register, login };
