@@ -110,15 +110,13 @@
 
 
 
-
-
 // controllers/authController.js
 
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
-exports.register = async (req, res) => {
+const register = async (req, res) => {
   try {
     const { name, email, password, role, subject } = req.body;
 
@@ -129,7 +127,6 @@ exports.register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Approve only teachers and admins immediately
     const approved = role === "student" ? false : true;
 
     const newUser = await User.create({
@@ -138,7 +135,7 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       role,
       subject: role === "teacher" ? subject : null,
-      approved, // ✅ this must be passed
+      approved,
     });
 
     const token = jwt.sign(
@@ -166,3 +163,5 @@ exports.register = async (req, res) => {
     res.status(500).json({ error: "Registration failed. Please try again." });
   }
 };
+
+module.exports = { register };
