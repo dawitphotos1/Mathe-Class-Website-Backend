@@ -8,6 +8,7 @@ const { sequelize } = require("./models");
 const enrollmentRoutes = require("./routes/enrollmentRoutes");
 
 const app = express();
+app.set("trust proxy", 1);
 
 // Security
 app.use(helmet());
