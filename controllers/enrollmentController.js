@@ -178,7 +178,6 @@
 
 
 
-
 // controllers/enrollmentController.js
 
 const { UserCourseAccess, Course, User } = require("../models");
@@ -219,5 +218,37 @@ exports.getApprovedEnrollments = async (req, res) => {
   } catch (error) {
     console.error("🔴 Error in getApprovedEnrollments:", error);
     res.status(500).json({ error: "Failed to fetch approved enrollments" });
+  }
+};
+
+exports.approveEnrollment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const enrollment = await UserCourseAccess.findByPk(id);
+    if (!enrollment) {
+      return res.status(404).json({ error: "Enrollment not found" });
+    }
+    enrollment.approvalStatus = "approved";
+    enrollment.accessGrantedAt = new Date();
+    await enrollment.save();
+    res.json({ message: "Enrollment approved", enrollment });
+  } catch (error) {
+    console.error("🔴 Error in approveEnrollment:", error);
+    res.status(500).json({ error: "Failed to approve enrollment" });
+  }
+};
+
+exports.rejectEnrollment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const enrollment = await UserCourseAccess.findByPk(id);
+    if (!enrollment) {
+      return res.status(404).json({ error: "Enrollment not found" });
+    }
+    await enrollment.destroy();
+    res.json({ message: "Enrollment rejected and deleted" });
+  } catch (error) {
+    console.error("🔴 Error in rejectEnrollment:", error);
+    res.status(500).json({ error: "Failed to reject enrollment" });
   }
 };
