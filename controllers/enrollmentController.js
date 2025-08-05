@@ -1,11 +1,12 @@
 // controllers/enrollmentController.js
+
 const { UserCourseAccess, Course, User } = require("../models");
 const sendEmail = require("../utils/sendEmail");
 const courseEnrollmentPending = require("../utils/emails/courseEnrollmentPending");
 const enrollmentPendingAdmin = require("../utils/emails/enrollmentPendingAdmin");
 const logEnrollmentAction = require("../utils/logEnrollmentAction");
 
-// ✅ Confirm enrollment
+// ✅ Confirm enrollment (student)
 exports.confirmEnrollment = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -65,23 +66,14 @@ exports.confirmEnrollment = async (req, res) => {
   }
 };
 
-// ✅ Check if user is enrolled in a course (approved + paid)
+// ✅ Check if student is enrolled in a course
 exports.checkEnrollmentStatus = async (req, res) => {
   try {
     const userId = req.user?.id;
     const { courseId } = req.params;
 
-    console.log(
-      "🔎 Checking enrollment for user:",
-      userId,
-      "course:",
-      courseId
-    );
-
     if (!userId || !courseId) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Missing userId or courseId" });
+      return res.status(400).json({ success: false, error: "Missing userId or courseId" });
     }
 
     const enrollment = await UserCourseAccess.findOne({
@@ -94,18 +86,92 @@ exports.checkEnrollmentStatus = async (req, res) => {
     });
 
     if (!enrollment) {
-      console.log("❌ Not enrolled or not approved");
       return res.status(404).json({ success: false, enrolled: false });
     }
 
-    console.log("✅ Enrolled and approved!");
     return res.json({ success: true, enrolled: true });
   } catch (error) {
-    console.error("❌ Enrollment check error:", error);
+    console.error("Enrollment check error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to check enrollment",
       details: error.message,
     });
+  }
+};
+
+// ✅ Admin: get pending enrollments
+exports.getPendingEnrollments = async (req, res) => {
+  try {
+    const enrollments = await UserCourseAccess.findAll({
+      where: { approvalStatus: "pending" },
+      include: [User, Course],
+    });
+
+    res.json({ success: true, enrollments });
+  } catch (error) {
+    console.error("Error fetching pending enrollments:", error);
+    res.status(500).json({ success: false, error: "Failed to get pending enrollments" });
+  }
+};
+
+// ✅ Admin: get approved enrollments
+exports.getApprovedEnrollments = async (req, res) => {
+  try {
+    const enrollments = await UserCourseAccess.findAll({
+      where: { approvalStatus: "approved" },
+      include: [User, Course],
+    });
+
+    res.json({ success: true, enrollments });
+  } catch (error) {
+    console.error("Error fetching approved enrollments:", error);
+    res.status(500).json({ success: false, error: "Failed to get approved enrollments" });
+  }
+};
+
+// ✅ Admin: approve enrollment
+exports.approveEnrollment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const enrollment = await UserCourseAccess.findByPk(id, {
+      include: [User, Course],
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ success: false, error: "Enrollment not found" });
+    }
+
+    enrollment.approvalStatus = "approved";
+    enrollment.accessGrantedAt = new Date();
+    await enrollment.save();
+
+    await logEnrollmentAction("APPROVED", enrollment, req.user);
+
+    res.json({ success: true, message: "Enrollment approved", enrollment });
+  } catch (error) {
+    console.error("Error approving enrollment:", error);
+    res.status(500).json({ success: false, error: "Failed to approve enrollment" });
+  }
+};
+
+// ✅ Admin: reject (delete) enrollment
+exports.rejectEnrollment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const enrollment = await UserCourseAccess.findByPk(id);
+    if (!enrollment) {
+      return res.status(404).json({ success: false, error: "Enrollment not found" });
+    }
+
+    await logEnrollmentAction("REJECTED", enrollment, req.user);
+    await enrollment.destroy();
+
+    res.json({ success: true, message: "Enrollment rejected and deleted" });
+  } catch (error) {
+    console.error("Error rejecting enrollment:", error);
+    res.status(500).json({ success: false, error: "Failed to reject enrollment" });
   }
 };
