@@ -181,53 +181,54 @@ const register = async (req, res) => {
 };
 
 // Login existing user
-const login = async (req, res) => {
+const register = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { name, email, password, role, subject } = req.body;
 
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required." });
+    if (!name || !email || !password || !role) {
+      return res
+        .status(400)
+        .json({ error: "Please fill in all required fields." });
     }
 
-    // Check if user exists
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ message: "Invalid email or password." });
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(409).json({ error: "Email already in use." });
     }
 
-    // Check approval status for students only
-    if (user.role === "student" && user.approvalStatus !== "approved") {
-      return res.status(403).json({ message: "Your account is pending approval." });
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Compare passwords
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password." });
-    }
+    const approvalStatus = role === "student" ? "pending" : "approved";
 
-    // Create token
+    const newUser = await User.create({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role: role.toLowerCase(),
+      subject: role === "teacher" ? subject : null,
+      approvalStatus,
+    });
+
     const token = jwt.sign(
-      { id: user.id, role: user.role },
+      { id: newUser.id, role: newUser.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    return res.status(200).json({
-      message: "Login successful",
+    return res.status(201).json({
+      message: "Registration successful",
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        approvalStatus: user.approvalStatus,
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        approvalStatus: newUser.approvalStatus,
       },
       token,
     });
   } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ message: "Server Error during login." });
+    console.error("Register Error:", error);
+    res.status(500).json({ error: "Server Error during registration." });
   }
 };
 
