@@ -20,11 +20,11 @@ exports.register = async (req, res) => {
 
     const newUser = await User.create({
       name,
-      email: email.toLowerCase(),
+      email,
       password: hashedPassword,
-      role: role.toLowerCase(),
+      role,
       subject: role === "teacher" ? subject : null,
-      approved,
+      approved, // ✅ this must be passed
     });
 
     const token = jwt.sign(
