@@ -117,161 +117,62 @@
 
 
 
-
+// controllers/authController.js
 
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
-const sendEmail = require("../utils/sendEmail");
 
-// Load email templates with fallback to prevent crashes
-let welcomeStudentEmail = () => ({ subject: "", html: "" });
-let notifyAdminOfNewStudent = () => ({ subject: "", html: "" });
-
-try {
-  welcomeStudentEmail = require("../utils/emails/welcomeStudent");
-} catch {
-  console.warn("⚠ welcomeStudentEmail template missing — using fallback.");
-}
-try {
-  notifyAdminOfNewStudent = require("../utils/emails/notifyAdminOfNewStudent");
-} catch {
-  console.warn("⚠ notifyAdminOfNewStudent template missing — using fallback.");
-}
-
-// ✅ Register User
-exports.register = async (req, res) => {
+const register = async (req, res) => {
   try {
     const { name, email, password, role, subject } = req.body;
 
-    // Validate input
     if (!name || !email || !password || !role) {
-      return res.status(400).json({ error: "All fields are required" });
+      return res.status(400).json({ message: "All required fields must be provided." });
     }
 
-    // Normalize role
-    const normalizedRole = role.toLowerCase();
-    if (!["student", "teacher", "admin"].includes(normalizedRole)) {
-      return res.status(400).json({ error: "Invalid role" });
-    }
-
-    // Check if email already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(409).json({ error: "Email already in use" });
+      return res.status(409).json({ message: "User already exists with this email." });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Determine approval status
-    const approvalStatus = normalizedRole === "admin" ? "approved" : "pending";
-
-    // Create user
-    const user = await User.create({
+    const newUser = await User.create({
       name,
       email,
       password: hashedPassword,
-      role: normalizedRole,
-      approvalStatus,
-      subject: ["teacher", "student"].includes(normalizedRole)
-        ? subject || null
-        : null,
+      role,
+      subject: role === "teacher" ? subject : null,
+      approvalStatus: role === "student" ? "approved" : "pending",
     });
 
-    // Send emails (safe execution)
-    if (normalizedRole === "student") {
-      try {
-        const { subject: subjectText, html } = welcomeStudentEmail(user.name);
-        await sendEmail(user.email, subjectText, html);
-
-        const admins = await User.findAll({ where: { role: "admin" } });
-        for (const admin of admins) {
-          const emailToAdmin = notifyAdminOfNewStudent(user.name, user.email);
-          await sendEmail(admin.email, emailToAdmin.subject, emailToAdmin.html);
-        }
-      } catch (emailErr) {
-        console.error("⚠ Email sending failed:", emailErr.message);
-      }
-    }
-
-    return res.status(201).json({
-      success: true,
-      message:
-        normalizedRole === "admin"
-          ? "Registration successful! You can now login"
-          : "Registration successful! Pending admin approval",
+    const token = jwt.sign({ id: newUser.id, role: newUser.role }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
     });
-  } catch (error) {
-    console.error("🔥 Registration error:", {
-      message: error.message,
-      stack: error.stack,
-      body: req.body,
-    });
-    return res.status(500).json({
-      error: "Registration failed. Please try again",
-      details: error.message,
-    });
-  }
-};
 
-// ✅ Login User
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    if (user.approvalStatus !== "approved") {
-      return res
-        .status(403)
-        .json({ error: "Your account is pending approval" });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.json({
-      success: true,
-      message: "Login successful",
-      token,
+    res.status(201).json({
+      message: "Registration successful",
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
       },
+      token,
     });
   } catch (error) {
-    console.error("🔥 Login error:", {
-      message: error.message,
-      stack: error.stack,
-    });
-    return res
-      .status(500)
-      .json({ error: "Login failed", details: error.message });
+    console.error("Register Error:", error);
+
+    if (error.name === "SequelizeValidationError") {
+      return res.status(400).json({
+        message: "Validation Error",
+        details: error.errors.map((e) => e.message),
+      });
+    }
+
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// ✅ Forgot Password (Not implemented yet)
-exports.forgotPassword = async (req, res) => {
-  return res.status(501).json({
-    success: false,
-    message: "Forgot password functionality not implemented yet",
-  });
-};
+module.exports = { register };

@@ -67,7 +67,6 @@
 
 
 
-
 // models/User.js
 
 const { Model, DataTypes } = require("sequelize");
@@ -95,7 +94,7 @@ module.exports = (sequelize) => {
       },
       role: {
         type: DataTypes.ENUM("student", "teacher", "admin"),
-        defaultValue: "student",
+        allowNull: false,
       },
       subject: {
         type: DataTypes.STRING,
@@ -105,17 +104,11 @@ module.exports = (sequelize) => {
         type: DataTypes.ENUM("pending", "approved", "rejected"),
         defaultValue: "pending",
       },
-      lastLogin: {
-        type: DataTypes.DATE,
-        allowNull: true,
-      },
     },
     {
       sequelize,
       modelName: "User",
-      tableName: "Users", // Matches your existing DB table
-      timestamps: true,
-      underscored: false,
+      tableName: "Users",
     }
   );
 

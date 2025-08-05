@@ -41,13 +41,19 @@
 // };
 
 
-
 // models/Teachers.js
 
 const { Model, DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
-  class Teachers extends Model {}
+  class Teachers extends Model {
+    static associate(models) {
+      Teachers.hasMany(models.Course, {
+        foreignKey: "teacherId",
+        as: "courses",
+      });
+    }
+  }
 
   Teachers.init(
     {
