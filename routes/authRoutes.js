@@ -1,9 +1,20 @@
 
-// routes/authRoutes.js
+// // routes/authRoutes.js
+// const express = require("express");
+// const router = express.Router();
+// const authController = require("../controllers/authController");
+
+// router.post("/register", authController.register); // ✅ Correct usage
+
+// module.exports = router;
+
+
+
+
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 
-router.post("/register", authController.register); // ✅ Correct usage
+router.post("/register", authController.register);
 
 module.exports = router;
