@@ -53,17 +53,19 @@
 
 
 
-// controllers/adminController.js
 
+
+
+// controllers/adminController.js
 const { User } = require("../models");
 
-// 🚫 Get all pending student users (i.e., not yet approved)
+// ✅ Get all pending student users
 exports.getPendingUsers = async (req, res) => {
   try {
     const pendingUsers = await User.findAll({
       where: {
         role: "student",
-        approved: false, // 🔍 THIS is the key condition
+        approvalStatus: "pending", // ✅ use correct enum field
       },
       order: [["createdAt", "DESC"]],
     });
@@ -85,7 +87,7 @@ exports.approveUser = async (req, res) => {
       return res.status(404).json({ error: "Student user not found" });
     }
 
-    user.approved = true;
+    user.approvalStatus = "approved"; // ✅ set correct enum value
     await user.save();
 
     res.status(200).json({ message: "User approved" });
@@ -95,7 +97,7 @@ exports.approveUser = async (req, res) => {
   }
 };
 
-// ❌ Reject a student user (delete from DB)
+// ✅ Reject a student user (delete from DB)
 exports.rejectUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -105,6 +107,8 @@ exports.rejectUser = async (req, res) => {
       return res.status(404).json({ error: "Student user not found" });
     }
 
+    user.approvalStatus = "rejected"; // Optional: log rejection status
+    await user.save();
     await user.destroy();
 
     res.status(200).json({ message: "User rejected and deleted" });
