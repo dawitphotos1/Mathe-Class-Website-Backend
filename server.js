@@ -6,6 +6,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
 const errorHandler = require("./middleware/errorHandler");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -58,7 +59,7 @@ app.use("/api/v1/courses", require("./routes/courseRoutes"));
 app.use("/api/v1/payments", require("./routes/payments"));
 app.use("/api/v1/admin", require("./routes/admin"));
 app.use("/api/v1/enrollments", require("./routes/enrollmentRoutes"));
-
+app.use("/api/v1/admin", adminRoutes);
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "OK", time: new Date().toISOString() });

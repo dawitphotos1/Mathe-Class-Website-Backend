@@ -1,0 +1,38 @@
+// const express = require("express");
+// const router = express.Router();
+// const { getDashboardStats } = require("../controllers/adminController");
+
+// // ✅ GET Admin Dashboard Stats
+// // Endpoint: /api/v1/admin/dashboard
+// router.get("/dashboard", getDashboardStats);
+
+// module.exports = router;
+
+
+
+const express = require("express");
+const router = express.Router();
+const {
+  getDashboardStats,
+  getPendingUsers,
+  approveUser,
+  rejectUser,
+  getUsersByStatus,
+} = require("../controllers/adminController");
+
+// ✅ Dashboard stats
+router.get("/dashboard", getDashboardStats);
+
+// ✅ Get all pending students
+router.get("/pending-users", getPendingUsers);
+
+// ✅ Get users by status (approved or rejected)
+router.get("/users", getUsersByStatus);
+
+// ✅ Approve a student
+router.patch("/approve/:id", approveUser);
+
+// ✅ Reject a student
+router.patch("/reject/:id", rejectUser);
+
+module.exports = router;
