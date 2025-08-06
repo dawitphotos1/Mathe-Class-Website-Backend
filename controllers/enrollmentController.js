@@ -280,3 +280,26 @@ exports.createEnrollment = async (req, res) => {
     res.status(500).json({ error: "Failed to create enrollment" });
   }
 };
+
+exports.getMyEnrollments = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const enrollments = await UserCourseAccess.findAll({
+      where: { userId },
+      include: [
+        {
+          model: Course,
+          as: "Course",
+          attributes: ["id", "title", "description"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json({ enrollments });
+  } catch (err) {
+    console.error("🔴 getMyEnrollments error:", err);
+    res.status(500).json({ error: "Failed to fetch enrollments" });
+  }
+};

@@ -15,7 +15,6 @@
 
 // module.exports = router;
 
-
 // routes/enrollmentRoutes.js
 
 const express = require("express");
@@ -26,10 +25,10 @@ const authenticate = require("../middleware/authenticate");
 // Protect all routes
 router.use(authenticate);
 
-// Create enrollment request
+// POST: create enrollment
 router.post("/", enrollmentController.createEnrollment);
 
-// Optional: get user's enrollments
+// GET: get student’s enrollments (optional)
 router.get("/my-enrollments", enrollmentController.getMyEnrollments);
 
 module.exports = router;
