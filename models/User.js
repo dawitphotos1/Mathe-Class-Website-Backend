@@ -1,5 +1,4 @@
 // models/User.js
-
 const { Model, DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
@@ -31,10 +30,10 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
-      approved: {
-        type: DataTypes.BOOLEAN,
+      approvalStatus: {
+        type: DataTypes.ENUM("pending", "approved", "rejected"),
         allowNull: false,
-        defaultValue: false, // default for students, overridden for others
+        defaultValue: "pending",
       },
     },
     {
