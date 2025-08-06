@@ -252,3 +252,31 @@ exports.rejectEnrollment = async (req, res) => {
     res.status(500).json({ error: "Failed to reject enrollment" });
   }
 };
+
+exports.createEnrollment = async (req, res) => {
+  try {
+    const { courseId } = req.body;
+    const userId = req.user.id;
+
+    // Prevent duplicate
+    const existing = await UserCourseAccess.findOne({
+      where: { userId, courseId },
+    });
+
+    if (existing) {
+      return res.status(409).json({ error: "Already enrolled or pending" });
+    }
+
+    const enrollment = await UserCourseAccess.create({
+      userId,
+      courseId,
+      paymentStatus: "paid",
+      approvalStatus: "pending",
+    });
+
+    res.status(201).json({ message: "Enrollment request sent", enrollment });
+  } catch (err) {
+    console.error("🔴 createEnrollment error:", err);
+    res.status(500).json({ error: "Failed to create enrollment" });
+  }
+};
