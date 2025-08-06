@@ -166,7 +166,6 @@
 
 
 
-
 const { User } = require("../models");
 
 // ✅ Dashboard Stats
@@ -184,12 +183,12 @@ const getDashboardStats = async (req, res) => {
       approvedEnrollments: 0,
     });
   } catch (error) {
-    console.error("🔴 Dashboard error:", error);
+    console.error("Dashboard error:", error);
     res.status(500).json({ error: "Failed to load dashboard stats" });
   }
 };
 
-// ✅ Get pending students
+// ✅ Get pending users
 const getPendingUsers = async (req, res) => {
   try {
     const users = await User.findAll({
@@ -203,22 +202,20 @@ const getPendingUsers = async (req, res) => {
         "createdAt",
       ],
     });
-
     res.status(200).json(users);
   } catch (error) {
-    console.error("🔴 Fetch pending users error:", error);
+    console.error("Pending users error:", error);
     res.status(500).json({ error: "Failed to fetch pending users" });
   }
 };
 
-// ✅ Get users by approval status
+// ✅ Get users by status
 const getUsersByStatus = async (req, res) => {
   try {
-    const { status } = req.query; // approved or rejected
+    const { status } = req.query;
     if (!status || !["approved", "rejected"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
-
     const users = await User.findAll({
       where: { role: "student", approvalStatus: status },
       attributes: [
@@ -230,10 +227,9 @@ const getUsersByStatus = async (req, res) => {
         "createdAt",
       ],
     });
-
     res.status(200).json(users);
   } catch (error) {
-    console.error("🔴 Fetch users by status error:", error);
+    console.error("Users by status error:", error);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 };
@@ -241,18 +237,15 @@ const getUsersByStatus = async (req, res) => {
 // ✅ Approve user
 const approveUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findByPk(id);
+    const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ error: "User not found" });
     if (user.role !== "student")
       return res.status(400).json({ error: "Only students can be approved" });
 
     user.approvalStatus = "approved";
     await user.save();
-
-    res.status(200).json({ message: "User approved successfully", user });
+    res.json({ message: "User approved", user });
   } catch (error) {
-    console.error("🔴 Approve user error:", error);
     res.status(500).json({ error: "Failed to approve user" });
   }
 };
@@ -260,18 +253,15 @@ const approveUser = async (req, res) => {
 // ✅ Reject user
 const rejectUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findByPk(id);
+    const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ error: "User not found" });
     if (user.role !== "student")
       return res.status(400).json({ error: "Only students can be rejected" });
 
     user.approvalStatus = "rejected";
     await user.save();
-
-    res.status(200).json({ message: "User rejected successfully", user });
+    res.json({ message: "User rejected", user });
   } catch (error) {
-    console.error("🔴 Reject user error:", error);
     res.status(500).json({ error: "Failed to reject user" });
   }
 };
