@@ -1,16 +1,4 @@
-
-// // routes/authRoutes.js
-// const express = require("express");
-// const router = express.Router();
-// const authController = require("../controllers/authController");
-
-// router.post("/register", authController.register); // ✅ Correct usage
-
-// module.exports = router;
-
-
-
-
+// routes/authRoutes.js
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");

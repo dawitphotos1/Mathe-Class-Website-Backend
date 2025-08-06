@@ -1,4 +1,3 @@
-
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt");
@@ -11,6 +10,7 @@ const courseEnrollmentApproved = require("../utils/emails/courseEnrollmentApprov
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
+// Middleware to allow only admins or teachers
 function isAdminOrTeacher(req, res, next) {
   if (req.user && ["admin", "teacher"].includes(req.user.role)) {
     return next();
@@ -18,7 +18,7 @@ function isAdminOrTeacher(req, res, next) {
   return res.status(403).json({ error: "Forbidden" });
 }
 
-// Get logged-in user profile
+// 🧑‍💼 Get current logged-in user's profile
 router.get("/me", authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
@@ -41,7 +41,7 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
-// Get pending students
+// ✅ Get pending student users
 router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const pendingUsers = await User.findAll({
@@ -55,7 +55,7 @@ router.get("/pending", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// Get approved students
+// ✅ Get approved student users
 router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const approvedUsers = await User.findAll({
@@ -69,7 +69,7 @@ router.get("/approved", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// Get rejected students
+// ✅ Get rejected student users
 router.get("/rejected", authMiddleware, isAdminOrTeacher, async (req, res) => {
   try {
     const rejectedUsers = await User.findAll({
@@ -83,7 +83,7 @@ router.get("/rejected", authMiddleware, isAdminOrTeacher, async (req, res) => {
   }
 });
 
-// Approve student
+// ✅ Approve student account
 router.post(
   "/approve/:id",
   authMiddleware,
@@ -110,7 +110,7 @@ router.post(
   }
 );
 
-// Reject student
+// ✅ Reject student account
 router.post(
   "/reject/:id",
   authMiddleware,
@@ -137,7 +137,7 @@ router.post(
   }
 );
 
-// Login route
+// 🔐 Login route
 router.post("/login", async (req, res) => {
   try {
     let { email, password } = req.body;
@@ -195,7 +195,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Delete user
+// ✅ Delete user (admin, teacher, or self)
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
@@ -216,7 +216,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Confirm enrollment after Stripe payment
+// ✅ Confirm enrollment (Stripe)
 router.post("/confirm-enrollment", authMiddleware, async (req, res) => {
   try {
     const { session_id } = req.body;
@@ -277,7 +277,7 @@ router.post("/confirm-enrollment", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ New: Get enrolled & approved courses for logged-in student
+// ✅ Get student's enrolled + approved courses
 router.get("/my-courses", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
