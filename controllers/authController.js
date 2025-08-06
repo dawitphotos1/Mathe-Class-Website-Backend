@@ -110,7 +110,6 @@
 
 
 
-// controllers/authController.js
 
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -120,15 +119,19 @@ const register = async (req, res) => {
   try {
     const { name, email, password, role, subject } = req.body;
 
+    // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(409).json({ error: "Email already registered" });
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Determine if user needs approval
     const approved = role === "student" ? false : true;
 
+    // Create user
     const newUser = await User.create({
       name,
       email,
@@ -138,12 +141,14 @@ const register = async (req, res) => {
       approved,
     });
 
+    // Create JWT token
     const token = jwt.sign(
       { id: newUser.id, role: newUser.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    // Prepare user response
     const userResponse = {
       id: newUser.id,
       name: newUser.name,
@@ -159,7 +164,7 @@ const register = async (req, res) => {
       user: userResponse,
     });
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error("🔴 Registration error:", error);
     res.status(500).json({ error: "Registration failed. Please try again." });
   }
 };
