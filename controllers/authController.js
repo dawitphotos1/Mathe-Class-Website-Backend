@@ -66,10 +66,13 @@
 // module.exports = { register };
 
 
-
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken"); // If you want JWT tokens
 const { User } = require("../models");
 
+const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret"; // Replace in production
+
+// REGISTER CONTROLLER
 exports.register = async (req, res) => {
   try {
     let { name, email, password, role, subject } = req.body;
@@ -80,7 +83,7 @@ exports.register = async (req, res) => {
         .json({ error: "All required fields must be filled." });
     }
 
-    email = email.toLowerCase().trim(); // normalize email
+    email = email.toLowerCase().trim();
     role = role.toLowerCase().trim();
 
     const existingUser = await User.findOne({ where: { email } });
@@ -117,5 +120,62 @@ exports.register = async (req, res) => {
     return res
       .status(500)
       .json({ error: "Registration failed. Please try again." });
+  }
+};
+
+// LOGIN CONTROLLER
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Email and password are required." });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+
+    // Optional: Check approval status
+    if (user.approval_status !== "approved") {
+      return res.status(403).json({ error: "Account not approved yet." });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        subject: user.subject,
+        approval_status: user.approval_status,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Login error:", err);
+    return res.status(500).json({ error: "Login failed. Please try again." });
   }
 };
