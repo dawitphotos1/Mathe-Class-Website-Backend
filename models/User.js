@@ -1,4 +1,43 @@
 
+// const { Model, DataTypes } = require("sequelize");
+
+// module.exports = (sequelize) => {
+//   class User extends Model {}
+
+//   User.init(
+//     {
+//       name: { type: DataTypes.STRING, allowNull: false },
+//       email: {
+//         type: DataTypes.STRING,
+//         allowNull: false,
+//         unique: true,
+//         validate: { isEmail: true },
+//       },
+//       password: { type: DataTypes.STRING, allowNull: false },
+//       role: {
+//         type: DataTypes.ENUM("student", "teacher", "admin"),
+//         allowNull: false,
+//       },
+//       subject: { type: DataTypes.STRING, allowNull: true },
+//       approvalStatus: {
+//         type: DataTypes.ENUM("pending", "approved", "rejected"),
+//         allowNull: false,
+//         defaultValue: "pending",
+//       },
+//     },
+//     {
+//       sequelize,
+//       modelName: "User",
+//       tableName: "Users",
+//     }
+//   );
+
+//   return User;
+// };
+
+
+
+
 const { Model, DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
@@ -6,29 +45,60 @@ module.exports = (sequelize) => {
 
   User.init(
     {
-      name: { type: DataTypes.STRING, allowNull: false },
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      name: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+      },
       email: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(100),
         allowNull: false,
         unique: true,
         validate: { isEmail: true },
       },
-      password: { type: DataTypes.STRING, allowNull: false },
+      password: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+      },
       role: {
         type: DataTypes.ENUM("student", "teacher", "admin"),
         allowNull: false,
+        defaultValue: "student",
       },
-      subject: { type: DataTypes.STRING, allowNull: true },
-      approvalStatus: {
+      subject: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+      approval_status: {
         type: DataTypes.ENUM("pending", "approved", "rejected"),
         allowNull: false,
         defaultValue: "pending",
+      },
+      last_login: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
+      updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
       },
     },
     {
       sequelize,
       modelName: "User",
-      tableName: "Users",
+      tableName: "users",
+      timestamps: true,
+      underscored: true,
     }
   );
 
