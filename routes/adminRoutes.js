@@ -26,7 +26,7 @@
 // module.exports = router;
 
 
-cconst express = require("express");
+const express = require("express");
 const router = express.Router();
 const { User, UserCourseAccess, Course } = require("../models");
 const authMiddleware = require("../middleware/authMiddleware");
