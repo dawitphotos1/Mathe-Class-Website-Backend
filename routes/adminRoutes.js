@@ -26,19 +26,14 @@
 // module.exports = router;
 
 
+
+// routes/adminRoutes.js
+
 const express = require("express");
 const router = express.Router();
 const { User, UserCourseAccess, Course } = require("../models");
 const authenticate = require("../middleware/authenticate");
-const isAdmin = require("../middleware/isAdmin");
-
-// Admin only middleware
-function isAdmin(req, res, next) {
-  if (req.user?.role !== "admin") {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-}
+const isAdmin = require("../middleware/isAdmin"); // ✅ Use external version
 
 // 🔹 GET /admin/dashboard
 router.get("/dashboard", authenticate, isAdmin, async (req, res) => {
