@@ -93,30 +93,28 @@
 // })();
 
 
+
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
+const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 const { sequelize } = require("./models");
-
-const authMiddleware = require("./middleware/authMiddleware");
-const adminMiddleware = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-};
 
 const app = express();
 app.set("trust proxy", 1);
 
+// =========================
+// 🔐 Middleware Setup
+// =========================
 app.use(helmet());
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ✅ CORS Setup (Important for frontend ↔ backend)
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -137,8 +135,10 @@ app.use(
   })
 );
 
+// Enable preflight (OPTIONS) for all routes
 app.options("*", cors());
 
+// ✅ Rate Limiter
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
@@ -146,44 +146,45 @@ const apiLimiter = rateLimit({
 });
 app.use("/api", apiLimiter);
 
+// ✅ Logger
 app.use((req, res, next) => {
   console.log(`[${req.method}] ${req.originalUrl}`);
   next();
 });
 
-// Routes
-app.use("/api/v1/auth", require("./routes/authRoutes"));
-app.use("/api/v1/users", authMiddleware, require("./routes/users"));
-app.use("/api/v1/courses", authMiddleware, require("./routes/courseRoutes"));
-app.use("/api/v1/payments", authMiddleware, require("./routes/payments"));
-app.use(
-  "/api/v1/enrollments",
-  authMiddleware,
-  require("./routes/enrollmentRoutes")
-);
-app.use(
-  "/api/v1/admin",
-  authMiddleware,
-  adminMiddleware,
-  require("./routes/adminRoutes")
-);
+// =========================
+// 🛣 Routes
+// =========================
+app.use("/api/v1/auth", require("./routes/authRoutes")); // Login/Register
+app.use("/api/v1/users", require("./routes/users")); // Profile, approve/reject
+app.use("/api/v1/courses", require("./routes/courseRoutes"));
+app.use("/api/v1/payments", require("./routes/payments"));
+app.use("/api/v1/enrollments", require("./routes/enrollmentRoutes"));
+app.use("/api/v1/admin", require("./routes/adminRoutes"));
 
+// ✅ Health Check
 app.get("/health", (req, res) => {
   res.json({ status: "OK", time: new Date().toISOString() });
 });
 
+// ✅ 404 Handler
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
+// ✅ Global Error Handler
 app.use((err, req, res, next) => {
-  console.error("❌ Error:", err.message, err.stack);
-  res
-    .status(err.status || 500)
-    .json({ error: err.message || "Internal Server Error" });
+  console.error("❌ Global Error:", err.message);
+  res.status(err.status || 500).json({
+    error: err.message || "Internal Server Error",
+  });
 });
 
+// =========================
+// 🚀 Server + DB Start
+// =========================
 const PORT = process.env.PORT || 5000;
+
 (async () => {
   try {
     await sequelize.authenticate();

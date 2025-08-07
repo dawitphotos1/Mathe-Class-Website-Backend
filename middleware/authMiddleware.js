@@ -25,13 +25,11 @@
 
 
 
-
 const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
   if (!token) {
-    console.log("🔍 No token provided for path:", req.path);
     return res.status(401).json({ error: "No token provided" });
   }
 
@@ -40,7 +38,6 @@ module.exports = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (err) {
-    console.error("🔥 Auth middleware error:", err.message);
     return res.status(401).json({ error: "Invalid token" });
   }
 };
