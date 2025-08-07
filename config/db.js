@@ -33,29 +33,27 @@
 // module.exports = sequelize;
 
 
+
+
 require("dotenv").config();
 const { Sequelize } = require("sequelize");
 
-const sequelize = new Sequelize(
-  process.env.DATABASE_URL ||
-    "postgresql://neondb_owner:npg_txcaKvLwG34W@ep-mute-grass-a6zij8tz-pooler.us-west-2.aws.neon.tech/neondb?sslmode=require",
-  {
-    dialect: "postgres",
-    logging: process.env.NODE_ENV === "development" ? console.log : false,
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: "postgres",
+  logging: process.env.NODE_ENV === "development" ? console.log : false,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
     },
-    pool: {
-      max: 10,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-  }
-);
+  },
+  pool: {
+    max: 10,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+});
 
 sequelize
   .authenticate()
