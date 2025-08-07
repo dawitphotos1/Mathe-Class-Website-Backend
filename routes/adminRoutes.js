@@ -29,7 +29,8 @@
 const express = require("express");
 const router = express.Router();
 const { User, UserCourseAccess, Course } = require("../models");
-const authMiddleware = require("../middleware/authMiddleware");
+const authenticate = require("../middleware/authenticate");
+const isAdmin = require("../middleware/isAdmin");
 
 // Admin only middleware
 function isAdmin(req, res, next) {
@@ -40,12 +41,14 @@ function isAdmin(req, res, next) {
 }
 
 // 🔹 GET /admin/dashboard
-router.get("/dashboard", authMiddleware, isAdmin, async (req, res) => {
+router.get("/dashboard", authenticate, isAdmin, async (req, res) => {
   try {
     const totalUsers = await User.count();
     const totalStudents = await User.count({ where: { role: "student" } });
     const totalCourses = await Course.count();
-    const totalEnrollments = await UserCourseAccess.count({ where: { approved: true } });
+    const totalEnrollments = await UserCourseAccess.count({
+      where: { approved: true },
+    });
 
     res.json({
       totalUsers,
@@ -60,7 +63,7 @@ router.get("/dashboard", authMiddleware, isAdmin, async (req, res) => {
 });
 
 // 🔹 GET /admin/pending-users
-router.get("/pending-users", authMiddleware, isAdmin, async (req, res) => {
+router.get("/pending-users", authenticate, isAdmin, async (req, res) => {
   try {
     const users = await User.findAll({ where: { approvalStatus: "pending" } });
     res.json(users);
@@ -70,7 +73,7 @@ router.get("/pending-users", authMiddleware, isAdmin, async (req, res) => {
 });
 
 // 🔹 GET /admin/users?status=approved|rejected
-router.get("/users", authMiddleware, isAdmin, async (req, res) => {
+router.get("/users", authenticate, isAdmin, async (req, res) => {
   try {
     const status = req.query.status;
     const users = await User.findAll({ where: { approvalStatus: status } });
@@ -81,7 +84,7 @@ router.get("/users", authMiddleware, isAdmin, async (req, res) => {
 });
 
 // 🔹 GET /admin/enrollments/pending
-router.get("/enrollments/pending", authMiddleware, isAdmin, async (req, res) => {
+router.get("/enrollments/pending", authenticate, isAdmin, async (req, res) => {
   try {
     const pendingEnrollments = await UserCourseAccess.findAll({
       where: { approved: false },
@@ -94,7 +97,7 @@ router.get("/enrollments/pending", authMiddleware, isAdmin, async (req, res) => 
 });
 
 // 🔹 GET /admin/enrollments/approved
-router.get("/enrollments/approved", authMiddleware, isAdmin, async (req, res) => {
+router.get("/enrollments/approved", authenticate, isAdmin, async (req, res) => {
   try {
     const approvedEnrollments = await UserCourseAccess.findAll({
       where: { approved: true },
