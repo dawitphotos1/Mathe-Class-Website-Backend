@@ -1,15 +1,3 @@
-// const express = require("express");
-// const router = express.Router();
-// const { getDashboardStats } = require("../controllers/adminController");
-
-// // ✅ GET Admin Dashboard Stats
-// // Endpoint: /api/v1/admin/dashboard
-// router.get("/dashboard", getDashboardStats);
-
-// module.exports = router;
-
-
-
 const express = require("express");
 const router = express.Router();
 const {
