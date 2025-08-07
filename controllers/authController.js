@@ -65,7 +65,6 @@
 
 // module.exports = { register };
 
-
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
@@ -133,6 +132,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("Login attempt:", { email }); // Debug log
 
     if (!email || !password) {
       return res.status(400).json({ error: "Missing email or password" });
@@ -140,11 +140,13 @@ const login = async (req, res) => {
 
     const user = await User.findOne({ where: { email } });
     if (!user) {
+      console.log("User not found:", email);
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      console.log("Invalid password for:", email);
       return res.status(401).json({ error: "Invalid email or password" });
     }
 

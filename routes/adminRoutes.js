@@ -27,17 +27,11 @@
 
 
 
-
 const express = require("express");
 const router = express.Router();
-const adminController = require("../controllers/adminController");
+const authController = require("../controllers/authController");
 
-router.get("/dashboard", adminController.getDashboardStats);
-router.get("/pending-users", adminController.getPendingUsers);
-router.get("/users", adminController.getUsersByStatus);
-router.get("/enrollments/pending", adminController.getEnrollments);
-router.get("/enrollments/approved", adminController.getEnrollments);
-router.patch("/approve/:id", adminController.approveUser);
-router.patch("/reject/:id", adminController.rejectUser);
+router.post("/register", authController.register);
+router.post("/login", authController.login);
 
 module.exports = router;
