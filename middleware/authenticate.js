@@ -52,7 +52,7 @@
 
 
 
-
+// middleware/authenticate.js
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
@@ -83,10 +83,13 @@ module.exports = async function authenticate(req, res, next) {
       return res.status(401).json({ error: "Not authorized, user not found" });
     }
 
-    req.user = user;
+    req.user = user; // important: set the full user object
+
+    console.log("✅ Authenticated:", user.email, "| Role:", user.role);
+
     next();
   } catch (err) {
-    console.error("Auth middleware error:", err);
+    console.error("❌ Auth error:", err);
     return res.status(401).json({ error: "Not authorized" });
   }
 };

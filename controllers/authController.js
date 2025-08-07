@@ -66,13 +66,16 @@
 // module.exports = { register };
 
 
+
+
+
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken"); // If you want JWT tokens
+const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
-const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret"; // Replace in production
+const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 
-// REGISTER CONTROLLER
+// 🔐 REGISTER
 exports.register = async (req, res) => {
   try {
     let { name, email, password, role, subject } = req.body;
@@ -87,24 +90,26 @@ exports.register = async (req, res) => {
     role = role.toLowerCase().trim();
 
     const existingUser = await User.findOne({ where: { email } });
-
     if (existingUser) {
       return res.status(409).json({ error: "Email already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 🔸 Approval logic
+    const approval_status = role === "student" ? "pending" : "approved";
+
     const newUser = await User.create({
       name,
       email,
       password: hashedPassword,
       role,
-      subject: subject || null,
-      approval_status: "pending",
+      subject,
+      approval_status, // ✅ fixed key
     });
 
     return res.status(201).json({
-      message: "Registration successful. Please wait for approval.",
+      message: "Registration successful.",
       user: {
         id: newUser.id,
         name: newUser.name,
@@ -123,7 +128,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// LOGIN CONTROLLER
+// 🔐 LOGIN
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -135,29 +140,22 @@ exports.login = async (req, res) => {
     }
 
     const user = await User.findOne({ where: { email } });
-
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials." });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials." });
     }
 
-    // Optional: Check approval status
+    // 🚫 Block login if not approved
     if (user.approval_status !== "approved") {
       return res.status(403).json({ error: "Account not approved yet." });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
+      { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
