@@ -138,12 +138,12 @@ router.post(
 );
 
 // 🔐 Login route
-router.post("/login", async (req, res) => {
-  try {
-    let { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
+// router.post("/login", async (req, res) => {
+//   try {
+//     let { email, password } = req.body;
+//     if (!email || !password) {
+//       return res.status(400).json({ error: "Email and password are required" });
+//     }
 
     email = email.toLowerCase().trim();
     const user = await User.findOne({ where: { email } });

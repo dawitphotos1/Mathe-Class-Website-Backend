@@ -93,40 +93,41 @@
 // })();
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const jwt = require("jsonwebtoken");
 const { sequelize } = require("./models");
+
+const authMiddleware = require("./middleware/authMiddleware");
+const adminMiddleware = (req, res, next) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  next();
+};
 
 const app = express();
 app.set("trust proxy", 1);
 
-// Security middleware
 app.use(helmet());
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS setup
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
-  // Add your deployed frontend domain here if different
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      console.log("CORS Origin:", origin);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.error("CORS not allowed for origin:", origin);
         callback(new Error("CORS not allowed for this origin"));
       }
     },
@@ -138,7 +139,6 @@ app.use(
 
 app.options("*", cors());
 
-// Rate limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
@@ -146,36 +146,10 @@ const apiLimiter = rateLimit({
 });
 app.use("/api", apiLimiter);
 
-// Debug log
 app.use((req, res, next) => {
   console.log(`[${req.method}] ${req.originalUrl}`);
   next();
 });
-
-// Authentication middleware
-const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    console.error("No token provided for:", req.originalUrl);
-    return res.status(401).json({ error: "No token provided" });
-  }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.error("Invalid token for:", req.originalUrl, error.message);
-    return res.status(401).json({ error: "Invalid token" });
-  }
-};
-
-const adminMiddleware = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    console.error("Admin access denied for user:", req.user);
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-};
 
 // Routes
 app.use("/api/v1/auth", require("./routes/authRoutes"));
@@ -194,17 +168,14 @@ app.use(
   require("./routes/adminRoutes")
 );
 
-// Health check
 app.get("/health", (req, res) => {
   res.json({ status: "OK", time: new Date().toISOString() });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error("❌ Error:", err.message, err.stack);
   res
@@ -212,7 +183,6 @@ app.use((err, req, res, next) => {
     .json({ error: err.message || "Internal Server Error" });
 });
 
-// Server start
 const PORT = process.env.PORT || 5000;
 (async () => {
   try {
