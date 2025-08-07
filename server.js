@@ -95,6 +95,7 @@
 
 
 
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -114,7 +115,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ CORS Setup (Important for frontend ↔ backend)
+// ✅ CORS Setup (Simplified and Correct)
 const allowedOrigins = [
   "http://localhost:3000",
   "https://math-class-platform.netlify.app",
@@ -122,21 +123,10 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("CORS not allowed for this origin"));
-      }
-    },
+    origin: allowedOrigins,
     credentials: true,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Authorization", "Content-Type"],
   })
 );
-
-// Enable preflight (OPTIONS) for all routes
-app.options("*", cors());
 
 // ✅ Rate Limiter
 const apiLimiter = rateLimit({
