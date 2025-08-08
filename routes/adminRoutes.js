@@ -31,7 +31,7 @@ router.get("/dashboard", authenticate, isAdmin, async (req, res) => {
 // 🔹 GET /admin/pending-users
 router.get("/pending-users", authenticate, isAdmin, async (req, res) => {
   try {
-    const users = await User.findAll({ where: { approvalStatus: "pending" } });
+    const users = await User.findAll({ where: { approval_status: "pending" } });
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch pending users" });
@@ -42,7 +42,7 @@ router.get("/pending-users", authenticate, isAdmin, async (req, res) => {
 router.get("/users", authenticate, isAdmin, async (req, res) => {
   try {
     const status = req.query.status;
-    const users = await User.findAll({ where: { approvalStatus: status } });
+    const users = await User.findAll({ where: { approval_status: status } });
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch users" });

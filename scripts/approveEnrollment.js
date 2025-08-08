@@ -8,7 +8,7 @@ const { sequelize, User, UserCourseAccess } = require("../models");
     // Approve the user
     const user = await User.findByPk(userId);
     if (!user) throw new Error("Student not found");
-    user.approvalStatus = "approved";
+    user.approval_status = "approved";
     await user.save();
 
     // Enroll or approve access

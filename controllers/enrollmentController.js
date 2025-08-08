@@ -6,7 +6,7 @@ exports.getPendingEnrollments = async (req, res) => {
   try {
     const pending = await UserCourseAccess.findAll({
       where: {
-        approvalStatus: "pending",
+        approval_status: "pending",
         paymentStatus: "paid",
       },
       include: [
@@ -26,7 +26,7 @@ exports.getApprovedEnrollments = async (req, res) => {
   try {
     const approved = await UserCourseAccess.findAll({
       where: {
-        approvalStatus: "approved",
+        approval_status: "approved",
       },
       include: [
         { model: User, as: "User", attributes: ["id", "name", "email"] },
@@ -48,7 +48,7 @@ exports.approveEnrollment = async (req, res) => {
     if (!enrollment) {
       return res.status(404).json({ error: "Enrollment not found" });
     }
-    enrollment.approvalStatus = "approved";
+    enrollment.approval_status = "approved";
     enrollment.accessGrantedAt = new Date();
     await enrollment.save();
     res.json({ message: "Enrollment approved", enrollment });
@@ -91,7 +91,7 @@ exports.createEnrollment = async (req, res) => {
       userId,
       courseId,
       paymentStatus: "paid",
-      approvalStatus: "pending",
+      approval_status: "pending",
     });
 
     res.status(201).json({ message: "Enrollment request sent", enrollment });
