@@ -33,6 +33,7 @@
 const { User } = require("../models");
 
 exports.getMyProfile = async (req, res) => {
+  console.log("🎯 /me route - req.user =", req.user); // ✅ Debug log
   try {
     const user = await User.findByPk(req.user.id, {
       attributes: [
@@ -43,7 +44,7 @@ exports.getMyProfile = async (req, res) => {
         "subject",
         "createdAt",
         "lastLogin",
-        ["approval_status", "approvalStatus"],
+        "approval_status", // ✅ Must match DB column name
       ],
     });
 
