@@ -461,10 +461,15 @@
 
 
 
-
 const path = require("path");
 const fs = require("fs");
-const { Course, Lesson, User, UserCourseAccess } = require("../models");
+const {
+  Course,
+  Lesson,
+  User,
+  UserCourseAccess,
+  sequelize,
+} = require("../models");
 
 const uploadsDir = path.join(__dirname, "..", "Uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -576,6 +581,24 @@ exports.getCourseBySlug = async (req, res) => {
     if (!slug)
       return res.status(400).json({ error: "Course slug is required" });
 
+    console.log(
+      "🔍 Fetching course with slug:",
+      slug,
+      "user:",
+      req.user?.id || "unauthenticated"
+    );
+
+    // Optional: verify table exists
+    const tableExists = await sequelize.query(
+      "SELECT to_regclass('public.\"Courses\"')"
+    );
+    if (!tableExists[0][0].to_regclass) {
+      console.error("🔥 Courses table does not exist");
+      return res
+        .status(500)
+        .json({ error: "Database error: Courses table not found" });
+    }
+
     const course = await Course.findOne({
       where: { slug },
       include: [
@@ -592,11 +615,13 @@ exports.getCourseBySlug = async (req, res) => {
           required: false,
         },
       ],
-      // correct way to order included association
       order: [[{ model: Lesson, as: "lessons" }, "orderIndex", "ASC"]],
     });
 
-    if (!course) return res.status(404).json({ error: "Course not found" });
+    if (!course) {
+      console.log("🔍 Course not found for slug:", slug);
+      return res.status(404).json({ error: "Course not found" });
+    }
 
     let isEnrolled = false;
     if (req.user) {
@@ -604,7 +629,7 @@ exports.getCourseBySlug = async (req, res) => {
         where: {
           userId: req.user.id,
           courseId: course.id,
-          approval_status: "approved", // ✅ FIX
+          approval_status: "approved", // ✅ ensure correct column
         },
       });
       isEnrolled = !!enrollment;
@@ -612,7 +637,12 @@ exports.getCourseBySlug = async (req, res) => {
 
     res.json({ success: true, course, isEnrolled });
   } catch (error) {
-    console.error("🔥 Get course by slug error:", error);
+    console.error("🔥 Get course by slug error:", {
+      message: error.message,
+      stack: error.stack,
+      slug: req.params.slug,
+      userId: req.user?.id,
+    });
     res
       .status(500)
       .json({ error: "Failed to fetch course", details: error.message });
@@ -654,7 +684,7 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
       where: {
         courseId: course.id,
         userId,
-        approval_status: "approved", // ✅ FIX
+        approval_status: "approved", // ✅ ensure correct column
       },
     });
 
@@ -679,7 +709,6 @@ exports.getLessonsByCourse = async (req, res) => {
       where: { courseId: req.params.courseId },
       order: [["orderIndex", "ASC"]],
     });
-
     res.json({ success: true, lessons });
   } catch (error) {
     console.error("🔥 Fetch lessons error:", error);
@@ -705,7 +734,6 @@ exports.getTeacherCourses = async (req, res) => {
       ],
       order: [["createdAt", "DESC"]],
     });
-
     res.json({ success: true, courses });
   } catch (error) {
     console.error("🔥 Fetch teacher courses error:", error);
