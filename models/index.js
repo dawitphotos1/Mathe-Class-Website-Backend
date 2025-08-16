@@ -74,7 +74,6 @@
 
 
 
-
 const fs = require("fs");
 const path = require("path");
 const Sequelize = require("sequelize");
@@ -82,7 +81,7 @@ const sequelize = require("../config/db");
 
 const db = {};
 
-// Dynamically load all models in /models
+// Dynamically load all models in /models (except index.js)
 fs.readdirSync(__dirname)
   .filter((file) => file !== "index.js" && file.endsWith(".js"))
   .forEach((file) => {
@@ -97,63 +96,62 @@ fs.readdirSync(__dirname)
 // Associations
 // =========================
 
-// 🔹 User ↔ Course (Many-to-Many via enrollments)
-if (db.User && db.Course && db.UserCourseAccess) {
-  db.User.belongsToMany(db.Course, {
-    through: db.UserCourseAccess,
-    foreignKey: "user_id",
-    otherKey: "course_id",
-    as: "enrolledCourses",
-  });
+// User ↔ Course (through UserCourseAccess)
+db.User.belongsToMany(db.Course, {
+  through: db.UserCourseAccess,
+  foreignKey: "user_id",
+  otherKey: "course_id",
+  as: "enrolledCourses",
+});
 
-  db.Course.belongsToMany(db.User, {
-    through: db.UserCourseAccess,
-    foreignKey: "course_id",
-    otherKey: "user_id",
-    as: "students",
-  });
+db.Course.belongsToMany(db.User, {
+  through: db.UserCourseAccess,
+  foreignKey: "course_id",
+  otherKey: "user_id",
+  as: "students",
+});
 
-  db.UserCourseAccess.belongsTo(db.User, {
-    foreignKey: "user_id",
-    as: "student",
-  });
-  db.UserCourseAccess.belongsTo(db.Course, {
-    foreignKey: "course_id",
-    as: "course",
-  });
-  db.UserCourseAccess.belongsTo(db.User, {
-    foreignKey: "approved_by",
-    as: "approver",
-  });
+// UserCourseAccess → belongsTo User & Course
+db.UserCourseAccess.belongsTo(db.User, {
+  foreignKey: "user_id",
+  as: "student",
+});
+db.UserCourseAccess.belongsTo(db.Course, {
+  foreignKey: "course_id",
+  as: "course",
+});
+db.UserCourseAccess.belongsTo(db.User, {
+  foreignKey: "approved_by",
+  as: "approver",
+});
 
-  db.User.hasMany(db.UserCourseAccess, {
-    foreignKey: "user_id",
-    as: "enrollments",
-  });
-  db.Course.hasMany(db.UserCourseAccess, {
-    foreignKey: "course_id",
-    as: "enrollments",
-  });
-}
+// Teacher for a Course
+db.Course.belongsTo(db.User, {
+  foreignKey: "teacher_id",
+  as: "teacher",
+});
 
-// 🔹 Course ↔ Teacher
-if (db.Course && db.User) {
-  db.Course.belongsTo(db.User, { foreignKey: "teacher_id", as: "teacher" });
-  db.User.hasMany(db.Course, { foreignKey: "teacher_id", as: "courses" });
-}
+// Course → Lessons
+db.Course.hasMany(db.Lesson, {
+  foreignKey: "course_id",
+  as: "lessons",
+});
+db.Lesson.belongsTo(db.Course, {
+  foreignKey: "course_id",
+  as: "course",
+});
 
-// 🔹 Course ↔ Lesson
-if (db.Lesson && db.Course && db.User) {
-  db.Course.hasMany(db.Lesson, {
-    foreignKey: "course_id",
-    as: "lessons",
-    onDelete: "CASCADE",
-    hooks: true,
-  });
-  db.Lesson.belongsTo(db.Course, { foreignKey: "course_id", as: "course" });
-  db.Lesson.belongsTo(db.User, { foreignKey: "user_id", as: "creator" });
-  db.Lesson.belongsTo(db.Lesson, { foreignKey: "unit_id", as: "unit" });
-}
+// Lesson → created by User
+db.Lesson.belongsTo(db.User, {
+  foreignKey: "user_id",
+  as: "creator",
+});
+
+// Lesson → can belong to a parent Lesson (unit header)
+db.Lesson.belongsTo(db.Lesson, {
+  foreignKey: "unit_id",
+  as: "unit",
+});
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
