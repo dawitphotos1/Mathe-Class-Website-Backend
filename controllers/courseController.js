@@ -374,16 +374,17 @@
 // };
 
 
+
+
 const path = require("path");
 const fs = require("fs");
 const { Course, Lesson, User, UserCourseAccess } = require("../models");
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, "..", "Uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 /**
- * ✅ Create a new course (teacher/admin only)
+ * Create a new course
  */
 exports.createCourse = async (req, res) => {
   try {
@@ -398,7 +399,6 @@ exports.createCourse = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Generate unique slug
     const slugBase = title
       .toLowerCase()
       .trim()
@@ -407,40 +407,27 @@ exports.createCourse = async (req, res) => {
     const existing = await Course.findOne({ where: { slug: slugBase } });
     const slug = existing ? `${slugBase}-${Date.now()}` : slugBase;
 
-    // Handle files
     const attachments = req.files?.attachments || [];
     const thumbnail = req.files?.thumbnail?.[0];
     const introVideo = req.files?.introVideo?.[0];
 
-    const attachmentUrls = [];
-    for (const file of attachments) {
+    const attachmentUrls = attachments.map((file) => {
       const filename = `${Date.now()}-${file.originalname.replace(
         /\s+/g,
         "_"
       )}`;
       fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
-      attachmentUrls.push(`/Uploads/${filename}`);
-    }
+      return `/Uploads/${filename}`;
+    });
 
-    let thumbnailUrl = null;
-    if (thumbnail) {
-      const filename = `${Date.now()}-${thumbnail.originalname.replace(
+    const processFile = (file) => {
+      const filename = `${Date.now()}-${file.originalname.replace(
         /\s+/g,
         "_"
       )}`;
-      fs.writeFileSync(path.join(uploadsDir, filename), thumbnail.buffer);
-      thumbnailUrl = `/Uploads/${filename}`;
-    }
-
-    let introVideoUrl = null;
-    if (introVideo) {
-      const filename = `${Date.now()}-${introVideo.originalname.replace(
-        /\s+/g,
-        "_"
-      )}`;
-      fs.writeFileSync(path.join(uploadsDir, filename), introVideo.buffer);
-      introVideoUrl = `/Uploads/${filename}`;
-    }
+      fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
+      return `/Uploads/${filename}`;
+    };
 
     const course = await Course.create({
       title,
@@ -451,8 +438,8 @@ exports.createCourse = async (req, res) => {
       slug,
       teacher_id: req.user.id,
       attachment_urls: attachmentUrls,
-      thumbnail_url: thumbnailUrl,
-      intro_video_url: introVideoUrl,
+      thumbnail_url: thumbnail ? processFile(thumbnail) : null,
+      intro_video_url: introVideo ? processFile(introVideo) : null,
     });
 
     res.status(201).json({ success: true, course });
@@ -465,13 +452,75 @@ exports.createCourse = async (req, res) => {
 };
 
 /**
- * ✅ Delete a course (teacher/admin only)
+ * Update an existing course
+ */
+exports.updateCourse = async (req, res) => {
+  try {
+    const courseId = req.params.id;
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ error: "Course not found" });
+
+    if (req.user.role !== "admin" && course.teacher_id !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized to update this course" });
+    }
+
+    const { title, description, category, price, subject } = req.body;
+
+    if (title && title !== course.title) {
+      const slugBase = title
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .slice(0, 100);
+      const existing = await Course.findOne({ where: { slug: slugBase } });
+      course.slug = existing ? `${slugBase}-${Date.now()}` : slugBase;
+    }
+
+    course.title = title || course.title;
+    course.description = description || course.description;
+    course.category = category || course.category;
+    course.price = price || course.price;
+    course.subject = subject || course.subject;
+
+    const attachments = req.files?.attachments || [];
+    const thumbnail = req.files?.thumbnail?.[0];
+    const introVideo = req.files?.introVideo?.[0];
+
+    const processFile = (file) => {
+      const filename = `${Date.now()}-${file.originalname.replace(
+        /\s+/g,
+        "_"
+      )}`;
+      fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
+      return `/Uploads/${filename}`;
+    };
+
+    if (attachments.length > 0) {
+      course.attachment_urls = attachments.map(processFile);
+    }
+
+    if (thumbnail) course.thumbnail_url = processFile(thumbnail);
+    if (introVideo) course.intro_video_url = processFile(introVideo);
+
+    await course.save();
+    res.json({ success: true, course });
+  } catch (error) {
+    console.error("🔥 Update course error:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to update course", details: error.message });
+  }
+};
+
+/**
+ * Delete a course
  */
 exports.deleteCourse = async (req, res) => {
   try {
     const courseId = req.params.id;
     const course = await Course.findByPk(courseId);
-
     if (!course) return res.status(404).json({ error: "Course not found" });
 
     if (req.user.role !== "admin" && course.teacher_id !== req.user.id) {
@@ -492,17 +541,72 @@ exports.deleteCourse = async (req, res) => {
 };
 
 /**
- * ✅ Get course by slug with lessons + teacher
- *    (Lessons content limited unless student is enrolled/approved)
+ * Rename course attachment
+ */
+exports.renameAttachment = async (req, res) => {
+  try {
+    const { courseId, index } = req.params;
+    const { newName } = req.body;
+
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ error: "Course not found" });
+
+    const attachmentUrls = [...(course.attachment_urls || [])];
+    const oldUrl = attachmentUrls[+index];
+    if (!oldUrl) return res.status(404).json({ error: "Attachment not found" });
+
+    const oldPath = path.join(__dirname, "..", oldUrl);
+    const ext = path.extname(oldPath);
+    const newFileName = `${Date.now()}-${newName.replace(/\s+/g, "_")}${ext}`;
+    const newPath = path.join(uploadsDir, newFileName);
+
+    fs.renameSync(oldPath, newPath);
+    attachmentUrls[+index] = `/Uploads/${newFileName}`;
+    course.attachment_urls = attachmentUrls;
+
+    await course.save();
+    res.json({ success: true, updatedUrl: `/Uploads/${newFileName}` });
+  } catch (error) {
+    console.error("🔥 Rename attachment error:", error);
+    res.status(500).json({ error: "Failed to rename attachment" });
+  }
+};
+
+/**
+ * Delete course attachment
+ */
+exports.deleteAttachment = async (req, res) => {
+  try {
+    const { courseId, index } = req.params;
+
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ error: "Course not found" });
+
+    const attachmentUrls = [...(course.attachment_urls || [])];
+    const fileUrl = attachmentUrls[+index];
+    if (!fileUrl)
+      return res.status(404).json({ error: "Attachment not found" });
+
+    const filePath = path.join(__dirname, "..", fileUrl);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    attachmentUrls.splice(+index, 1);
+    course.attachment_urls = attachmentUrls;
+    await course.save();
+
+    res.json({ success: true, message: "Attachment deleted successfully" });
+  } catch (error) {
+    console.error("🔥 Delete attachment error:", error);
+    res.status(500).json({ error: "Failed to delete attachment" });
+  }
+};
+
+/**
+ * Get course by slug (public)
  */
 exports.getCourseBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
-    if (!slug)
-      return res.status(400).json({ error: "Course slug is required" });
-
-    console.log("🔍 Fetching course by slug:", slug);
-
     const course = await Course.findOne({
       where: { slug },
       include: [
@@ -510,56 +614,39 @@ exports.getCourseBySlug = async (req, res) => {
           model: Lesson,
           as: "lessons",
           attributes: ["id", "title", "order_index", "is_preview"],
-          required: false,
         },
-        {
-          model: User,
-          as: "teacher",
-          attributes: ["id", "name", "email"],
-          required: false,
-        },
+        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
       ],
       order: [[{ model: Lesson, as: "lessons" }, "order_index", "ASC"]],
     });
 
     if (!course) return res.status(404).json({ error: "Course not found" });
 
-    // ✅ Check if logged-in user is enrolled
     let isEnrolled = false;
     if (req.user) {
-      const enrollment = await UserCourseAccess.findOne({
+      const access = await UserCourseAccess.findOne({
         where: {
           user_id: req.user.id,
           course_id: course.id,
           approval_status: "approved",
         },
       });
-      isEnrolled = !!enrollment;
+      isEnrolled = !!access;
     }
 
     res.json({ success: true, course, isEnrolled });
   } catch (error) {
-    console.error("🔥 Get course by slug error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch course", details: error.message });
+    console.error("🔥 Get course error:", error);
+    res.status(500).json({ error: "Failed to fetch course" });
   }
 };
 
 /**
- * ✅ Get enrolled course by slug (full lessons, only if approved)
+ * Get full course for enrolled students
  */
 exports.getEnrolledCourseBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
-    const userId = req.user?.id;
-
-    if (!slug)
-      return res.status(400).json({ error: "Course slug is required" });
-    if (!userId)
-      return res.status(401).json({ error: "Authentication required" });
-
-    console.log("🔍 Fetching enrolled course:", slug, "for user:", userId);
 
     const course = await Course.findOne({
       where: { slug },
@@ -568,13 +655,11 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
           model: Lesson,
           as: "lessons",
           attributes: ["id", "title", "content", "order_index", "is_preview"],
-          required: false,
         },
         {
           model: User,
           as: "teacher",
           attributes: ["id", "name", "email"],
-          required: false,
         },
       ],
       order: [[{ model: Lesson, as: "lessons" }, "order_index", "ASC"]],
@@ -582,11 +667,10 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
 
     if (!course) return res.status(404).json({ error: "Course not found" });
 
-    // ✅ Only approved students get access
     const access = await UserCourseAccess.findOne({
       where: {
         course_id: course.id,
-        user_id: userId,
+        user_id: req.user.id,
         approval_status: "approved",
       },
     });
@@ -600,14 +684,12 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
     res.json({ success: true, course });
   } catch (error) {
     console.error("🔥 Get enrolled course error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch course", details: error.message });
+    res.status(500).json({ error: "Failed to fetch course" });
   }
 };
 
 /**
- * ✅ Get all lessons for a course
+ * Get lessons by course ID
  */
 exports.getLessonsByCourse = async (req, res) => {
   try {
@@ -618,14 +700,12 @@ exports.getLessonsByCourse = async (req, res) => {
     res.json({ success: true, lessons });
   } catch (error) {
     console.error("🔥 Fetch lessons error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch lessons", details: error.message });
+    res.status(500).json({ error: "Failed to fetch lessons" });
   }
 };
 
 /**
- * ✅ Get teacher's courses
+ * Get teacher's courses
  */
 exports.getTeacherCourses = async (req, res) => {
   try {
@@ -634,45 +714,31 @@ exports.getTeacherCourses = async (req, res) => {
     const courses = await Course.findAll({
       where: filter,
       include: [
-        {
-          model: User,
-          as: "teacher",
-          attributes: ["id", "name", "email"],
-          required: false,
-        },
+        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
       ],
       order: [["created_at", "DESC"]],
     });
     res.json({ success: true, courses });
   } catch (error) {
     console.error("🔥 Fetch teacher courses error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch courses", details: error.message });
+    res.status(500).json({ error: "Failed to fetch courses" });
   }
 };
 
 /**
- * ✅ Get all courses
+ * Admin: Get all courses
  */
 exports.getAllCourses = async (req, res) => {
   try {
     const courses = await Course.findAll({
       include: [
-        {
-          model: User,
-          as: "teacher",
-          attributes: ["id", "name", "email"],
-          required: false,
-        },
+        { model: User, as: "teacher", attributes: ["id", "name", "email"] },
       ],
       order: [["created_at", "DESC"]],
     });
     res.json({ success: true, courses });
   } catch (error) {
     console.error("🔥 Fetch all courses error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch all courses", details: error.message });
+    res.status(500).json({ error: "Failed to fetch all courses" });
   }
 };
