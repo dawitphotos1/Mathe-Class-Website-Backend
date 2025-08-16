@@ -1,13 +1,58 @@
 
-// routes/enrollmentRoutes.js
+// // routes/enrollmentRoutes.js
+// const express = require("express");
+// const router = express.Router();
+// const authenticateToken = require("../middleware/authenticateToken");
+// const enrollmentController = require("../controllers/enrollmentController");
+
+// // Check if the student is enrolled and approved
+// router.get("/check/:courseId", authenticateToken, enrollmentController.checkEnrollment);
+
+// // You can add more routes here if needed (e.g., enroll, approve, etc.)
+
+// module.exports = router;
+
+
+
+
 const express = require("express");
 const router = express.Router();
-const authenticateToken = require("../middleware/authenticateToken");
 const enrollmentController = require("../controllers/enrollmentController");
+const authenticate = require("../middleware/authenticate");
 
-// Check if the student is enrolled and approved
-router.get("/check/:courseId", authenticateToken, enrollmentController.checkEnrollment);
+// Protect all routes
+router.use(authenticate);
 
-// You can add more routes here if needed (e.g., enroll, approve, etc.)
+/**
+ * Student routes
+ */
+
+// Create a new enrollment request
+router.post("/", enrollmentController.createEnrollment);
+
+// Get all enrollments for the logged-in student
+router.get("/my-enrollments", enrollmentController.getMyEnrollments);
+
+// ✅ Get only approved courses for the logged-in student
+router.get("/my-courses", enrollmentController.getMyCourses);
+
+// Check if the student is enrolled & approved in a course
+router.get("/check/:courseId", enrollmentController.checkEnrollment);
+
+/**
+ * Admin / Teacher routes
+ */
+
+// Get all pending enrollments (paid but not approved yet)
+router.get("/pending", enrollmentController.getPendingEnrollments);
+
+// Get all approved enrollments
+router.get("/approved", enrollmentController.getApprovedEnrollments);
+
+// Approve a specific enrollment
+router.put("/approve/:id", enrollmentController.approveEnrollment);
+
+// Reject and delete a specific enrollment
+router.delete("/reject/:id", enrollmentController.rejectEnrollment);
 
 module.exports = router;
