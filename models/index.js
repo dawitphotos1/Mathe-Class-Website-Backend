@@ -73,19 +73,13 @@
 // module.exports = db;
 
 
+
 const fs = require("fs");
 const path = require("path");
 const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
-const config = require("../config/database"); // Adjust if your config path is different
+const sequelize = require("../config/db"); // Import the existing Sequelize instance
 const db = {};
-
-const sequelize = new Sequelize(
-  config.database,
-  config.username,
-  config.password,
-  config
-);
 
 fs.readdirSync(__dirname)
   .filter((file) => file !== basename && file.endsWith(".js"))
@@ -97,7 +91,7 @@ fs.readdirSync(__dirname)
     db[model.name] = model;
   });
 
-// ✅ Define associations
+// Define associations
 const { Course, Lesson, User, UserCourseAccess } = db;
 
 if (Course && Lesson && User) {
@@ -121,7 +115,6 @@ if (Course && Lesson && User) {
     as: "courses",
   });
 
-  // Optional for access model
   User.belongsToMany(Course, {
     through: UserCourseAccess,
     foreignKey: "user_id",
@@ -137,7 +130,7 @@ if (Course && Lesson && User) {
   });
 }
 
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
+db.sequelize = sequelize; // Attach the Sequelize instance
+db.Sequelize = Sequelize; // Attach Sequelize class for convenience
 
 module.exports = db;

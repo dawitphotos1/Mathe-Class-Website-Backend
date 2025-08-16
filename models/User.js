@@ -75,12 +75,12 @@
 
 
 
-const { Model, DataTypes } = require("sequelize");
+
+const { DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
-  class User extends Model {}
-
-  User.init(
+  const User = sequelize.define(
+    "User",
     {
       id: {
         type: DataTypes.INTEGER,
@@ -95,47 +95,34 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(100),
         allowNull: false,
         unique: true,
-        validate: { isEmail: true },
       },
       password: {
         type: DataTypes.STRING(255),
         allowNull: false,
       },
       role: {
-        type: DataTypes.ENUM("student", "teacher", "admin"), // ✅ matches schema.sql
+        type: DataTypes.ENUM("student", "teacher", "admin"),
         allowNull: false,
         defaultValue: "student",
       },
       subject: {
         type: DataTypes.STRING(255),
-        allowNull: true,
       },
       approval_status: {
-        type: DataTypes.ENUM("pending", "approved", "rejected"), // ✅ matches schema.sql
+        type: DataTypes.ENUM("pending", "approved", "rejected"),
         allowNull: false,
         defaultValue: "pending",
       },
       last_login: {
         type: DataTypes.DATE,
-        allowNull: true,
-      },
-      created_at: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-      },
-      updated_at: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
       },
     },
     {
-      sequelize,
-      modelName: "User",
-      tableName: "users",
+      tableName: "users", // Match schema.sql
       timestamps: true,
-      underscored: true, // ✅ matches schema.sql naming (created_at, updated_at)
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+      underscored: true,
     }
   );
 
