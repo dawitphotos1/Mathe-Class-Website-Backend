@@ -5,6 +5,9 @@
 // const uploadsDir = path.join(__dirname, "..", "Uploads");
 // if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
+// /**
+//  * Create a new course
+//  */
 // exports.createCourse = async (req, res) => {
 //   try {
 //     if (!req.user || !["teacher", "admin"].includes(req.user.role)) {
@@ -26,6 +29,7 @@
 //     const existing = await Course.findOne({ where: { slug: slugBase } });
 //     const slug = existing ? `${slugBase}-${Date.now()}` : slugBase;
 
+//     // File uploads
 //     const attachments = req.files?.attachments || [];
 //     const thumbnail = req.files?.thumbnail?.[0];
 //     const introVideo = req.files?.introVideo?.[0];
@@ -67,7 +71,7 @@
 //       price,
 //       subject,
 //       slug,
-//       teacherId: req.user.id,
+//       teacher_id: req.user.id,
 //       attachmentUrls,
 //       thumbnailUrl,
 //       introVideoUrl,
@@ -82,6 +86,9 @@
 //   }
 // };
 
+// /**
+//  * Delete a course
+//  */
 // exports.deleteCourse = async (req, res) => {
 //   try {
 //     const courseId = req.params.id;
@@ -89,14 +96,15 @@
 
 //     if (!course) return res.status(404).json({ error: "Course not found" });
 
-//     if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
+//     if (req.user.role !== "admin" && course.teacher_id !== req.user.id) {
 //       return res
 //         .status(403)
 //         .json({ error: "Unauthorized to delete this course" });
 //     }
 
-//     await Lesson.destroy({ where: { courseId } });
+//     await Lesson.destroy({ where: { course_id: courseId } });
 //     await course.destroy();
+
 //     res.json({ success: true, message: "Course deleted successfully" });
 //   } catch (error) {
 //     console.error("🔥 Delete course error:", error);
@@ -106,6 +114,9 @@
 //   }
 // };
 
+// /**
+//  * Public course view (with lessons, but not content)
+//  */
 // exports.getCourseBySlug = async (req, res) => {
 //   try {
 //     const { slug } = req.params;
@@ -118,7 +129,7 @@
 //         {
 //           model: Lesson,
 //           as: "lessons",
-//           attributes: ["id", "title", "orderIndex"],
+//           attributes: ["id", "title", "order_index"],
 //           required: false,
 //         },
 //         {
@@ -128,8 +139,7 @@
 //           required: false,
 //         },
 //       ],
-//       // correct way to order included association
-//       order: [[{ model: Lesson, as: "lessons" }, "orderIndex", "ASC"]],
+//       order: [[{ model: Lesson, as: "lessons" }, "order_index", "ASC"]],
 //     });
 
 //     if (!course) return res.status(404).json({ error: "Course not found" });
@@ -138,9 +148,9 @@
 //     if (req.user) {
 //       const enrollment = await UserCourseAccess.findOne({
 //         where: {
-//           userId: req.user.id,
-//           courseId: course.id,
-//           approval_status: "approved", // ✅ FIX
+//           user_id: req.user.id,
+//           course_id: course.id,
+//           approval_status: "approved",
 //         },
 //       });
 //       isEnrolled = !!enrollment;
@@ -155,6 +165,9 @@
 //   }
 // };
 
+// /**
+//  * Enrolled student course view (with full lesson content)
+//  */
 // exports.getEnrolledCourseBySlug = async (req, res) => {
 //   try {
 //     const { slug } = req.params;
@@ -171,7 +184,7 @@
 //         {
 //           model: Lesson,
 //           as: "lessons",
-//           attributes: ["id", "title", "content", "orderIndex"],
+//           attributes: ["id", "title", "content", "order_index"],
 //           required: false,
 //         },
 //         {
@@ -181,16 +194,16 @@
 //           required: false,
 //         },
 //       ],
-//       order: [[{ model: Lesson, as: "lessons" }, "orderIndex", "ASC"]],
+//       order: [[{ model: Lesson, as: "lessons" }, "order_index", "ASC"]],
 //     });
 
 //     if (!course) return res.status(404).json({ error: "Course not found" });
 
 //     const access = await UserCourseAccess.findOne({
 //       where: {
-//         courseId: course.id,
-//         userId,
-//         approval_status: "approved", // ✅ FIX
+//         course_id: course.id,
+//         user_id: userId,
+//         approval_status: "approved",
 //       },
 //     });
 
@@ -209,11 +222,14 @@
 //   }
 // };
 
+// /**
+//  * Fetch lessons by course
+//  */
 // exports.getLessonsByCourse = async (req, res) => {
 //   try {
 //     const lessons = await Lesson.findAll({
-//       where: { courseId: req.params.courseId },
-//       order: [["orderIndex", "ASC"]],
+//       where: { course_id: req.params.courseId },
+//       order: [["order_index", "ASC"]],
 //     });
 
 //     res.json({ success: true, lessons });
@@ -225,10 +241,13 @@
 //   }
 // };
 
+// /**
+//  * Fetch teacher's own courses
+//  */
 // exports.getTeacherCourses = async (req, res) => {
 //   try {
 //     const filter =
-//       req.user.role === "teacher" ? { teacherId: req.user.id } : {};
+//       req.user.role === "teacher" ? { teacher_id: req.user.id } : {};
 //     const courses = await Course.findAll({
 //       where: filter,
 //       include: [
@@ -236,10 +255,9 @@
 //           model: User,
 //           as: "teacher",
 //           attributes: ["id", "name", "email"],
-//           required: false,
 //         },
 //       ],
-//       order: [["createdAt", "DESC"]],
+//       order: [["created_at", "DESC"]],
 //     });
 
 //     res.json({ success: true, courses });
@@ -251,6 +269,9 @@
 //   }
 // };
 
+// /**
+//  * Fetch all courses (admin/public)
+//  */
 // exports.getAllCourses = async (req, res) => {
 //   try {
 //     const courses = await Course.findAll({
@@ -259,10 +280,9 @@
 //           model: User,
 //           as: "teacher",
 //           attributes: ["id", "name", "email"],
-//           required: false,
 //         },
 //       ],
-//       order: [["createdAt", "DESC"]],
+//       order: [["created_at", "DESC"]],
 //     });
 //     res.json({ success: true, courses });
 //   } catch (error) {
@@ -273,6 +293,9 @@
 //   }
 // };
 
+// /**
+//  * Rename an attachment
+//  */
 // exports.renameAttachment = async (req, res) => {
 //   try {
 //     const { courseId, index } = req.params;
@@ -283,7 +306,7 @@
 //     const course = await Course.findByPk(courseId);
 //     if (!course) return res.status(404).json({ error: "Course not found" });
 
-//     if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
+//     if (req.user.role !== "admin" && req.user.id !== course.teacher_id) {
 //       return res.status(403).json({ error: "Unauthorized" });
 //     }
 
@@ -291,10 +314,10 @@
 //     const oldUrl = attachments[+index];
 //     if (!oldUrl) return res.status(404).json({ error: "Attachment not found" });
 
-//     const oldPath = path.join(__dirname, "../", oldUrl);
+//     const oldPath = path.join(__dirname, "..", oldUrl);
 //     const ext = path.extname(oldPath);
 //     const newFileName = `${Date.now()}-${newName}${ext}`;
-//     const newPath = path.join(__dirname, "../Uploads", newFileName);
+//     const newPath = path.join(uploadsDir, newFileName);
 //     const newUrl = `/Uploads/${newFileName}`;
 
 //     if (!fs.existsSync(oldPath)) {
@@ -315,6 +338,9 @@
 //   }
 // };
 
+// /**
+//  * Delete an attachment
+//  */
 // exports.deleteAttachment = async (req, res) => {
 //   try {
 //     const { courseId, index } = req.params;
@@ -322,7 +348,7 @@
 //     const course = await Course.findByPk(courseId);
 //     if (!course) return res.status(404).json({ error: "Course not found" });
 
-//     if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
+//     if (req.user.role !== "admin" && req.user.id !== course.teacher_id) {
 //       return res.status(403).json({ error: "Unauthorized" });
 //     }
 
@@ -331,7 +357,7 @@
 //     if (!fileUrl)
 //       return res.status(404).json({ error: "Attachment not found" });
 
-//     const filePath = path.join(__dirname, "../", fileUrl);
+//     const filePath = path.join(__dirname, "..", fileUrl);
 //     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
 //     attachments.splice(+index, 1);
@@ -351,13 +377,30 @@
 
 
 
-
 const path = require("path");
 const fs = require("fs");
 const { Course, Lesson, User, UserCourseAccess } = require("../models");
 
 const uploadsDir = path.join(__dirname, "..", "Uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+/**
+ * Save uploaded file to disk
+ */
+function saveFile(file) {
+  const filename = `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
+  fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
+  return `/Uploads/${filename}`;
+}
+
+/**
+ * Delete file safely
+ */
+function deleteFile(fileUrl) {
+  if (!fileUrl) return;
+  const filePath = path.join(__dirname, "..", fileUrl);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
 
 /**
  * Create a new course
@@ -388,35 +431,9 @@ exports.createCourse = async (req, res) => {
     const thumbnail = req.files?.thumbnail?.[0];
     const introVideo = req.files?.introVideo?.[0];
 
-    const attachmentUrls = [];
-    for (const file of attachments) {
-      const filename = `${Date.now()}-${file.originalname.replace(
-        /\s+/g,
-        "_"
-      )}`;
-      fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
-      attachmentUrls.push(`/Uploads/${filename}`);
-    }
-
-    let thumbnailUrl = null;
-    if (thumbnail) {
-      const filename = `${Date.now()}-${thumbnail.originalname.replace(
-        /\s+/g,
-        "_"
-      )}`;
-      fs.writeFileSync(path.join(uploadsDir, filename), thumbnail.buffer);
-      thumbnailUrl = `/Uploads/${filename}`;
-    }
-
-    let introVideoUrl = null;
-    if (introVideo) {
-      const filename = `${Date.now()}-${introVideo.originalname.replace(
-        /\s+/g,
-        "_"
-      )}`;
-      fs.writeFileSync(path.join(uploadsDir, filename), introVideo.buffer);
-      introVideoUrl = `/Uploads/${filename}`;
-    }
+    const attachmentUrls = attachments.map(saveFile);
+    const thumbnailUrl = thumbnail ? saveFile(thumbnail) : null;
+    const introVideoUrl = introVideo ? saveFile(introVideo) : null;
 
     const course = await Course.create({
       title,
@@ -441,7 +458,7 @@ exports.createCourse = async (req, res) => {
 };
 
 /**
- * Delete a course
+ * Delete a course (cascade deletes lessons & cleans up files)
  */
 exports.deleteCourse = async (req, res) => {
   try {
@@ -456,7 +473,12 @@ exports.deleteCourse = async (req, res) => {
         .json({ error: "Unauthorized to delete this course" });
     }
 
-    await Lesson.destroy({ where: { course_id: courseId } });
+    // ✅ Cleanup uploaded files
+    (course.attachmentUrls || []).forEach(deleteFile);
+    deleteFile(course.thumbnailUrl);
+    deleteFile(course.introVideoUrl);
+
+    // ✅ Lessons will cascade delete because of Sequelize association
     await course.destroy();
 
     res.json({ success: true, message: "Course deleted successfully" });
@@ -469,7 +491,7 @@ exports.deleteCourse = async (req, res) => {
 };
 
 /**
- * Public course view (with lessons, but not content)
+ * Public course view (without full lesson content)
  */
 exports.getCourseBySlug = async (req, res) => {
   try {
@@ -484,13 +506,11 @@ exports.getCourseBySlug = async (req, res) => {
           model: Lesson,
           as: "lessons",
           attributes: ["id", "title", "order_index"],
-          required: false,
         },
         {
           model: User,
           as: "teacher",
           attributes: ["id", "name", "email"],
-          required: false,
         },
       ],
       order: [[{ model: Lesson, as: "lessons" }, "order_index", "ASC"]],
@@ -539,13 +559,11 @@ exports.getEnrolledCourseBySlug = async (req, res) => {
           model: Lesson,
           as: "lessons",
           attributes: ["id", "title", "content", "order_index"],
-          required: false,
         },
         {
           model: User,
           as: "teacher",
           attributes: ["id", "name", "email"],
-          required: false,
         },
       ],
       order: [[{ model: Lesson, as: "lessons" }, "order_index", "ASC"]],
@@ -711,9 +729,7 @@ exports.deleteAttachment = async (req, res) => {
     if (!fileUrl)
       return res.status(404).json({ error: "Attachment not found" });
 
-    const filePath = path.join(__dirname, "..", fileUrl);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
+    deleteFile(fileUrl);
     attachments.splice(+index, 1);
     course.attachmentUrls = attachments;
     await course.save();

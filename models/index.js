@@ -21,42 +21,47 @@
 // // =========================
 
 // // Many-to-Many between User and Course through UserCourseAccess
-// db.User.belongsToMany(db.Course, {
-//   through: db.UserCourseAccess,
-//   foreignKey: "user_id",
-//   otherKey: "course_id",
-//   as: "enrolledCourses",
-// });
+// if (db.User && db.Course && db.UserCourseAccess) {
+//   db.User.belongsToMany(db.Course, {
+//     through: db.UserCourseAccess,
+//     foreignKey: "user_id",
+//     otherKey: "course_id",
+//     as: "enrolledCourses",
+//   });
 
-// db.Course.belongsToMany(db.User, {
-//   through: db.UserCourseAccess,
-//   foreignKey: "course_id",
-//   otherKey: "user_id",
-//   as: "students",
-// });
+//   db.Course.belongsToMany(db.User, {
+//     through: db.UserCourseAccess,
+//     foreignKey: "course_id",
+//     otherKey: "user_id",
+//     as: "students",
+//   });
 
-// // Enrollments (UserCourseAccess) relationships
-// db.UserCourseAccess.belongsTo(db.User, {
-//   foreignKey: "user_id",
-//   as: "student",
-// });
-// db.UserCourseAccess.belongsTo(db.Course, {
-//   foreignKey: "course_id",
-//   as: "course",
-// });
-// db.UserCourseAccess.belongsTo(db.User, {
-//   foreignKey: "approved_by",
-//   as: "approver",
-// });
+//   // Enrollments (UserCourseAccess) relationships
+//   db.UserCourseAccess.belongsTo(db.User, {
+//     foreignKey: "user_id",
+//     as: "student",
+//   });
+//   db.UserCourseAccess.belongsTo(db.Course, {
+//     foreignKey: "course_id",
+//     as: "course",
+//   });
+//   db.UserCourseAccess.belongsTo(db.User, {
+//     foreignKey: "approved_by",
+//     as: "approver",
+//   });
+// }
 
 // // Teacher for a course
-// db.Course.belongsTo(db.User, { foreignKey: "teacher_id", as: "teacher" });
+// if (db.Course && db.User) {
+//   db.Course.belongsTo(db.User, { foreignKey: "teacher_id", as: "teacher" });
+// }
 
-// // Course ↔ Lesson relationships
-// if (db.Lesson) {
-//   // ✅ Add missing hasMany so `as: "lessons"` works
-//   db.Course.hasMany(db.Lesson, { foreignKey: "course_id", as: "lessons" });
-
+// // Lessons relationships
+// if (db.Lesson && db.Course && db.User) {
+//   db.Course.hasMany(db.Lesson, {
+//     foreignKey: "course_id",
+//     as: "lessons",
+//   });
 //   db.Lesson.belongsTo(db.Course, { foreignKey: "course_id", as: "course" });
 //   db.Lesson.belongsTo(db.User, { foreignKey: "user_id", as: "creator" });
 //   db.Lesson.belongsTo(db.Lesson, { foreignKey: "unit_id", as: "unit" });
@@ -66,6 +71,7 @@
 // db.Sequelize = Sequelize;
 
 // module.exports = db;
+
 
 
 
@@ -91,7 +97,7 @@ fs.readdirSync(__dirname)
 // Associations
 // =========================
 
-// Many-to-Many between User and Course through UserCourseAccess
+// 🔹 User ↔ Course (Many-to-Many via enrollments)
 if (db.User && db.Course && db.UserCourseAccess) {
   db.User.belongsToMany(db.Course, {
     through: db.UserCourseAccess,
@@ -107,7 +113,6 @@ if (db.User && db.Course && db.UserCourseAccess) {
     as: "students",
   });
 
-  // Enrollments (UserCourseAccess) relationships
   db.UserCourseAccess.belongsTo(db.User, {
     foreignKey: "user_id",
     as: "student",
@@ -120,18 +125,30 @@ if (db.User && db.Course && db.UserCourseAccess) {
     foreignKey: "approved_by",
     as: "approver",
   });
+
+  db.User.hasMany(db.UserCourseAccess, {
+    foreignKey: "user_id",
+    as: "enrollments",
+  });
+  db.Course.hasMany(db.UserCourseAccess, {
+    foreignKey: "course_id",
+    as: "enrollments",
+  });
 }
 
-// Teacher for a course
+// 🔹 Course ↔ Teacher
 if (db.Course && db.User) {
   db.Course.belongsTo(db.User, { foreignKey: "teacher_id", as: "teacher" });
+  db.User.hasMany(db.Course, { foreignKey: "teacher_id", as: "courses" });
 }
 
-// Lessons relationships
+// 🔹 Course ↔ Lesson
 if (db.Lesson && db.Course && db.User) {
   db.Course.hasMany(db.Lesson, {
     foreignKey: "course_id",
     as: "lessons",
+    onDelete: "CASCADE",
+    hooks: true,
   });
   db.Lesson.belongsTo(db.Course, { foreignKey: "course_id", as: "course" });
   db.Lesson.belongsTo(db.User, { foreignKey: "user_id", as: "creator" });
