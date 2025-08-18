@@ -1,73 +1,47 @@
-// const express = require("express");
-// const router = express.Router();
-
-// const {
-//   getDashboardStats,
-//   getPendingUsers,
-//   getApprovedOrRejectedUsers,
-//   getEnrollments,
-//   approveUser,
-//   rejectUser,
-// } = require("../controllers/adminController");
-
-// const {
-//   approveEnrollment,
-//   rejectEnrollment,
-// } = require("../controllers/enrollmentController");
-
-// const { authMiddleware, checkTeacherOrAdmin } = require("../middleware/auth");
-
-// // ✅ Protect all admin routes
-// router.use(authMiddleware, checkTeacherOrAdmin);
-
-// // =========================
-// // 📊 Dashboard
-// // =========================
-// router.get("/dashboard", getDashboardStats);
-
-// // =========================
-// // 👤 User Management
-// // =========================
-// router.get("/pending-users", getPendingUsers);
-// router.get("/users", getApprovedOrRejectedUsers);
-// router.patch("/approve/:id", approveUser);
-// router.patch("/reject/:id", rejectUser);
-
-// // =========================
-// // 📘 Enrollment Management
-// // =========================
-// router.get("/enrollments", getEnrollments); // expects ?status=pending or approved
-// router.put("/enrollments/:id/approve", approveEnrollment);
-// router.delete("/enrollments/:id/reject", rejectEnrollment);
-
-// module.exports = router;
-
-
-
-
-
-// routes/adminRoutes.js
 const express = require("express");
 const router = express.Router();
-const adminController = require("../controllers/adminController");
-const authenticateToken = require("../middleware/authenticateToken");
-const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
 
-// ✅ All admin routes require login + teacher/admin role
-router.use(authenticateToken, checkTeacherOrAdmin);
+const {
+  getDashboardStats,
+  getPendingUsers,
+  getApprovedOrRejectedUsers,
+  getEnrollments,
+  approveUser,
+  rejectUser,
+} = require("../controllers/adminController");
 
-// Dashboard summary
-router.get("/dashboard", adminController.getDashboardStats);
+const {
+  approveEnrollment,
+  rejectEnrollment,
+} = require("../controllers/enrollmentController");
 
-// Users
-router.get("/pending-users", adminController.getPendingUsers);
-router.get("/users", adminController.getApprovedOrRejectedUsers);
+const { authMiddleware, checkTeacherOrAdmin } = require("../middleware/auth");
 
-// Approve/Reject user
-router.patch("/approve/:id", adminController.approveUser);
-router.patch("/reject/:id", adminController.rejectUser);
+// ✅ Protect all admin routes
+router.use(authMiddleware, checkTeacherOrAdmin);
 
-// Enrollments
-router.get("/enrollments", adminController.getEnrollments);
+// =========================
+// 📊 Dashboard
+// =========================
+router.get("/dashboard", getDashboardStats);
+
+// =========================
+// 👤 User Management
+// =========================
+router.get("/pending-users", getPendingUsers);
+router.get("/users", getApprovedOrRejectedUsers);
+router.patch("/approve/:id", approveUser);
+router.patch("/reject/:id", rejectUser);
+
+// =========================
+// 📘 Enrollment Management
+// =========================
+router.get("/enrollments", getEnrollments); // expects ?status=pending or approved
+router.put("/enrollments/:id/approve", approveEnrollment);
+router.delete("/enrollments/:id/reject", rejectEnrollment);
 
 module.exports = router;
+
+
+
+
