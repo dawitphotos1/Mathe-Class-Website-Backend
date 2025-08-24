@@ -257,32 +257,30 @@
 
 
 
-
-
-
 const { User, UserCourseAccess, Course } = require("../models");
 const sendEmail = require("../utils/sendEmail");
-const { Sequelize } = require("sequelize");
 
 // ✅ Admin Dashboard Stats
 const getDashboardStats = async (req, res) => {
   try {
     console.log("📥 Fetching dashboard stats...");
 
-    const totalUsers = await User.count();
-    const totalEnrollments = await UserCourseAccess.count();
-    const approvedUsers = await User.count({
-      where: { approval_status: "approved" },
-    });
+    const totalStudents = await User.count({ where: { role: "student" } });
     const pendingUsers = await User.count({
+      where: { approval_status: "pending", role: "student" },
+    });
+    const pendingEnrollments = await UserCourseAccess.count({
       where: { approval_status: "pending" },
+    });
+    const approvedEnrollments = await UserCourseAccess.count({
+      where: { approval_status: "approved" },
     });
 
     return res.status(200).json({
-      totalUsers,
-      totalEnrollments,
-      approvedUsers,
+      totalStudents,
       pendingUsers,
+      pendingEnrollments,
+      approvedEnrollments,
     });
   } catch (error) {
     console.error("🔥 Dashboard stats error:", error);
@@ -297,18 +295,16 @@ const getDashboardStats = async (req, res) => {
 const getApprovedOrRejectedUsers = async (req, res) => {
   try {
     const { status } = req.query;
-
-    if (!status) {
+    if (!["approved", "rejected"].includes(status)) {
       return res
         .status(400)
-        .json({ message: "Status query parameter is required" });
+        .json({ message: "Status must be 'approved' or 'rejected'" });
     }
 
     console.log(`📥 Fetching users with status: ${status}`);
-
     const users = await User.findAll({ where: { approval_status: status } });
 
-    return res.status(200).json({ users });
+    return res.status(200).json(users); // ✅ Return array directly
   } catch (error) {
     console.error("🔥 Users by status error:", error);
     return res.status(500).json({
@@ -318,19 +314,17 @@ const getApprovedOrRejectedUsers = async (req, res) => {
   }
 };
 
-// ✅ Get Enrollments by Status (pending / approved)
+// ✅ Get Enrollments by Status
 const getEnrollments = async (req, res) => {
   try {
     const { status } = req.query;
-
-    if (!status) {
+    if (!["pending", "approved"].includes(status)) {
       return res
         .status(400)
-        .json({ message: "Status query parameter is required" });
+        .json({ message: "Status must be 'pending' or 'approved'" });
     }
 
     console.log(`📥 Fetching enrollments with status: ${status}`);
-
     const enrollments = await UserCourseAccess.findAll({
       where: { approval_status: status },
       include: [
@@ -353,7 +347,7 @@ const getEnrollments = async (req, res) => {
       ],
     });
 
-    return res.status(200).json({ enrollments });
+    return res.status(200).json(enrollments); // ✅ Return array directly
   } catch (error) {
     console.error("🔥 Enrollments error:", error);
     return res.status(500).json({
@@ -367,7 +361,6 @@ const getEnrollments = async (req, res) => {
 const getPendingUsers = async (req, res) => {
   try {
     console.log("📥 Fetching pending users...");
-
     const users = await User.findAll({
       where: { approval_status: "pending" },
       attributes: [
@@ -380,7 +373,7 @@ const getPendingUsers = async (req, res) => {
       ],
     });
 
-    return res.status(200).json({ users });
+    return res.status(200).json(users); // ✅ Return array directly
   } catch (error) {
     console.error("🔥 Pending users error:", error);
     return res.status(500).json({
@@ -396,6 +389,7 @@ const approveUser = async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`📥 Approving user with id: ${id}`);
+
     const user = await User.findByPk(id, { transaction });
     if (!user || user.role !== "student") {
       await transaction.rollback();
@@ -440,6 +434,7 @@ const rejectUser = async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`📥 Rejecting user with id: ${id}`);
+
     const user = await User.findByPk(id, { transaction });
     if (!user || user.role !== "student") {
       await transaction.rollback();
