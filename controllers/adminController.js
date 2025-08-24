@@ -259,18 +259,24 @@
 
 
 
-// controllers/adminController.js
-const { User, Enrollment } = require("../models");
 
-// ✅ Admin Dashboard
-exports.getDashboardStats = async (req, res) => {
+const { User, UserCourseAccess, Course } = require("../models");
+const sendEmail = require("../utils/sendEmail");
+const { Sequelize } = require("sequelize");
+
+// ✅ Admin Dashboard Stats
+const getDashboardStats = async (req, res) => {
   try {
     console.log("📥 Fetching dashboard stats...");
 
     const totalUsers = await User.count();
-    const totalEnrollments = await Enrollment.count();
-    const approvedUsers = await User.count({ where: { status: "approved" } });
-    const pendingUsers = await User.count({ where: { status: "pending" } });
+    const totalEnrollments = await UserCourseAccess.count();
+    const approvedUsers = await User.count({
+      where: { approval_status: "approved" },
+    });
+    const pendingUsers = await User.count({
+      where: { approval_status: "pending" },
+    });
 
     return res.status(200).json({
       totalUsers,
@@ -287,18 +293,20 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
-// ✅ Get users by status (approved / rejected)
-exports.getApprovedOrRejectedUsers = async (req, res) => {
+// ✅ Get Users by Status (approved / rejected)
+const getApprovedOrRejectedUsers = async (req, res) => {
   try {
     const { status } = req.query;
 
     if (!status) {
-      return res.status(400).json({ message: "Status query parameter is required" });
+      return res
+        .status(400)
+        .json({ message: "Status query parameter is required" });
     }
 
     console.log(`📥 Fetching users with status: ${status}`);
 
-    const users = await User.findAll({ where: { status } });
+    const users = await User.findAll({ where: { approval_status: status } });
 
     return res.status(200).json({ users });
   } catch (error) {
@@ -310,18 +318,40 @@ exports.getApprovedOrRejectedUsers = async (req, res) => {
   }
 };
 
-// ✅ Get enrollments by status (pending / approved)
-exports.getEnrollments = async (req, res) => {
+// ✅ Get Enrollments by Status (pending / approved)
+const getEnrollments = async (req, res) => {
   try {
     const { status } = req.query;
 
     if (!status) {
-      return res.status(400).json({ message: "Status query parameter is required" });
+      return res
+        .status(400)
+        .json({ message: "Status query parameter is required" });
     }
 
     console.log(`📥 Fetching enrollments with status: ${status}`);
 
-    const enrollments = await Enrollment.findAll({ where: { status } });
+    const enrollments = await UserCourseAccess.findAll({
+      where: { approval_status: status },
+      include: [
+        {
+          model: User,
+          as: "student",
+          attributes: ["id", "name", "email"],
+        },
+        {
+          model: Course,
+          as: "course",
+          attributes: ["id", "title"],
+        },
+        {
+          model: User,
+          as: "approver",
+          attributes: ["id", "name"],
+          required: false,
+        },
+      ],
+    });
 
     return res.status(200).json({ enrollments });
   } catch (error) {
@@ -333,12 +363,22 @@ exports.getEnrollments = async (req, res) => {
   }
 };
 
-// ✅ Get pending users
-exports.getPendingUsers = async (req, res) => {
+// ✅ Get Pending Users
+const getPendingUsers = async (req, res) => {
   try {
     console.log("📥 Fetching pending users...");
 
-    const users = await User.findAll({ where: { status: "pending" } });
+    const users = await User.findAll({
+      where: { approval_status: "pending" },
+      attributes: [
+        "id",
+        "name",
+        "email",
+        "role",
+        "approval_status",
+        "email_notification_status",
+      ],
+    });
 
     return res.status(200).json({ users });
   } catch (error) {
@@ -348,4 +388,101 @@ exports.getPendingUsers = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+// ✅ Approve User
+const approveUser = async (req, res) => {
+  const transaction = await User.sequelize.transaction();
+  try {
+    const { id } = req.params;
+    console.log(`📥 Approving user with id: ${id}`);
+    const user = await User.findByPk(id, { transaction });
+    if (!user || user.role !== "student") {
+      await transaction.rollback();
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    let emailSent = false;
+    try {
+      await sendEmail(
+        user.email,
+        "Your account has been approved ✅",
+        `<p>Hello ${user.name},</p><p>Your account has been approved.</p>`
+      );
+      emailSent = true;
+    } catch (err) {
+      console.error("❌ Error sending approval email:", err.message);
+    }
+
+    await user.update(
+      {
+        approval_status: "approved",
+        email_notification_status: emailSent ? "sent" : "failed",
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+    return res.status(200).json({ message: "User approved", emailSent });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("🔥 Approve user error:", error);
+    return res.status(500).json({
+      message: "Failed to approve user",
+      error: error.message,
+    });
+  }
+};
+
+// ✅ Reject User
+const rejectUser = async (req, res) => {
+  const transaction = await User.sequelize.transaction();
+  try {
+    const { id } = req.params;
+    console.log(`📥 Rejecting user with id: ${id}`);
+    const user = await User.findByPk(id, { transaction });
+    if (!user || user.role !== "student") {
+      await transaction.rollback();
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    let emailSent = false;
+    try {
+      await sendEmail(
+        user.email,
+        "Your account has been rejected ❌",
+        `<p>Hello ${user.name},</p><p>Unfortunately, your account has been rejected.</p>`
+      );
+      emailSent = true;
+    } catch (err) {
+      console.error("❌ Error sending rejection email:", err.message);
+    }
+
+    await user.update(
+      {
+        approval_status: "rejected",
+        email_notification_status: emailSent ? "sent" : "failed",
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+    return res.status(200).json({ message: "User rejected", emailSent });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("🔥 Reject user error:", error);
+    return res.status(500).json({
+      message: "Failed to reject user",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  getDashboardStats,
+  getPendingUsers,
+  getApprovedOrRejectedUsers,
+  getEnrollments,
+  approveUser,
+  rejectUser,
 };
