@@ -1,11 +1,96 @@
 
+// const fs = require("fs");
+// const path = require("path");
+// const Sequelize = require("sequelize");
+// const basename = path.basename(__filename);
+// const sequelize = require("../config/db"); // Import the existing Sequelize instance
+// const db = {};
+
+// fs.readdirSync(__dirname)
+//   .filter((file) => file !== basename && file.endsWith(".js"))
+//   .forEach((file) => {
+//     const model = require(path.join(__dirname, file))(
+//       sequelize,
+//       Sequelize.DataTypes
+//     );
+//     db[model.name] = model;
+//   });
+
+// // Define associations
+// const { Course, Lesson, User, UserCourseAccess } = db;
+
+// if (Course && Lesson && User && UserCourseAccess) {
+//   // Courses <-> Lessons
+//   Course.belongsTo(User, {
+//     foreignKey: "teacher_id",
+//     as: "teacher",
+//   });
+
+//   Course.hasMany(Lesson, {
+//     foreignKey: "course_id",
+//     as: "lessons",
+//   });
+
+//   Lesson.belongsTo(Course, {
+//     foreignKey: "course_id",
+//     as: "course",
+//   });
+
+//   User.hasMany(Course, {
+//     foreignKey: "teacher_id",
+//     as: "courses",
+//   });
+
+//   // Many-to-Many (for enrolled courses)
+//   User.belongsToMany(Course, {
+//     through: UserCourseAccess,
+//     foreignKey: "user_id",
+//     otherKey: "course_id",
+//     as: "enrolledCourses",
+//   });
+
+//   Course.belongsToMany(User, {
+//     through: UserCourseAccess,
+//     foreignKey: "course_id",
+//     otherKey: "user_id",
+//     as: "students",
+//   });
+
+//   // ✅ Fix for AdminController expectations:
+//   UserCourseAccess.belongsTo(User, { foreignKey: "user_id", as: "student" });
+//   UserCourseAccess.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+//   UserCourseAccess.belongsTo(User, {
+//     foreignKey: "approved_by",
+//     as: "approver",
+//   });
+
+//   User.hasMany(UserCourseAccess, { foreignKey: "user_id", as: "enrollments" });
+//   Course.hasMany(UserCourseAccess, {
+//     foreignKey: "course_id",
+//     as: "enrollments",
+//   });
+//   User.hasMany(UserCourseAccess, {
+//     foreignKey: "approved_by",
+//     as: "approvedEnrollments",
+//   });
+// }
+
+// db.sequelize = sequelize; // Attach the Sequelize instance
+// db.Sequelize = Sequelize; // Attach Sequelize class for convenience
+
+// module.exports = db;
+
+
+
+
 const fs = require("fs");
 const path = require("path");
 const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
-const sequelize = require("../config/db"); // Import the existing Sequelize instance
+const sequelize = require("../config/db"); // Your Sequelize instance
 const db = {};
 
+// Load all models dynamically
 fs.readdirSync(__dirname)
   .filter((file) => file !== basename && file.endsWith(".js"))
   .forEach((file) => {
@@ -16,39 +101,26 @@ fs.readdirSync(__dirname)
     db[model.name] = model;
   });
 
-// Define associations
+// Destructure for readability
 const { Course, Lesson, User, UserCourseAccess } = db;
 
-if (Course && Lesson && User && UserCourseAccess) {
-  // Courses <-> Lessons
-  Course.belongsTo(User, {
-    foreignKey: "teacher_id",
-    as: "teacher",
-  });
+// Define associations only if models are loaded
+if (User && Course && Lesson && UserCourseAccess) {
+  // 🔗 User ↔ Course (teacher)
+  User.hasMany(Course, { foreignKey: "teacher_id", as: "courses" });
+  Course.belongsTo(User, { foreignKey: "teacher_id", as: "teacher" });
 
-  Course.hasMany(Lesson, {
-    foreignKey: "course_id",
-    as: "lessons",
-  });
+  // 🔗 Course ↔ Lesson
+  Course.hasMany(Lesson, { foreignKey: "course_id", as: "lessons" });
+  Lesson.belongsTo(Course, { foreignKey: "course_id", as: "course" });
 
-  Lesson.belongsTo(Course, {
-    foreignKey: "course_id",
-    as: "course",
-  });
-
-  User.hasMany(Course, {
-    foreignKey: "teacher_id",
-    as: "courses",
-  });
-
-  // Many-to-Many (for enrolled courses)
+  // 🔗 User ↔ Course (enrollments via UserCourseAccess)
   User.belongsToMany(Course, {
     through: UserCourseAccess,
     foreignKey: "user_id",
     otherKey: "course_id",
     as: "enrolledCourses",
   });
-
   Course.belongsToMany(User, {
     through: UserCourseAccess,
     foreignKey: "course_id",
@@ -56,7 +128,7 @@ if (Course && Lesson && User && UserCourseAccess) {
     as: "students",
   });
 
-  // ✅ Fix for AdminController expectations:
+  // 🔗 UserCourseAccess extra relationships
   UserCourseAccess.belongsTo(User, { foreignKey: "user_id", as: "student" });
   UserCourseAccess.belongsTo(Course, { foreignKey: "course_id", as: "course" });
   UserCourseAccess.belongsTo(User, {
@@ -75,7 +147,8 @@ if (Course && Lesson && User && UserCourseAccess) {
   });
 }
 
-db.sequelize = sequelize; // Attach the Sequelize instance
-db.Sequelize = Sequelize; // Attach Sequelize class for convenience
+// Attach sequelize instance & class
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
 module.exports = db;
