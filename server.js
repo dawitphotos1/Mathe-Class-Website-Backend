@@ -127,7 +127,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -147,35 +146,29 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ CORS Setup
-const rawOrigins = [
-  "http://localhost:3000",
-  "https://math-class-platform.netlify.app",
-  process.env.FRONTEND_URL,
-];
-
-// Remove undefined / null / empty values
-const allowedOrigins = rawOrigins.filter(Boolean);
-console.log("✅ Allowed CORS Origins:", allowedOrigins);
-
+// ✅ TEMPORARY: Wide-open CORS (for debugging)
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow Postman/cURL/no origin
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      console.warn("❌ CORS blocked origin:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
+    origin: true, // reflect the request origin
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// ✅ We don’t need a manual app.options("*") block
-// because cors() already handles preflight requests globally
+// 🌍 Debug log: show incoming Origin
+app.use((req, res, next) => {
+  console.log("🌍 Incoming Origin:", req.headers.origin);
+  next();
+});
+
+// 🔑 Debug log: show response headers
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    console.log("🔑 Response headers:", res.getHeaders());
+  });
+  next();
+});
 
 // ✅ Rate Limiting
 const apiLimiter = rateLimit({
