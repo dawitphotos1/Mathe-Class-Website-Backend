@@ -128,7 +128,6 @@
 
 
 
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -162,7 +161,7 @@ console.log("✅ Allowed CORS Origins:", allowedOrigins);
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow Postman/cURL
+      if (!origin) return callback(null, true); // allow Postman/cURL/no origin
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
@@ -175,14 +174,8 @@ app.use(
   })
 );
 
-// ✅ Preflight handling
-app.options(
-  "*",
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-  })
-);
+// ✅ We don’t need a manual app.options("*") block
+// because cors() already handles preflight requests globally
 
 // ✅ Rate Limiting
 const apiLimiter = rateLimit({
