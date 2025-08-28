@@ -119,6 +119,8 @@
 
 
 
+
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -138,10 +140,22 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ TEMPORARY: Wide-open CORS (for debugging)
+// ✅ CORS Setup
+const allowedOrigins = [
+  "http://localhost:3000", // Local frontend
+  process.env.FRONTEND_URL, // Deployed frontend (set in .env)
+].filter(Boolean); // remove undefined
+
 app.use(
   cors({
-    origin: true, // reflect the request origin
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn("❌ Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -151,14 +165,6 @@ app.use(
 // 🌍 Debug log: show incoming Origin
 app.use((req, res, next) => {
   console.log("🌍 Incoming Origin:", req.headers.origin);
-  next();
-});
-
-// 🔑 Debug log: show response headers
-app.use((req, res, next) => {
-  res.on("finish", () => {
-    console.log("🔑 Response headers:", res.getHeaders());
-  });
   next();
 });
 
@@ -180,7 +186,7 @@ app.use((req, res, next) => {
 // 🛣 Routes
 // =========================
 app.use("/api/v1/auth", require("./routes/authRoutes"));
-app.use("/api/v1/users", require("./routes/users")); // ✅ Use `users.js` here
+app.use("/api/v1/users", require("./routes/userRoutes"));
 app.use("/api/v1/courses", require("./routes/courseRoutes"));
 app.use("/api/v1/payments", require("./routes/payments"));
 app.use("/api/v1/enrollments", require("./routes/enrollments"));
@@ -214,10 +220,11 @@ const PORT = process.env.PORT || 5000;
     if (
       !process.env.JWT_SECRET ||
       !process.env.DATABASE_URL ||
-      !process.env.STRIPE_SECRET_KEY
+      !process.env.STRIPE_SECRET_KEY ||
+      !process.env.FRONTEND_URL
     ) {
       throw new Error(
-        "Missing critical environment variables (JWT_SECRET, DATABASE_URL, STRIPE_SECRET_KEY)."
+        "Missing critical environment variables (JWT_SECRET, DATABASE_URL, STRIPE_SECRET_KEY, FRONTEND_URL)."
       );
     }
 
