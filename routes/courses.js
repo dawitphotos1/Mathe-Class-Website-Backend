@@ -2,13 +2,14 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
-const router = express.Router();
 const { Lesson, Course, User, UserCourseAccess } = require("../models");
 const auth = require("../middleware/auth");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const authenticateToken = require("../middleware/authenticateToken");
 const checkTeacherOrAdmin = require("../middleware/checkTeacherOrAdmin");
 const courseController = require("../controllers/courseController");
+
+const router = express.Router();
 
 // === Multer Setup ===
 const storage = multer.diskStorage({
@@ -24,7 +25,31 @@ const storage = multer.diskStorage({
     cb(null, unique);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+
+const fileFilter = (req, file, cb) => {
+  const allowedMimeTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "video/mp4",
+  ];
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true); // Accept the file
+  } else {
+    cb(
+      new Error("Invalid file type! Only JPG, PNG, GIF, and MP4 are allowed."),
+      false
+    );
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
+
+// === Routes ===
 
 // ✅ Create course
 router.post(
@@ -52,13 +77,12 @@ router.get("/", auth, async (req, res) => {
     });
 
     if (!courses.length) {
-      console.log("No courses found for user:", req.user.id);
       return res.status(404).json({ error: "No courses found" });
     }
 
     res.json({ courses });
   } catch (err) {
-    console.error("🔥 Fetch courses error:", err.message, err.stack);
+    console.error("🔥 Fetch courses error:", err.message);
     res
       .status(500)
       .json({ error: "Failed to fetch courses", details: err.message });
@@ -70,7 +94,6 @@ router.get("/public/slug/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
     if (!slug || slug === "undefined") {
-      console.log("Invalid slug provided:", slug);
       return res.status(400).json({ error: "Invalid course slug" });
     }
 
@@ -93,13 +116,12 @@ router.get("/public/slug/:slug", async (req, res) => {
     });
 
     if (!course) {
-      console.log(`Course with slug ${slug} not found`);
       return res.status(404).json({ error: "Course not found" });
     }
 
     res.json({ course });
   } catch (err) {
-    console.error("🔥 Fetch public course error:", err.message, err.stack);
+    console.error("🔥 Fetch public course error:", err.message);
     res
       .status(500)
       .json({ error: "Failed to fetch course", details: err.message });
@@ -113,12 +135,10 @@ router.get("/slug/:slug", auth, async (req, res) => {
     const userId = req.user?.id;
 
     if (!slug || slug === "undefined") {
-      console.log("Invalid slug provided:", slug);
       return res.status(400).json({ error: "Invalid course slug" });
     }
 
     if (!userId) {
-      console.log("No user ID provided in token");
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -131,7 +151,6 @@ router.get("/slug/:slug", auth, async (req, res) => {
     });
 
     if (!course) {
-      console.log(`Course with slug ${slug} not found`);
       return res.status(404).json({ error: "Course not found" });
     }
 
@@ -144,9 +163,6 @@ router.get("/slug/:slug", auth, async (req, res) => {
     });
 
     if (!access) {
-      console.log(
-        `User ${userId} not enrolled or approved for course ${course.id}`
-      );
       return res
         .status(403)
         .json({ error: "Access denied: Not enrolled or approved" });
@@ -154,7 +170,7 @@ router.get("/slug/:slug", auth, async (req, res) => {
 
     res.json({ course });
   } catch (err) {
-    console.error("🔥 Fetch course error:", err.message, err.stack);
+    console.error("🔥 Fetch course error:", err.message);
     res
       .status(500)
       .json({ error: "Failed to fetch course", details: err.message });
@@ -174,14 +190,10 @@ router.delete(
       const courseId = parseInt(req.params.id);
       const course = await Course.findByPk(courseId);
       if (!course) {
-        console.log(`Course with id ${courseId} not found`);
         return res.status(404).json({ error: "Course not found" });
       }
 
       if (req.user.role !== "admin" && course.teacherId !== req.user.id) {
-        console.log(
-          `Unauthorized delete attempt by user ${req.user.id} for course ${courseId}`
-        );
         return res.status(403).json({ error: "Unauthorized" });
       }
 
@@ -190,7 +202,7 @@ router.delete(
 
       res.json({ success: true, message: "Course and its lessons deleted" });
     } catch (err) {
-      console.error("🔥 Delete course error:", err.message, err.stack);
+      console.error("🔥 Delete course error:", err.message);
       res
         .status(500)
         .json({ error: "Failed to delete course", details: err.message });
@@ -207,30 +219,23 @@ router.patch(
     try {
       const { courseId, index } = req.params;
       const { newName } = req.body;
+
       if (!newName) {
-        console.log("Missing newName in request body");
         return res.status(400).json({ error: "New name is required" });
       }
 
       const course = await Course.findByPk(courseId);
       if (!course) {
-        console.log(`Course with id ${courseId} not found`);
         return res.status(404).json({ error: "Course not found" });
       }
 
       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
-        console.log(
-          `Unauthorized rename attempt by user ${req.user.id} for course ${courseId}`
-        );
         return res.status(403).json({ error: "Unauthorized" });
       }
 
       const attachments = course.attachmentUrls || [];
       const oldUrl = attachments[+index];
       if (!oldUrl) {
-        console.log(
-          `Attachment at index ${index} not found for course ${courseId}`
-        );
         return res.status(404).json({ error: "Attachment not found" });
       }
 
@@ -241,7 +246,6 @@ router.patch(
       const newUrl = `/Uploads/${newFileName}`;
 
       if (!fs.existsSync(oldPath)) {
-        console.log(`Attachment file not found at ${oldPath}`);
         return res.status(404).json({ error: "Attachment file not found" });
       }
 
@@ -252,7 +256,7 @@ router.patch(
 
       res.json({ success: true, updatedUrl: newUrl });
     } catch (err) {
-      console.error("🔥 Rename attachment error:", err.message, err.stack);
+      console.error("🔥 Rename attachment error:", err.message);
       res
         .status(500)
         .json({ error: "Failed to rename attachment", details: err.message });
@@ -271,31 +275,22 @@ router.patch(
 
       const course = await Course.findByPk(courseId);
       if (!course) {
-        console.log(`Course with id ${courseId} not found`);
         return res.status(404).json({ error: "Course not found" });
       }
 
       if (req.user.role !== "admin" && req.user.id !== course.teacherId) {
-        console.log(
-          `Unauthorized delete attempt by user ${req.user.id} for course ${courseId}`
-        );
         return res.status(403).json({ error: "Unauthorized" });
       }
 
       const attachments = course.attachmentUrls || [];
       const fileUrl = attachments[+index];
       if (!fileUrl) {
-        console.log(
-          `Attachment at index ${index} not found for course ${courseId}`
-        );
         return res.status(404).json({ error: "Attachment not found" });
       }
 
       const filePath = path.join(__dirname, "..", fileUrl);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
-      } else {
-        console.log(`Attachment file not found at ${filePath}`);
       }
 
       attachments.splice(+index, 1);
@@ -304,7 +299,7 @@ router.patch(
 
       res.json({ success: true, message: "Attachment deleted" });
     } catch (err) {
-      console.error("🔥 Delete attachment error:", err.message, err.stack);
+      console.error("🔥 Delete attachment error:", err.message);
       res
         .status(500)
         .json({ error: "Failed to delete attachment", details: err.message });
