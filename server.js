@@ -120,7 +120,7 @@
 
 
 
-
+// server.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -143,8 +143,8 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ CORS Setup
 const allowedOrigins = [
   "http://localhost:3000", // Local frontend
-  process.env.FRONTEND_URL, // Deployed frontend (set in .env)
-].filter(Boolean); // remove undefined
+  process.env.FRONTEND_URL, // Deployed frontend
+].filter(Boolean);
 
 app.use(
   cors({
@@ -162,21 +162,15 @@ app.use(
   })
 );
 
-// 🌍 Debug log: show incoming Origin
-app.use((req, res, next) => {
-  console.log("🌍 Incoming Origin:", req.headers.origin);
-  next();
-});
-
 // ✅ Rate Limiting
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 500,
   message: { error: "Too many requests. Try again later." },
 });
 app.use("/api", apiLimiter);
 
-// ✅ Logger
+// ✅ Debug Logger
 app.use((req, res, next) => {
   console.log(`📥 [${req.method}] ${req.originalUrl}`);
   next();
@@ -189,7 +183,7 @@ app.use("/api/v1/auth", require("./routes/authRoutes"));
 app.use("/api/v1/users", require("./routes/userRoutes"));
 app.use("/api/v1/courses", require("./routes/courseRoutes"));
 app.use("/api/v1/payments", require("./routes/payments"));
-app.use("/api/v1/enrollments", require("./routes/enrollments"));
+app.use("/api/v1/enrollments", require("./routes/enrollment")); // ✅ correct file name
 app.use("/api/v1/admin", require("./routes/adminRoutes"));
 
 // ✅ Health Check
@@ -204,7 +198,7 @@ app.use((req, res) => {
 
 // ✅ Global Error Handler
 app.use((err, req, res, next) => {
-  console.error("❌ Global Error:", err.message, err.stack);
+  console.error("❌ Global Error:", err.message);
   res.status(err.status || 500).json({
     error: err.message || "Internal Server Error",
   });
@@ -231,14 +225,14 @@ const PORT = process.env.PORT || 5000;
     await sequelize.authenticate();
     console.log("✅ Connected to PostgreSQL");
 
-    await sequelize.sync({ force: false });
+    await sequelize.sync({ alter: true }); // ✅ safer sync in dev
     console.log("✅ Models synced with DB");
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error("❌ Server startup error:", err.message, err.stack);
+    console.error("❌ Server startup error:", err.message);
     process.exit(1);
   }
 })();
