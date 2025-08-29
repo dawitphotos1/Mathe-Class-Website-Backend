@@ -183,7 +183,7 @@ app.use("/api/v1/auth", require("./routes/authRoutes"));
 app.use("/api/v1/users", require("./routes/userRoutes"));
 app.use("/api/v1/courses", require("./routes/courseRoutes"));
 app.use("/api/v1/payments", require("./routes/payments"));
-app.use("/api/v1/enrollments", require("./routes/enrollment")); // ✅ correct file name
+app.use("/api/v1/enrollments", require("./routes/enrollments")); // ✅ correct file name
 app.use("/api/v1/admin", require("./routes/adminRoutes"));
 
 // ✅ Health Check
